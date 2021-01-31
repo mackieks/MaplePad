@@ -1,0 +1,250 @@
+;
+; Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+;
+; SPDX-License-Identifier: BSD-3-Clause
+;
+
+.program maple_tx
+.side_set 1
+.define HOLD	12
+.define SETTLE	 6 ; Possibly could reduce
+.define MID		 6 ; Possibly could reduce
+
+; Start both high
+; pins is pin 1
+; side is pin 5
+; autopull needs to be enabled
+; packet size comes first then data
+; run at around 48MHz
+
+	; set up loop
+	pull				side 1 [HOLD]
+	out x,32			side 1 ; size of packet in bit pairs
+	jmp x-- sync		side 1 ; fix off by 1
+
+sync:
+	set y,3				side 1
+	set pins, 0			side 1 [HOLD]
+syncloop:
+	nop					side 0 [HOLD]
+	jmp y-- syncloop	side 1 [HOLD]
+	set pins, 1			side 1 [MID]
+	nop 				side 0 [HOLD]
+
+	; data
+dataloop:
+	out y, 1			side 0
+	set pins, 1			side 0 [MID-1]
+	jmp !y, send_zero	side 0
+	
+	; send zero
+	nop					side 1 [SETTLE]
+	set pins, 0			side 1 [HOLD]
+	nop					side 1 [MID]
+	out pins, 1			side 1 [SETTLE]
+	jmp x-- dataloop	side 0 [HOLD-1]
+	jmp tail			side 0
+
+send_zero:
+	nop					side 0 [SETTLE]
+	set pins, 0			side 0 [HOLD]
+	nop					side 1 [MID]
+	out pins, 1			side 1 [SETTLE]
+	jmp x-- dataloop	side 0 [HOLD-1]
+	nop					side 0 [1]
+
+tail:
+	set pins, 1			side 0 [HOLD]
+	nop					side 1 [HOLD] 
+	nop					side 0 [HOLD] 
+	set pins, 0			side 0 [HOLD] 
+	set pins, 1			side 0 [HOLD] 
+	set pins, 0			side 0 [HOLD] 
+	set pins, 1			side 0 [HOLD] 
+
+% c-sdk {
+static inline void maple_tx_program_init(PIO pio, uint sm, uint offset, uint pin1, uint pin5, float clkdiv) {
+    pio_sm_config c = maple_tx_program_get_default_config(offset);
+
+    // Map the state machine's OUT pin group to one pin, namely the `pin`
+    // parameter to this function.
+    sm_config_set_out_pins(&c, pin1, 1);
+	sm_config_set_set_pins(&c, pin1, 1);
+	sm_config_set_sideset_pins(&c, pin5);
+
+	// autopull ever 32 bits (might as well pack it in)
+	sm_config_set_out_shift(&c, false, true, 32);
+	sm_config_set_clkdiv(&c, clkdiv);
+	sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+
+	// Set the pin direction to output at the PIO
+	pio_sm_set_pins_with_mask(pio, sm, (1u << pin1) | (1u << pin5), (1u << pin1) | (1u << pin5));
+    pio_sm_set_pindirs_with_mask(pio, sm, (1u << pin1) | (1u << pin5), (1u << pin1) | (1u << pin5));
+    
+	// Set this pin's GPIO function (connect PIO to the pad)
+    pio_gpio_init(pio, pin1);
+    pio_gpio_init(pio, pin5);
+
+    // Load our configuration, and jump to the start of the program
+    pio_sm_init(pio, sm, offset, &c);
+    // Set the state machine running
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}
+
+;pin 1 and pin 5 are set to pins
+;pin 1 set as jump pin
+;needs auto push
+
+.program maple_rx
+
+sync:
+	wait 0 pin, 0		; pin 5 will be wiggling while this goes on. Would be nice to test
+	wait 1 pin, 0
+
+	wait 0 pin, 0		; pin 1 goes low (phase 1)
+clocked:
+	mov x, ::pins
+	in x, 1
+	wait 1 pin, 1		; pin 5 goes high (phase 2)
+	wait 0 pin, 1		; pin 5 goes high (phase 2)
+	in pins, 1
+	wait 1 pin, 0		; pin 1 goes high (phase 1)
+	
+	set y, 3
+possibleend:			; wait for both to go high or gets clocked
+	jmp pin, clocked
+	mov x, pins
+	jmp x!=y possibleend
+
+	set y, 1
+possibleendorone:		; wait for clock or its end of frame
+	jmp pin, clocked
+	mov x, pins
+	jmp x!=y possibleendorone
+
+	wait 1 pin, 1		; wait out end sequence
+
+	irq set 0			; Flag that we've got an entire packet
+	jmp sync
+
+.program maple_rx_simple
+; pin5 is jump pin
+
+	mov isr, null
+	wait 0 pin, 0		; pin 5 will be wiggling while this goes on. Would be nice to test
+
+.wrap_target
+waiting:
+	set x, 1
+	wait 1 pin, 0		; pin 1 goes high (phase 1)
+	wait 0 pin, 0		; pin 1 goes low  (phase 1)
+	jmp pin pin5high
+	set x, 0
+pin5high:
+	in x, 1
+	wait 1 pin, 1		; pin 5 goes high (phase 2)
+pin5high2:
+	jmp pin pin5high2   ; pin 5 goes low (phase 2) Can be replaced by CPU to reset if idle
+	in pins, 1
+.wrap
+
+
+.program detect_idle_pin1
+
+	out y, 32
+
+reset_idle:
+	mov x,y
+
+idle:
+	jmp x-- timeout
+	jmp pin idle
+
+notidle:
+	jmp pin reset_idle
+	jmp notidle
+
+timeout:
+	irq set 0
+
+
+.program maple_rx_full
+; just read every change and send to CPU to decode
+; autopush every 8 bits (4 changes) so will definitely see enough of tail
+; data rate max 5/48 us
+
+samedata:
+	mov x, pins
+	jmp x!=y newdata
+	jmp samedata
+
+newdata:
+	mov y, x
+	in x, 2
+
+% c-sdk {
+static inline void maple_rx_full_program_init(PIO pio, uint sm, uint offset, uint pin1, uint pin5, float clkdiv) {
+	assert(pin5 == pin1+1);
+	pio_sm_set_consecutive_pindirs(pio, sm, pin1, 2, false);
+    //pio_gpio_init(pio, pin1);
+    //pio_gpio_init(pio, pin5);
+
+    pio_sm_config c = maple_rx_full_program_get_default_config(offset);
+
+    // Map the state machine's OUT pin group to one pin, namely the `pin`
+    // parameter to this function.
+    sm_config_set_in_pins(&c, pin1);
+
+	// autopush every 8 bits (gives possibly 3 missed
+	// transitions which is enough to still detect tail
+	sm_config_set_in_shift(&c, false, true, 8);
+	sm_config_set_clkdiv(&c, clkdiv);
+	sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+
+    // Load our configuration, and jump to the start of the program
+    pio_sm_init(pio, sm, offset, &c);
+}
+%}
+
+.program maple_rx_triple1
+	wait 1 irq 7
+	in pins, 2
+
+.program maple_rx_triple2
+	wait 0 pin 0
+	irq 7
+	wait 1 pin 0
+	irq 7
+
+.program maple_rx_triple3
+	wait 0 pin 1
+	irq 7
+	wait 1 pin 1
+	irq 7
+
+% c-sdk {
+static inline void maple_rx_triple_program_init(PIO pio, uint* offset, uint pin1, uint pin5, float clkdiv) {
+	assert(pin5 == pin1+1);
+	for (int sm = 0; sm < 3; sm++)
+	{
+		pio_sm_set_consecutive_pindirs(pio, sm, pin1, 2, false);
+
+		pio_sm_config c = (sm == 0)?maple_rx_triple1_program_get_default_config(offset[0]):
+			((sm == 1)?maple_rx_triple2_program_get_default_config(offset[1]):maple_rx_triple3_program_get_default_config(offset[2]));
+
+		// Map the state machine's OUT pin group to one pin, namely the `pin`
+		// parameter to this function.
+		sm_config_set_in_pins(&c, pin1);
+
+		// autopush every 8 bits (gives possibly 3 missed
+		// transitions which is enough to still detect tail
+		sm_config_set_in_shift(&c, false, true, 8);
+		sm_config_set_clkdiv(&c, clkdiv);
+		sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
+
+		// Load our configuration, and jump to the start of the program
+		pio_sm_init(pio, sm, offset[sm], &c);
+	}
+}
+%}
