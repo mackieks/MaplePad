@@ -5,6 +5,7 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 #include "pico/stdlib.h"
 #include "hardware/pio.h"
 #include "hardware/dma.h"
@@ -12,9 +13,13 @@
 // Our assembled program:
 #include "maple.pio.h"
 
-#define SIZE_SHIFT 10
+#define SHOULD_SEND 1
+
+#define SIZE_SHIFT 11
 #define SIZE (1<<SIZE_SHIFT)
-uint8_t capture_buf[SIZE] __attribute__ ((aligned(SIZE)));;
+uint8_t capture_buf[SIZE] __attribute__ ((aligned(SIZE)));
+
+uint32_t send_buf[256+3];
 
 #define PICO_PIN1_PIN	14
 #define PICO_PIN5_PIN	15
@@ -23,7 +28,14 @@ uint8_t capture_buf[SIZE] __attribute__ ((aligned(SIZE)));;
 #define PICO_PIN1_PIN_RX	PICO_PIN1_PIN
 #define PICO_PIN5_PIN_RX	PICO_PIN5_PIN
 
-#define SWAP(x) Swap((uint8_t*)&(x), sizeof(x))
+#define SWAP4(x) do { x=__builtin_bswap32(x); } while(0)
+
+#define ADDRESS_DREAMCAST 0
+#define ADDRESS_CONTROLLER 0x20
+
+PIO txpio;
+uint txsm;
+uint txdma_chan;
 
 enum ECommands
 {
@@ -79,27 +91,94 @@ typedef struct PacketControllerCondition_s
 	uint8_t JoyY2;
 } PacketControllerCondition;
 
-void Swap(uint8_t* Data, int Size)
+int sendPacket(const uint* Words, uint NumWords)
 {
-	uint8_t Tmp;
-	switch (Size)
+	dma_channel_set_read_addr(txdma_chan, Words, false);
+	dma_channel_set_trans_count(txdma_chan, NumWords, true);
+}
+
+uint CalcCRC(const uint* Words, uint NumWords)
+{
+	uint XOR_Checksum = 0;
+	for (uint i = 0; i < NumWords; i++)
 	{
-	case 4:
-		Tmp = Data[3];
-		Data[3] = Data[0];
-		Data[0] = Tmp;
-		Tmp = Data[1];
-		Data[1] = Data[2];
-		Data[2] = Tmp;
-		break;
-	case 2:
-		Tmp = Data[1];
-		Data[1] = Data[0];
-		Data[0] = Tmp;
-		break;
-	default:
-		printf("Bad swap\n");
+		XOR_Checksum ^= *(Words++);
 	}
+	XOR_Checksum ^= (XOR_Checksum << 16);
+	XOR_Checksum ^= (XOR_Checksum << 8);
+	return XOR_Checksum;
+}
+
+void SendInfoPacket()
+{
+	dma_channel_wait_for_finish_blocking(txdma_chan);
+
+	struct FPacket
+	{
+		uint BitPairsMinus1;
+		PacketHeader Header;
+		PacketDeviceInfo Info;
+		uint CRC;
+	}* InfoPacket = (struct FPacket*)send_buf;
+
+	InfoPacket->BitPairsMinus1 = (sizeof(*InfoPacket) - 7) * 4 - 1;
+
+	InfoPacket->Header.Command = CMD_RESPOND_DEVICE_INFO;
+	InfoPacket->Header.Recipient = ADDRESS_DREAMCAST;
+	InfoPacket->Header.Sender = ADDRESS_CONTROLLER;
+	InfoPacket->Header.NumWords = sizeof(InfoPacket->Info) / sizeof(uint);
+
+	InfoPacket->Info.Func = __builtin_bswap32(1);
+	InfoPacket->Info.FuncData[0] = __builtin_bswap32(0x000f06fe);
+	InfoPacket->Info.FuncData[1] = 0;
+	InfoPacket->Info.FuncData[2] = 0;
+	InfoPacket->Info.AreaCode = -1;
+	InfoPacket->Info.ConnectorDirection = 0;
+	strncpy(InfoPacket->Info.ProductName,
+			"Dreamcast Controller          ",
+			sizeof(InfoPacket->Info.ProductName));
+	strncpy(InfoPacket->Info.ProductLicense,
+			"Produced By or Under License From SEGA ENTERPRISES,LTD.     ",
+			sizeof(InfoPacket->Info.ProductLicense));
+	InfoPacket->Info.StandbyPower = 430;
+	InfoPacket->Info.MaxPower = 500;
+
+	InfoPacket->CRC = CalcCRC((uint *)&InfoPacket->Header, sizeof(*InfoPacket) / sizeof(uint) - 2);
+
+	sendPacket((uint*)InfoPacket, sizeof(*InfoPacket) / sizeof(uint));
+}
+
+void SendControllerPacket(uint Buttons)
+{
+	dma_channel_wait_for_finish_blocking(txdma_chan);
+
+	struct FPacket
+	{
+		uint BitPairsMinus1;
+		PacketHeader Header;
+		PacketControllerCondition Controller;
+		uint CRC;
+	}* ControllerPacket = (struct FPacket*)send_buf;
+	
+	ControllerPacket->BitPairsMinus1 = (sizeof(*ControllerPacket) - 7) * 4 - 1;
+
+	ControllerPacket->Header.Command = CMD_RESPOND_DATA_TRANSFER;
+	ControllerPacket->Header.Recipient = ADDRESS_DREAMCAST;
+	ControllerPacket->Header.Sender = ADDRESS_CONTROLLER;
+	ControllerPacket->Header.NumWords = sizeof(ControllerPacket->Controller) / sizeof(uint);
+
+	ControllerPacket->Controller.Condition = __builtin_bswap32(1);
+	ControllerPacket->Controller.Buttons = Buttons;
+	ControllerPacket->Controller.LeftTrigger = 0;
+	ControllerPacket->Controller.RightTrigger = 0;
+	ControllerPacket->Controller.JoyX = 0x80;
+	ControllerPacket->Controller.JoyY = 0x80;
+	ControllerPacket->Controller.JoyX2 = 0x80;
+	ControllerPacket->Controller.JoyY2 = 0x80;
+	
+	ControllerPacket->CRC = CalcCRC((uint *)&ControllerPacket->Header, sizeof(*ControllerPacket) / sizeof(uint) - 2);
+
+	sendPacket((uint *)ControllerPacket, sizeof(*ControllerPacket) / sizeof(uint));
 }
 
 uint8_t Packet[1024 + 8]; // Maximum possible size
@@ -118,18 +197,32 @@ bool ConsumePacket(uint Size)
 				switch (Header->Command)
 				{
 				case CMD_REQUEST_DEVICE_INFO:
-				case CMD_GET_CONDITION:
+				{
+#if SHOULD_SEND
+					SendInfoPacket();
+#endif
 					return true;
 					break;
+				}
+				case CMD_GET_CONDITION:
+				{
+#if SHOULD_SEND
+					static uint ButtonCounter = 0;
+					ButtonCounter++;
+					SendControllerPacket((ButtonCounter & 0x100) ? 0xFF7F : 0xFFBF);
+#endif
+					return true;
+					break;
+				}
 				case CMD_RESPOND_DEVICE_INFO:
 				{
 					PacketDeviceInfo *DeviceInfo = (PacketDeviceInfo *)(Header + 1);
 					if (Header->NumWords * 4 == sizeof(PacketDeviceInfo))
 					{
-						SWAP(DeviceInfo->Func);
-						SWAP(DeviceInfo->FuncData[0]);
-						SWAP(DeviceInfo->FuncData[1]);
-						SWAP(DeviceInfo->FuncData[2]);
+						SWAP4(DeviceInfo->Func);
+						SWAP4(DeviceInfo->FuncData[0]);
+						SWAP4(DeviceInfo->FuncData[1]);
+						SWAP4(DeviceInfo->FuncData[2]);
 						printf("Info:\nFunc: %08x (%08x %08x %08x) Area: %d Dir: %d Name: %.*s License: %.*s Pwr: %d->%d\n",
 							   DeviceInfo->Func, DeviceInfo->FuncData[0], DeviceInfo->FuncData[1], DeviceInfo->FuncData[2],
 							   DeviceInfo->AreaCode, DeviceInfo->ConnectorDirection, 30, DeviceInfo->ProductName, 60, DeviceInfo->ProductLicense,
@@ -143,7 +236,7 @@ bool ConsumePacket(uint Size)
 					PacketControllerCondition *ControllerCondition = (PacketControllerCondition *)(Header + 1);
 					if (Header->NumWords * 4 == sizeof(PacketControllerCondition))
 					{
-						SWAP(ControllerCondition->Condition);
+						SWAP4(ControllerCondition->Condition);
 						if (ControllerCondition->Condition == 1)
 						{
 							if (ControllerCondition->Buttons != 0xFFFF)
@@ -168,11 +261,6 @@ bool ConsumePacket(uint Size)
 uint8_t CurrentByte = 0;
 uint8_t LeftToShift = 8;
 uint8_t XOR = 0;
-
-#define BIT_PHASE_HISTORY	512
-uint8_t BitPhase[BIT_PHASE_HISTORY];
-uint BitPhaseCounter=0;
-uint WatchTail = 0;
 
 void grabBit(uint8_t Bit, uint8_t Phase)
 {
@@ -200,7 +288,6 @@ void grabBit(uint8_t Bit, uint8_t Phase)
 		if (PacketByte > 0 && (XOR != 0 || !ConsumePacket(PacketByte)))
 		{
 			printf("Bad packet? XOR:%x\n", XOR);
-			/*
 			for (uint i = 0; i < (PacketByte & ~3); i += 4)
 			{
 				printf("%02x %02x %02x %02x\n",
@@ -211,13 +298,6 @@ void grabBit(uint8_t Bit, uint8_t Phase)
 				uint Index = (i & ~3) + 3 - (i & 3);
 				printf("%02x\n", Packet[Index]);
 			}
-			for (uint i = BitPhaseCounter - BIT_PHASE_HISTORY; i < BitPhaseCounter; i++)
-			{
-				uint32_t BitPhaseValue = BitPhase[i & (BIT_PHASE_HISTORY - 1)];
-				printf("B:%d %d\n", BitPhaseValue & 1, (BitPhaseValue >> 1) & 1);
-			}
-			WatchTail = 32;
-			*/
 		}
 		LeftToShift = 8;
 		XOR = 0;
@@ -228,12 +308,6 @@ void grabBit(uint8_t Bit, uint8_t Phase)
 void processTransistions(uint8_t BitPair)
 {
 	static uint8_t LastPair = 3;
-	if (WatchTail > 0)
-	{
-		printf("A:%d %d\n", BitPair & 1, (BitPair >> 1) & 1);
-		WatchTail--;
-	}
-	BitPhase[(BitPhaseCounter++)&(BIT_PHASE_HISTORY-1)] = (BitPair&3);
 	if ((LastPair&1)!=0 && (BitPair&1)==0)
 	{
 		grabBit(BitPair>>1, 1);
@@ -243,24 +317,6 @@ void processTransistions(uint8_t BitPair)
 		grabBit(BitPair, 2);
 	}
 	LastPair = BitPair;
-}
-
-int sendPacket(PIO pio, uint sm, const uint8_t* Data, uint Length)
-{
-	pio_sm_put_blocking(pio, sm, Length * 4); // Length in bit pairs
-	for (int i=0; i<Length; i+=4)
-	{
-		uint Block = Data[i];
-		for (int k=1; k<4; k++)
-		{
-			Block <<= 8;
-			if (i+k<Length)
-			{
-				Block |= Data[i+k];
-			}
-		}
-		pio_sm_put_blocking(pio, sm, Block); // Set data
-	}
 }
 
 uint dma_mask = 0;
@@ -279,14 +335,14 @@ int main() {
 	printf("Starting\n");
 
     // Choose which PIO instance to use (there are two instances)
-    //PIO pio = pio0;
+    txpio = pio0;
     PIO rxpio = pio1;
 
     // Our assembled program needs to be loaded into this PIO's instruction
     // memory. This SDK function will find a location (offset) in the
     // instruction memory where there is enough space for our program. We need
     // to remember this location!
-    //uint offset = pio_add_program(pio, &maple_tx_program);
+    uint txoffset = pio_add_program(txpio, &maple_tx_program);
     uint rxoffset[3] = {
 		pio_add_program(rxpio, &maple_rx_triple1_program),
 		pio_add_program(rxpio, &maple_rx_triple2_program),
@@ -296,8 +352,8 @@ int main() {
     // Find a free state machine on our chosen PIO (erroring if there are
     // none). Configure it to run our program, and start it, using the
     // helper function we included in our .pio file.
-    //uint sm = 0;//pio_claim_unused_sm(pio, true);
-    //maple_tx_program_init(pio, sm, offset, PICO_PIN1_PIN, PICO_PIN5_PIN, 1.0f);
+    txsm = 0;//pio_claim_unused_sm(pio, true);
+    maple_tx_program_init(txpio, txsm, txoffset, PICO_PIN1_PIN, PICO_PIN5_PIN, 3.0f);
 
 	uint rxsm = 0;
     maple_rx_triple_program_init(rxpio, rxoffset, PICO_PIN1_PIN_RX, PICO_PIN5_PIN_RX, 1.0f);
@@ -322,6 +378,19 @@ int main() {
 	irq_set_exclusive_handler(DMA_IRQ_0, dma_handler);
 	irq_set_enabled(DMA_IRQ_0, true);
 	dma_start_channel_mask(dma_mask);
+
+	txdma_chan = dma_claim_unused_channel(true);
+	dma_channel_config txc = dma_channel_get_default_config(txdma_chan);
+    channel_config_set_read_increment(&txc, true);
+    channel_config_set_write_increment(&txc, false);
+	channel_config_set_transfer_data_size(&txc, DMA_SIZE_32);
+    channel_config_set_dreq(&txc, pio_get_dreq(txpio, txsm, true));
+    dma_channel_configure(txdma_chan, &txc,
+        &txpio->txf[txsm],	// Destinatinon pointer
+        NULL,  				// Source pointer
+        0,					// Number of transfers
+        false               // Delay start
+    );
 	
 	printf("Starting RX PIO\n");
 
@@ -329,17 +398,14 @@ int main() {
 	pio_sm_set_enabled(rxpio, rxsm+2, true);
 	pio_sm_set_enabled(rxpio, rxsm, true);
 
-	//printf("About to send first data\n");
+	gpio_pull_up(PICO_PIN1_PIN);
+	gpio_pull_up(PICO_PIN5_PIN);
 
 	uint ReadLoopAddress = 0;
 	uint LastLoopAddress = 0;
 	uint8_t* LastData = capture_buf;
-	//const uint8_t Packet[]= { 0x00, 0xFF, 0xCD, 0xFF };
-    while (true) {
-		//sendPacket(pio, sm, Packet, sizeof(Packet));
-		//printf("Sent\n");
-        //sleep_ms(50);
-
+    while (true)
+	{
 		// Detect underflow (debug only)
 		uint DMACounter = 0;
 		uint Address = 0;
@@ -364,7 +430,6 @@ int main() {
 		LastLoopAddress = ReadLoopAddress;
 
 		uint8_t* NewData = (uint8_t*)Address;
-		//printf("NewData:%p\n", NewData);
 		while (LastData != NewData)
 		{
 			processTransistions(LastData[0]>>6);
@@ -376,8 +441,22 @@ int main() {
 			if (LastData >= capture_buf + sizeof(capture_buf))
 			{
 				LastData = capture_buf;
-				//printf("Looped:%p\n", LastData);
 			}
 		}
+/*
+		if (!dma_channel_is_busy(txdma_chan))
+		{
+			static int i=0;
+			i++;
+			if (i&1)
+			{
+				SendInfoPacket();
+			}
+			else
+			{
+				SendControllerPacket(0xCDC);
+			}
+		}
+		*/
 	}
 }

@@ -17,18 +17,20 @@
 ; packet size comes first then data
 ; run at around 48MHz
 
+	set pindirs, 0		side 1 ; Set to input
+
 	; set up loop
 	pull				side 1 [HOLD]
-	out x,32			side 1 ; size of packet in bit pairs
-	jmp x-- sync		side 1 ; fix off by 1
+	out x,32			side 1 ; size of packet in bit pairs - 1
+	set pindirs, 3		side 1 ; Set to output
 
 sync:
 	set y,3				side 1
-	set pins, 0			side 1 [HOLD]
+	set pins, 2			side 1 [HOLD]
 syncloop:
 	nop					side 0 [HOLD]
 	jmp y-- syncloop	side 1 [HOLD]
-	set pins, 1			side 1 [MID]
+	set pins, 3			side 1 [MID]
 	nop 				side 0 [HOLD]
 
 	; data
@@ -39,7 +41,7 @@ dataloop:
 	
 	; send zero
 	nop					side 1 [SETTLE]
-	set pins, 0			side 1 [HOLD]
+	set pins, 2			side 1 [HOLD]
 	nop					side 1 [MID]
 	out pins, 1			side 1 [SETTLE]
 	jmp x-- dataloop	side 0 [HOLD-1]
@@ -51,7 +53,6 @@ send_zero:
 	nop					side 1 [MID]
 	out pins, 1			side 1 [SETTLE]
 	jmp x-- dataloop	side 0 [HOLD-1]
-	nop					side 0 [1]
 
 tail:
 	set pins, 1			side 0 [HOLD]
@@ -61,6 +62,7 @@ tail:
 	set pins, 1			side 0 [HOLD] 
 	set pins, 0			side 0 [HOLD] 
 	set pins, 1			side 0 [HOLD] 
+	set pins, 3			side 1 [HOLD] 
 
 % c-sdk {
 static inline void maple_tx_program_init(PIO pio, uint sm, uint offset, uint pin1, uint pin5, float clkdiv) {
@@ -69,7 +71,7 @@ static inline void maple_tx_program_init(PIO pio, uint sm, uint offset, uint pin
     // Map the state machine's OUT pin group to one pin, namely the `pin`
     // parameter to this function.
     sm_config_set_out_pins(&c, pin1, 1);
-	sm_config_set_set_pins(&c, pin1, 1);
+	sm_config_set_set_pins(&c, pin1, 2);
 	sm_config_set_sideset_pins(&c, pin5);
 
 	// autopull ever 32 bits (might as well pack it in)
@@ -79,7 +81,7 @@ static inline void maple_tx_program_init(PIO pio, uint sm, uint offset, uint pin
 
 	// Set the pin direction to output at the PIO
 	pio_sm_set_pins_with_mask(pio, sm, (1u << pin1) | (1u << pin5), (1u << pin1) | (1u << pin5));
-    pio_sm_set_pindirs_with_mask(pio, sm, (1u << pin1) | (1u << pin5), (1u << pin1) | (1u << pin5));
+    pio_sm_set_pindirs_with_mask(pio, sm, 0, (1u << pin1) | (1u << pin5));
     
 	// Set this pin's GPIO function (connect PIO to the pad)
     pio_gpio_init(pio, pin1);
