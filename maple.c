@@ -10,10 +10,14 @@
 #include "hardware/pio.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
+#include "hardware/pwm.h"
 // Our assembled program:
 #include "maple.pio.h"
 
 #define SHOULD_SEND 1
+#define POPNMUSIC 1
+
+#define SHOULD_PRINT 1
 
 #define SIZE_SHIFT 11
 #define SIZE (1<<SIZE_SHIFT)
@@ -91,6 +95,45 @@ typedef struct PacketControllerCondition_s
 	uint8_t JoyY2;
 } PacketControllerCondition;
 
+typedef struct ButtonInfo_s
+{
+	int InputIO;
+	int OutputIO;
+	int DCButtonMask;
+	int Fade;
+} ButtonInfo;
+
+#define NUM_BUTTONS	9
+#define FADE_SPEED 8
+#define START_BUTTON 0x0008
+#define START_MASK 0x0251
+
+bool bPressingStart = false;
+
+// A - White left   = 0xFFBF = 0x0040
+// B - Yellow left  = 0xFFEF = 0x0010
+// C - Green left   = 0xFFDF = 0x0020
+// D - Blue left    = 0xFF7F = 0x0080
+// E - Red centre   = 0xFFFB = 0x0004
+// F - Blue right   = 0xFBFF = 0x0400
+// G - Green right  = 0xFFFD = 0x0002
+// H - Yellow right = 0xFDFF = 0x0200
+// I - White right  = 0xFFFE = 0x0001
+// Start            = 0xFFF7 = 0x0008
+
+ButtonInfo ButtonInfos[NUM_BUTTONS]=
+{
+	{ 16, 13, 0x0040, 0 },
+	{ 17, 12, 0x0010, 0 },
+	{ 18, 11, 0x0020, 0 },
+	{ 19, 10, 0x0080, 0 },
+	{ 20, 9, 0x0004, 0 },
+	{ 21, 8, 0x0400, 0 },
+	{ 22, 7, 0x0002, 0 },
+	{ 26, 6, 0x0200, 0 },
+	{ 27, 5, 0x0001, 0 }
+};
+
 int sendPacket(const uint* Words, uint NumWords)
 {
 	dma_channel_set_read_addr(txdma_chan, Words, false);
@@ -129,13 +172,21 @@ void SendInfoPacket()
 	InfoPacket->Header.NumWords = sizeof(InfoPacket->Info) / sizeof(uint);
 
 	InfoPacket->Info.Func = __builtin_bswap32(1);
+#if POPNMUSIC
+	InfoPacket->Info.FuncData[0] = __builtin_bswap32(0x000006ff);
+#else
 	InfoPacket->Info.FuncData[0] = __builtin_bswap32(0x000f06fe);
+#endif
 	InfoPacket->Info.FuncData[1] = 0;
 	InfoPacket->Info.FuncData[2] = 0;
 	InfoPacket->Info.AreaCode = -1;
 	InfoPacket->Info.ConnectorDirection = 0;
 	strncpy(InfoPacket->Info.ProductName,
+#if POPNMUSIC
+			"pop'n music controller        ",
+#else
 			"Dreamcast Controller          ",
+#endif
 			sizeof(InfoPacket->Info.ProductName));
 	strncpy(InfoPacket->Info.ProductLicense,
 			"Produced By or Under License From SEGA ENTERPRISES,LTD.     ",
@@ -148,8 +199,36 @@ void SendInfoPacket()
 	sendPacket((uint*)InfoPacket, sizeof(*InfoPacket) / sizeof(uint));
 }
 
-void SendControllerPacket(uint Buttons)
+void SendControllerPacket()
 {
+	uint Buttons = 0xFFFF;
+	for (int i = 0; i < NUM_BUTTONS; i++)
+	{
+		if (!gpio_get(ButtonInfos[i].InputIO))
+		{
+			Buttons &= ~ButtonInfos[i].DCButtonMask;
+			ButtonInfos[i].Fade = 0xFF;
+		}
+		ButtonInfos[i].Fade = (ButtonInfos[i].Fade > FADE_SPEED) ? ButtonInfos[i].Fade - FADE_SPEED : 0;
+		pwm_set_gpio_level(ButtonInfos[i].OutputIO, ButtonInfos[i].Fade * ButtonInfos[i].Fade);
+	}
+	if ((Buttons & START_MASK) == 0)
+	{
+		bPressingStart = true;
+	}
+	if (bPressingStart)
+	{
+		if ((Buttons & START_MASK) == START_MASK)
+		{
+			bPressingStart=false;
+		}
+		else
+		{
+			Buttons |= START_MASK;
+			Buttons &= ~START_BUTTON;
+		}
+	}
+
 	dma_channel_wait_for_finish_blocking(txdma_chan);
 
 	struct FPacket
@@ -207,9 +286,7 @@ bool ConsumePacket(uint Size)
 				case CMD_GET_CONDITION:
 				{
 #if SHOULD_SEND
-					static uint ButtonCounter = 0;
-					ButtonCounter++;
-					SendControllerPacket((ButtonCounter & 0x100) ? 0xFF7F : 0xFFBF);
+					SendControllerPacket();
 #endif
 					return true;
 					break;
@@ -223,10 +300,12 @@ bool ConsumePacket(uint Size)
 						SWAP4(DeviceInfo->FuncData[0]);
 						SWAP4(DeviceInfo->FuncData[1]);
 						SWAP4(DeviceInfo->FuncData[2]);
+#if SHOULD_PRINT
 						printf("Info:\nFunc: %08x (%08x %08x %08x) Area: %d Dir: %d Name: %.*s License: %.*s Pwr: %d->%d\n",
 							   DeviceInfo->Func, DeviceInfo->FuncData[0], DeviceInfo->FuncData[1], DeviceInfo->FuncData[2],
 							   DeviceInfo->AreaCode, DeviceInfo->ConnectorDirection, 30, DeviceInfo->ProductName, 60, DeviceInfo->ProductLicense,
 							   DeviceInfo->StandbyPower, DeviceInfo->MaxPower);
+#endif
 						return true;
 					}
 					break;
@@ -239,6 +318,7 @@ bool ConsumePacket(uint Size)
 						SWAP4(ControllerCondition->Condition);
 						if (ControllerCondition->Condition == 1)
 						{
+#if SHOULD_PRINT
 							if (ControllerCondition->Buttons != 0xFFFF)
 							{
 								printf("Buttons: %02x LT:%d RT:%d Joy: %d %d Joy2: %d %d\n",
@@ -246,6 +326,7 @@ bool ConsumePacket(uint Size)
 									   ControllerCondition->JoyX - 0x80, ControllerCondition->JoyY - 0x80,
 									   ControllerCondition->JoyX2 - 0x80, ControllerCondition->JoyY2 - 0x80);
 							}
+#endif
 							return true;
 						}
 					}
@@ -287,6 +368,7 @@ void grabBit(uint8_t Bit, uint8_t Phase)
 	{
 		if (PacketByte > 0 && (XOR != 0 || !ConsumePacket(PacketByte)))
 		{
+#if SHOULD_PRINT
 			printf("Bad packet? XOR:%x\n", XOR);
 			for (uint i = 0; i < (PacketByte & ~3); i += 4)
 			{
@@ -298,6 +380,7 @@ void grabBit(uint8_t Bit, uint8_t Phase)
 				uint Index = (i & ~3) + 3 - (i & 3);
 				printf("%02x\n", Packet[Index]);
 			}
+#endif
 		}
 		LeftToShift = 8;
 		XOR = 0;
@@ -334,7 +417,23 @@ int main() {
 	stdio_init_all();
 	printf("Starting\n");
 
-    // Choose which PIO instance to use (there are two instances)
+	pwm_config PWMConfig = pwm_get_default_config();
+	pwm_config_set_clkdiv(&PWMConfig, 4.0f);
+	for (int i = 0; i < NUM_BUTTONS; i++)
+	{
+		gpio_init(ButtonInfos[i].InputIO);
+		gpio_set_dir(ButtonInfos[i].InputIO, false);
+		gpio_pull_up(ButtonInfos[i].InputIO);
+
+		gpio_set_function(ButtonInfos[i].OutputIO, GPIO_FUNC_PWM);
+		pwm_init(pwm_gpio_to_slice_num(ButtonInfos[i].OutputIO), &PWMConfig, true);
+	}
+	for (int i = 0; i < NUM_BUTTONS; i++)
+	{
+		pwm_set_gpio_level(ButtonInfos[i].OutputIO, 64*64);
+	}
+
+	// Choose which PIO instance to use (there are two instances)
     txpio = pio0;
     PIO rxpio = pio1;
 
@@ -416,8 +515,10 @@ int main() {
 			if ((uint8_t*)Address < capture_buf || (uint8_t*)Address >= capture_buf + sizeof(capture_buf))
 			{
 				// What?! Not sure how this can happen. Hardware bug?
+#if SHOULD_PRINT
 				printf("Bad write ptr: %08x != %08x->%08x (%d)\n", Address, capture_buf, capture_buf + sizeof(capture_buf), DMACounter);
 				printf("Now: %08x (%d)\n", dma_channel_hw_addr(dma_chan)->write_addr, dma_counter);
+#endif
 				continue;
 			}
 		}
@@ -454,7 +555,7 @@ int main() {
 			}
 			else
 			{
-				SendControllerPacket(0xCDC);
+				SendControllerPacket();
 			}
 		}
 		*/
