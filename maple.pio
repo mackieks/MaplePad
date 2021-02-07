@@ -42,15 +42,14 @@ dataloop:
 	; send zero
 	nop					side 1 [SETTLE]
 	set pins, 2			side 1 [HOLD]
-	nop					side 1 [MID]
-	out pins, 1			side 1 [SETTLE]
-	jmp x-- dataloop	side 0 [HOLD-1]
-	jmp tail			side 0
+	jmp outro			side 1 [MID]
 
 send_zero:
 	nop					side 0 [SETTLE]
 	set pins, 0			side 0 [HOLD]
 	nop					side 1 [MID]
+
+outro:
 	out pins, 1			side 1 [SETTLE]
 	jmp x-- dataloop	side 0 [HOLD-1]
 
