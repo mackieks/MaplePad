@@ -11,6 +11,7 @@
 #include "hardware/dma.h"
 #include "hardware/irq.h"
 #include "hardware/pwm.h"
+#include "pico/multicore.h"
 // Our assembled program:
 #include "maple.pio.h"
 
@@ -19,7 +20,9 @@
 
 #define SHOULD_PRINT 1
 
-#define SIZE_SHIFT 11
+#define USE_FAST_PARSER 1
+
+#define SIZE_SHIFT 12
 #define SIZE (1<<SIZE_SHIFT)
 uint8_t capture_buf[SIZE] __attribute__ ((aligned(SIZE)));
 
@@ -40,6 +43,15 @@ uint32_t send_buf[256+3];
 PIO txpio;
 uint txsm;
 uint txdma_chan;
+
+typedef enum ESendState_e
+{
+	SEND_NOTHING,
+	SEND_CONTROLLER_INFO,
+	SEND_CONTROLLER_STATUS
+} ESendState;
+
+ESendState SendState = SEND_NOTHING;
 
 enum ECommands
 {
@@ -277,19 +289,13 @@ bool ConsumePacket(uint Size)
 				{
 				case CMD_REQUEST_DEVICE_INFO:
 				{
-#if SHOULD_SEND
-					SendInfoPacket();
-#endif
+					SendState = SEND_CONTROLLER_INFO;
 					return true;
-					break;
 				}
 				case CMD_GET_CONDITION:
 				{
-#if SHOULD_SEND
-					SendControllerPacket();
-#endif
+					SendState = SEND_CONTROLLER_STATUS;
 					return true;
-					break;
 				}
 				case CMD_RESPOND_DEVICE_INFO:
 				{
@@ -319,13 +325,10 @@ bool ConsumePacket(uint Size)
 						if (ControllerCondition->Condition == 1)
 						{
 #if SHOULD_PRINT
-							if (ControllerCondition->Buttons != 0xFFFF)
-							{
-								printf("Buttons: %02x LT:%d RT:%d Joy: %d %d Joy2: %d %d\n",
-									   ControllerCondition->Buttons, ControllerCondition->LeftTrigger, ControllerCondition->RightTrigger,
-									   ControllerCondition->JoyX - 0x80, ControllerCondition->JoyY - 0x80,
-									   ControllerCondition->JoyX2 - 0x80, ControllerCondition->JoyY2 - 0x80);
-							}
+							printf("Buttons: %02x LT:%d RT:%d Joy: %d %d Joy2: %d %d\n",
+								   ControllerCondition->Buttons, ControllerCondition->LeftTrigger, ControllerCondition->RightTrigger,
+								   ControllerCondition->JoyX - 0x80, ControllerCondition->JoyY - 0x80,
+								   ControllerCondition->JoyX2 - 0x80, ControllerCondition->JoyY2 - 0x80);
 #endif
 							return true;
 						}
@@ -339,6 +342,7 @@ bool ConsumePacket(uint Size)
 	return false;
 }
 
+#if !USE_FAST_PARSER
 uint8_t CurrentByte = 0;
 uint8_t LeftToShift = 8;
 uint8_t XOR = 0;
@@ -412,10 +416,246 @@ void dma_handler()
 	dma_start_channel_mask(dma_mask);
 	dma_counter++;
 }
+#endif
+
+#if USE_FAST_PARSER
+typedef struct SimpleState_s
+{
+	int Next[4];
+	uint Status;
+} SimpleState;
+
+#define NUM_DATAS 64
+#define NUM_STATES 40
+SimpleState States[NUM_STATES];
+int NumStates = 0;
+
+int NewState(int Expected)
+{
+	int New = NumStates++;
+	SimpleState* s = &States[New];
+	memset(s, -1, sizeof(*s));
+	s->Next[Expected] = New;
+	return New;
+}
+
+int ExpectState(int Prev, int Expected)
+{
+	int New = NewState(Expected);
+	States[Prev].Next[Expected] = New;
+	return New;
+}
+
+int ExpectStateWithStatus(int Prev, int Expected, uint Status)
+{
+	int New = NewState(Expected);
+	States[New].Status = Status;
+	States[Prev].Next[Expected] = New;
+	return New;
+}
+
+int ExpectState2(int Prev, int OtherPrev, int Expected)
+{
+	int New = NewState(Expected);
+	States[Prev].Next[Expected] = New;
+	States[OtherPrev].Next[Expected] = New;
+	return New;
+}
+
+enum
+{
+	STATUS_NONE = -1,
+	STATUS_START,
+	STATUS_END,
+	STATUS_PUSH0,
+	STATUS_PUSH1,
+	STATUS_PUSH2,
+	STATUS_PUSH3,
+	STATUS_PUSH4,
+	STATUS_PUSH5,
+	STATUS_PUSH6,
+	STATUS_PUSH7,
+	STATUS_BITSET = 128
+};
+
+void BuildBasicStates()
+{
+	// Start (11)
+	int Prev = NewState(0b11);
+	Prev = ExpectState(Prev, 0b10);
+	Prev = ExpectState(Prev, 0b00);
+	Prev = ExpectState(Prev, 0b10);
+	Prev = ExpectState(Prev, 0b00);
+	Prev = ExpectState(Prev, 0b10);
+	Prev = ExpectState(Prev, 0b00);
+	Prev = ExpectState(Prev, 0b10);
+	Prev = ExpectState(Prev, 0b00);
+	Prev = ExpectState(Prev, 0b10);
+	Prev = ExpectStateWithStatus(Prev, 0b11, STATUS_START);
+
+	// Byte (6*4 = 24)
+	int PossibleEnd;
+	int Option = Prev;
+	for (int i = 0; i < 4; i++)
+	{
+		Prev = ExpectState2(Option, Prev, 0b01);
+		Option = ExpectStateWithStatus(Prev, 0b11, (STATUS_PUSH0 + i * 2) | STATUS_BITSET);
+		Prev = ExpectStateWithStatus(Prev, 0b00, (STATUS_PUSH0 + i * 2));
+		PossibleEnd = Option;
+
+		Prev = ExpectState2(Option, Prev, 0b10);
+		Option = ExpectStateWithStatus(Prev, 0b11, (STATUS_PUSH1 + i * 2) | STATUS_BITSET);
+		Prev = ExpectStateWithStatus(Prev, 0b00, (STATUS_PUSH1 + i * 2));
+	}
+
+	// End (5)
+	Prev = ExpectState(PossibleEnd, 0b01);
+	Prev = ExpectStateWithStatus(PossibleEnd, 0b00, STATUS_END); // Needs to be at least 4 transistions back (as only byte is pushed)
+	Prev = ExpectState(PossibleEnd, 0b01);
+	Prev = ExpectState(PossibleEnd, 0b00);
+	Prev = ExpectState(PossibleEnd, 0b01);
+	States[Prev].Next[0b11] = 0;
+	assert(NumStates == NUM_STATES);
+}
+
+typedef struct StateMachine_s
+{
+	ushort NewState:6;
+	ushort Data:6;
+	ushort Push:1;
+	ushort Error:1;
+	ushort Reset:1;
+	ushort End:1;
+} StateMachine;
+
+StateMachine Machine[NUM_STATES][256]; // 20Kb
+uint8_t DataTable[NUM_DATAS][2];
+int NumDatas = 0;
+
+int AddData(uint8_t ByteA, uint8_t ByteB)
+{
+	for (int i=0; i<NumDatas; i++)
+	{
+		if (DataTable[i][0] == ByteA && DataTable[i][1]==ByteB)
+		{
+			return i;
+		}
+	}
+	int NewEntry = NumDatas++;
+	assert(NewEntry < NUM_DATAS);
+	DataTable[NewEntry][0] = ByteA;
+	DataTable[NewEntry][1] = ByteB;
+	return NewEntry;
+}
+
+void BuildTable()
+{
+	BuildBasicStates();
+	for (int S = 0; S<NUM_STATES; S++)
+	{
+		for (int V = 0; V<256; V++)
+		{
+			StateMachine M = { 0 };
+			int State = S;
+			int Transitions = V;
+			uint8_t Data[2] = {0, 0};
+			uint Byte = 0;
+			for (int i = 0; i < 4; i++)
+			{
+				uint Status = States[State].Status;
+				if (Status & STATUS_BITSET)
+				{
+					Data[Byte] |= (1 << ((Status & ~STATUS_BITSET) - STATUS_PUSH0));
+				}
+				switch (States[State].Status & ~STATUS_BITSET)
+				{
+					case STATUS_START:
+						M.Reset = 1;
+						break;
+					case STATUS_END:
+						M.End = 1;
+						break;
+					case STATUS_PUSH7:
+						M.Push = 1;
+						Byte = 1;
+						break;
+				}
+				State = States[State].Next[(Transitions >> 6) & 3];
+				if (State < 0)
+				{
+					M.Error = 1;
+					State = 0;
+				}
+				Transitions <<= 2;
+			}
+			M.NewState = State;
+			M.Data = AddData(Data[0], Data[1]);
+			Machine[S][V] = M;
+		}
+	}
+}
+
+void core1_entry(void)
+{
+	BuildTable();
+
+	uint State = 0;
+	uint8_t Byte = 0;
+	uint8_t XOR = 0;
+	uint StartOfPacket = 0;
+	uint Offset = 0;
+
+	multicore_fifo_push_blocking(0); // Let's get going (gulp!)
+
+	while (true)
+	{
+		// Have about 0.5us to process each byte if want to keep up real time
+		// 65 clocks
+		while ((pio1->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB))) != 0);
+		const uint8_t Value = pio1->rxf[0];
+		StateMachine M = Machine[State][Value];
+		State = M.NewState;
+		if (M.Reset)
+		{
+			Offset = StartOfPacket;
+			Byte = 0;
+			XOR = 0;
+		}
+		Byte |= DataTable[M.Data][0];
+		if (M.Push)
+		{
+			capture_buf[Offset & (sizeof(capture_buf) - 1)] = Byte;
+			XOR ^= Byte;
+			Byte = DataTable[M.Data][1];
+			Offset++;
+		}
+		if (M.End)
+		{
+			if (XOR == 0)
+			{
+				if (multicore_fifo_wready())
+				{
+					panic("Packet processing core isn't fast enough :(");
+				}
+				multicore_fifo_push_blocking(Offset);
+				StartOfPacket = Offset;
+			}
+		}
+		if ((pio1->fstat & (1u << (PIO_FSTAT_RXFULL_LSB))) != 0)
+		{
+			panic("Probably overflowed. This code isn't fast enough :(");
+		}
+	}
+}
+#endif
 
 int main() {
 	stdio_init_all();
 	printf("Starting\n");
+
+#if USE_FAST_PARSER
+	multicore_launch_core1(core1_entry);
+#endif
 
 	pwm_config PWMConfig = pwm_get_default_config();
 	pwm_config_set_clkdiv(&PWMConfig, 4.0f);
@@ -455,8 +695,9 @@ int main() {
     maple_tx_program_init(txpio, txsm, txoffset, PICO_PIN1_PIN, PICO_PIN5_PIN, 3.0f);
 
 	uint rxsm = 0;
-    maple_rx_triple_program_init(rxpio, rxoffset, PICO_PIN1_PIN_RX, PICO_PIN5_PIN_RX, 1.0f);
+    maple_rx_triple_program_init(rxpio, rxoffset, PICO_PIN1_PIN_RX, PICO_PIN5_PIN_RX, 3.0f);
 
+#if !USE_FAST_PARSER
 	uint dma_chan = dma_claim_unused_channel(true);
 	dma_channel_config c = dma_channel_get_default_config(dma_chan);
     channel_config_set_read_increment(&c, false);
@@ -477,6 +718,7 @@ int main() {
 	irq_set_exclusive_handler(DMA_IRQ_0, dma_handler);
 	irq_set_enabled(DMA_IRQ_0, true);
 	dma_start_channel_mask(dma_mask);
+#endif
 
 	txdma_chan = dma_claim_unused_channel(true);
 	dma_channel_config txc = dma_channel_get_default_config(txdma_chan);
@@ -493,18 +735,53 @@ int main() {
 	
 	printf("Starting RX PIO\n");
 
+	gpio_pull_up(PICO_PIN1_PIN);
+	gpio_pull_up(PICO_PIN5_PIN);
+
+#if USE_FAST_PARSER
+	multicore_fifo_pop_blocking();
+#endif
+
 	pio_sm_set_enabled(rxpio, rxsm+1, true);
 	pio_sm_set_enabled(rxpio, rxsm+2, true);
 	pio_sm_set_enabled(rxpio, rxsm, true);
 
-	gpio_pull_up(PICO_PIN1_PIN);
-	gpio_pull_up(PICO_PIN5_PIN);
-
+#if USE_FAST_PARSER
+	uint SOP = 0;
+#else
 	uint ReadLoopAddress = 0;
 	uint LastLoopAddress = 0;
 	uint8_t* LastData = capture_buf;
+#endif
     while (true)
 	{
+#if USE_FAST_PARSER
+		uint EOP = multicore_fifo_pop_blocking();
+
+		// TODO: Improve this
+		for (uint i=SOP; i<EOP; i++)
+		{
+			Packet[i] = capture_buf[i & (sizeof(capture_buf) - 1)];
+		}
+		
+		uint PacketSize = EOP - SOP;
+		if (!ConsumePacket(PacketSize))
+		{
+#if SHOULD_PRINT
+			for (uint i = 0; i < (PacketSize & ~3); i += 4)
+			{
+				printf("%02x %02x %02x %02x\n", Packet[i + 0], Packet[i + 1], Packet[i + 2], Packet[i + 3]);
+			}
+			for (uint i = (PacketSize & ~3); i < PacketSize; i += 4)
+			{
+				uint Index = (i & ~3) + 3 - (i & 3);
+				printf("%02x\n", Packet[Index]);
+			}
+#endif
+		}
+
+		SOP = EOP;
+#else
 		// Detect underflow (debug only)
 		uint DMACounter = 0;
 		uint Address = 0;
@@ -530,7 +807,7 @@ int main() {
 		}
 		LastLoopAddress = ReadLoopAddress;
 
-		uint8_t* NewData = (uint8_t*)Address;
+		volatile uint8_t* NewData = (uint8_t*)Address;
 		while (LastData != NewData)
 		{
 			processTransistions(LastData[0]>>6);
@@ -544,20 +821,24 @@ int main() {
 				LastData = capture_buf;
 			}
 		}
-/*
-		if (!dma_channel_is_busy(txdma_chan))
+#endif
+
+		if (SendState != SEND_NOTHING)
 		{
-			static int i=0;
-			i++;
-			if (i&1)
+#if SHOULD_SEND
+			if (!dma_channel_is_busy(txdma_chan))
 			{
-				SendInfoPacket();
+				if (SendState == SEND_CONTROLLER_INFO)
+				{
+					SendInfoPacket();
+				}
+				else if (SendState == SEND_CONTROLLER_STATUS)
+				{
+					SendControllerPacket();
+				}
 			}
-			else
-			{
-				SendControllerPacket();
-			}
+#endif
+			SendState = SEND_NOTHING;
 		}
-		*/
 	}
 }
