@@ -26,8 +26,6 @@
 #define SIZE (1<<SIZE_SHIFT)
 uint8_t capture_buf[SIZE] __attribute__ ((aligned(SIZE)));
 
-uint32_t send_buf[256+3];
-
 #define PICO_PIN1_PIN	14
 #define PICO_PIN5_PIN	15
 
@@ -164,56 +162,90 @@ uint CalcCRC(const uint* Words, uint NumWords)
 	return XOR_Checksum;
 }
 
-void SendInfoPacket()
+struct FInfoPacket
 {
-	dma_channel_wait_for_finish_blocking(txdma_chan);
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketDeviceInfo Info;
+	uint CRC;
+} InfoPacket;
 
-	struct FPacket
-	{
-		uint BitPairsMinus1;
-		PacketHeader Header;
-		PacketDeviceInfo Info;
-		uint CRC;
-	}* InfoPacket = (struct FPacket*)send_buf;
+void BuildInfoPacket()
+{
+	InfoPacket.BitPairsMinus1 = (sizeof(InfoPacket) - 7) * 4 - 1;
 
-	InfoPacket->BitPairsMinus1 = (sizeof(*InfoPacket) - 7) * 4 - 1;
+	InfoPacket.Header.Command = CMD_RESPOND_DEVICE_INFO;
+	InfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
+	InfoPacket.Header.Sender = ADDRESS_CONTROLLER;
+	InfoPacket.Header.NumWords = sizeof(InfoPacket.Info) / sizeof(uint);
 
-	InfoPacket->Header.Command = CMD_RESPOND_DEVICE_INFO;
-	InfoPacket->Header.Recipient = ADDRESS_DREAMCAST;
-	InfoPacket->Header.Sender = ADDRESS_CONTROLLER;
-	InfoPacket->Header.NumWords = sizeof(InfoPacket->Info) / sizeof(uint);
-
-	InfoPacket->Info.Func = __builtin_bswap32(1);
+	InfoPacket.Info.Func = __builtin_bswap32(1);
 #if POPNMUSIC
-	InfoPacket->Info.FuncData[0] = __builtin_bswap32(0x000006ff);
+	InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000006ff);
 #else
-	InfoPacket->Info.FuncData[0] = __builtin_bswap32(0x000f06fe);
+	InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000f06fe);
 #endif
-	InfoPacket->Info.FuncData[1] = 0;
-	InfoPacket->Info.FuncData[2] = 0;
-	InfoPacket->Info.AreaCode = -1;
-	InfoPacket->Info.ConnectorDirection = 0;
-	strncpy(InfoPacket->Info.ProductName,
+	InfoPacket.Info.FuncData[1] = 0;
+	InfoPacket.Info.FuncData[2] = 0;
+	InfoPacket.Info.AreaCode = -1;
+	InfoPacket.Info.ConnectorDirection = 0;
+	strncpy(InfoPacket.Info.ProductName,
 #if POPNMUSIC
 			"pop'n music controller        ",
 #else
 			"Dreamcast Controller          ",
 #endif
-			sizeof(InfoPacket->Info.ProductName));
-	strncpy(InfoPacket->Info.ProductLicense,
+			sizeof(InfoPacket.Info.ProductName));
+	strncpy(InfoPacket.Info.ProductLicense,
 			"Produced By or Under License From SEGA ENTERPRISES,LTD.     ",
-			sizeof(InfoPacket->Info.ProductLicense));
-	InfoPacket->Info.StandbyPower = 430;
-	InfoPacket->Info.MaxPower = 500;
+			sizeof(InfoPacket.Info.ProductLicense));
+	InfoPacket.Info.StandbyPower = 430;
+	InfoPacket.Info.MaxPower = 500;
 
-	InfoPacket->CRC = CalcCRC((uint *)&InfoPacket->Header, sizeof(*InfoPacket) / sizeof(uint) - 2);
+	InfoPacket.CRC = CalcCRC((uint *)&InfoPacket.Header, sizeof(InfoPacket) / sizeof(uint) - 2);
+}
 
-	sendPacket((uint*)InfoPacket, sizeof(*InfoPacket) / sizeof(uint));
+void SendInfoPacket()
+{
+	sendPacket((uint*)&InfoPacket, sizeof(InfoPacket) / sizeof(uint));
+}
+
+struct FControllerPacket
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketControllerCondition Controller;
+	uint CRC;
+} ControllerPacket;
+
+uint OriginalControllerCRC = 0;
+
+void BuildControllerPacket()
+{
+	ControllerPacket.BitPairsMinus1 = (sizeof(ControllerPacket) - 7) * 4 - 1;
+
+	ControllerPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
+	ControllerPacket.Header.Recipient = ADDRESS_DREAMCAST;
+	ControllerPacket.Header.Sender = ADDRESS_CONTROLLER;
+	ControllerPacket.Header.NumWords = sizeof(ControllerPacket.Controller) / sizeof(uint);
+
+	ControllerPacket.Controller.Condition = __builtin_bswap32(1);
+	ControllerPacket.Controller.Buttons = 0;
+	ControllerPacket.Controller.LeftTrigger = 0;
+	ControllerPacket.Controller.RightTrigger = 0;
+	ControllerPacket.Controller.JoyX = 0x80;
+	ControllerPacket.Controller.JoyY = 0x80;
+	ControllerPacket.Controller.JoyX2 = 0x80;
+	ControllerPacket.Controller.JoyY2 = 0x80;
+	
+	OriginalControllerCRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
 }
 
 void SendControllerPacket()
 {
 	uint Buttons = 0xFFFF;
+
+	// TODO: Move this somewhere more appropriate? While waiting for packet?
 	for (int i = 0; i < NUM_BUTTONS; i++)
 	{
 		if (!gpio_get(ButtonInfos[i].InputIO))
@@ -240,40 +272,18 @@ void SendControllerPacket()
 			Buttons &= ~START_BUTTON;
 		}
 	}
-
-	dma_channel_wait_for_finish_blocking(txdma_chan);
-
-	struct FPacket
-	{
-		uint BitPairsMinus1;
-		PacketHeader Header;
-		PacketControllerCondition Controller;
-		uint CRC;
-	}* ControllerPacket = (struct FPacket*)send_buf;
 	
-	ControllerPacket->BitPairsMinus1 = (sizeof(*ControllerPacket) - 7) * 4 - 1;
+	ControllerPacket.Controller.Buttons = Buttons;
+	uint CRC = Buttons;
+	CRC ^= CRC << 16;
+	CRC ^= CRC << 8;
+	CRC ^= OriginalControllerCRC;
+	ControllerPacket.CRC = CRC;
 
-	ControllerPacket->Header.Command = CMD_RESPOND_DATA_TRANSFER;
-	ControllerPacket->Header.Recipient = ADDRESS_DREAMCAST;
-	ControllerPacket->Header.Sender = ADDRESS_CONTROLLER;
-	ControllerPacket->Header.NumWords = sizeof(ControllerPacket->Controller) / sizeof(uint);
-
-	ControllerPacket->Controller.Condition = __builtin_bswap32(1);
-	ControllerPacket->Controller.Buttons = Buttons;
-	ControllerPacket->Controller.LeftTrigger = 0;
-	ControllerPacket->Controller.RightTrigger = 0;
-	ControllerPacket->Controller.JoyX = 0x80;
-	ControllerPacket->Controller.JoyY = 0x80;
-	ControllerPacket->Controller.JoyX2 = 0x80;
-	ControllerPacket->Controller.JoyY2 = 0x80;
-	
-	ControllerPacket->CRC = CalcCRC((uint *)&ControllerPacket->Header, sizeof(*ControllerPacket) / sizeof(uint) - 2);
-
-	sendPacket((uint *)ControllerPacket, sizeof(*ControllerPacket) / sizeof(uint));
+	sendPacket((uint *)&ControllerPacket, sizeof(ControllerPacket) / sizeof(uint));
 }
 
 uint8_t Packet[1024 + 8]; // Maximum possible size
-uint PacketByte=0;
 
 bool ConsumePacket(uint Size)
 {
@@ -343,6 +353,7 @@ bool ConsumePacket(uint Size)
 }
 
 #if !USE_FAST_PARSER
+uint PacketByte=0;
 uint8_t CurrentByte = 0;
 uint8_t LeftToShift = 8;
 uint8_t XOR = 0;
@@ -609,8 +620,8 @@ void core1_entry(void)
 
 	while (true)
 	{
-		// Have about 0.5us to process each byte if want to keep up real time
-		// 65 clocks
+		// Worst case w have about 0.5us to process each byte if want to keep up real time
+		// Got to do this in under 65 clocks. Good luck!
 		while ((pio1->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB))) != 0);
 		const uint8_t Value = pio1->rxf[0];
 		StateMachine M = Machine[State][Value];
@@ -633,7 +644,7 @@ void core1_entry(void)
 		{
 			if (XOR == 0)
 			{
-				if (multicore_fifo_wready())
+				if (!multicore_fifo_wready())
 				{
 					panic("Packet processing core isn't fast enough :(");
 				}
@@ -656,6 +667,9 @@ int main() {
 #if USE_FAST_PARSER
 	multicore_launch_core1(core1_entry);
 #endif
+
+	BuildInfoPacket();
+	BuildControllerPacket();
 
 	pwm_config PWMConfig = pwm_get_default_config();
 	pwm_config_set_clkdiv(&PWMConfig, 4.0f);
