@@ -507,24 +507,35 @@ void BuildBasicStates()
 	// Byte (6*4 = 24)
 	int PossibleEnd;
 	int Option = Prev;
+	int StartByte = NumStates;
 	for (int i = 0; i < 4; i++)
 	{
 		Prev = ExpectState2(Option, Prev, 0b01);
 		Option = ExpectStateWithStatus(Prev, 0b11, (STATUS_PUSH0 + i * 2) | STATUS_BITSET);
 		Prev = ExpectStateWithStatus(Prev, 0b00, (STATUS_PUSH0 + i * 2));
-		PossibleEnd = Option;
+		if (i == 0)
+		{
+			PossibleEnd = Option;
+		}
 
 		Prev = ExpectState2(Option, Prev, 0b10);
 		Option = ExpectStateWithStatus(Prev, 0b11, (STATUS_PUSH1 + i * 2) | STATUS_BITSET);
 		Prev = ExpectStateWithStatus(Prev, 0b00, (STATUS_PUSH1 + i * 2));
+
+		if (i == 3)
+		{
+			// Loop back around
+			States[Option].Next[0b01] = StartByte;
+			States[Prev].Next[0b01] = StartByte;
+		}
 	}
 
 	// End (5)
 	Prev = ExpectState(PossibleEnd, 0b01);
-	Prev = ExpectStateWithStatus(PossibleEnd, 0b00, STATUS_END); // Needs to be at least 4 transistions back (as only byte is pushed)
-	Prev = ExpectState(PossibleEnd, 0b01);
-	Prev = ExpectState(PossibleEnd, 0b00);
-	Prev = ExpectState(PossibleEnd, 0b01);
+	Prev = ExpectStateWithStatus(Prev, 0b00, STATUS_END); // Needs to be at least 4 transistions back (as only byte is pushed)
+	Prev = ExpectState(Prev, 0b01);
+	Prev = ExpectState(Prev, 0b00);
+	Prev = ExpectState(Prev, 0b01);
 	States[Prev].Next[0b11] = 0;
 	assert(NumStates == NUM_STATES);
 }
@@ -545,9 +556,9 @@ int NumDatas = 0;
 
 int AddData(uint8_t ByteA, uint8_t ByteB)
 {
-	for (int i=0; i<NumDatas; i++)
+	for (int i = 0; i < NumDatas; i++)
 	{
-		if (DataTable[i][0] == ByteA && DataTable[i][1]==ByteB)
+		if (DataTable[i][0] == ByteA && DataTable[i][1] == ByteB)
 		{
 			return i;
 		}
@@ -576,7 +587,7 @@ void BuildTable()
 				uint Status = States[State].Status;
 				if (Status & STATUS_BITSET)
 				{
-					Data[Byte] |= (1 << ((Status & ~STATUS_BITSET) - STATUS_PUSH0));
+					Data[Byte] |= (1 << (7 - ((Status & ~STATUS_BITSET) - STATUS_PUSH0)));
 				}
 				switch (States[State].Status & ~STATUS_BITSET)
 				{
@@ -606,7 +617,7 @@ void BuildTable()
 	}
 }
 
-void core1_entry(void)
+static void __not_in_flash_func(core1_entry)(void)
 {
 	BuildTable();
 
@@ -615,8 +626,16 @@ void core1_entry(void)
 	uint8_t XOR = 0;
 	uint StartOfPacket = 0;
 	uint Offset = 0;
-
+	uint Processed = 0;
+	
+	multicore_fifo_pop_blocking(0); // Main thread is setup
 	multicore_fifo_push_blocking(0); // Let's get going (gulp!)
+
+	// Make sure we are ready to go	by flushing the FIFO 
+	while ((pio1->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB))) == 0)
+	{
+		pio_sm_get(pio1, 0);
+	}
 
 	while (true)
 	{
@@ -646,15 +665,15 @@ void core1_entry(void)
 			{
 				if (!multicore_fifo_wready())
 				{
-					panic("Packet processing core isn't fast enough :(");
+					panic("Packet processing core isn't fast enough :(\n");
 				}
 				multicore_fifo_push_blocking(Offset);
-				StartOfPacket = Offset;
+				StartOfPacket = ((Offset + 3) & ~3); // Align up for easier swizzling
 			}
 		}
 		if ((pio1->fstat & (1u << (PIO_FSTAT_RXFULL_LSB))) != 0)
 		{
-			panic("Probably overflowed. This code isn't fast enough :(");
+			panic("Probably overflowed. This code isn't fast enough :(\n");
 		}
 	}
 }
@@ -752,17 +771,18 @@ int main() {
 	gpio_pull_up(PICO_PIN1_PIN);
 	gpio_pull_up(PICO_PIN5_PIN);
 
-#if USE_FAST_PARSER
-	multicore_fifo_pop_blocking();
-#endif
-
 	pio_sm_set_enabled(rxpio, rxsm+1, true);
 	pio_sm_set_enabled(rxpio, rxsm+2, true);
 	pio_sm_set_enabled(rxpio, rxsm, true);
 
 #if USE_FAST_PARSER
-	uint SOP = 0;
-#else
+	// Ready to go
+	multicore_fifo_push_blocking(0);
+	// Make sure decoder is ready to go
+	uint SOP = multicore_fifo_pop_blocking();
+#endif
+
+#if !USE_FAST_PARSER
 	uint ReadLoopAddress = 0;
 	uint LastLoopAddress = 0;
 	uint8_t* LastData = capture_buf;
@@ -772,10 +792,10 @@ int main() {
 #if USE_FAST_PARSER
 		uint EOP = multicore_fifo_pop_blocking();
 
-		// TODO: Improve this
-		for (uint i=SOP; i<EOP; i++)
+		// TODO: Improve. Would be nice not to move here
+		for (uint i = SOP; i < EOP; i += 4)
 		{
-			Packet[i] = capture_buf[i & (sizeof(capture_buf) - 1)];
+			*(uint*)&Packet[i - SOP] = __builtin_bswap32(*(uint*)&capture_buf[i & (sizeof(capture_buf) - 1)]);
 		}
 		
 		uint PacketSize = EOP - SOP;
@@ -794,7 +814,7 @@ int main() {
 #endif
 		}
 
-		SOP = EOP;
+		SOP = ((EOP + 3) & ~3);
 #else
 		// Detect underflow (debug only)
 		uint DMACounter = 0;
