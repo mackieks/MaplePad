@@ -18,7 +18,7 @@
 #define SHOULD_SEND 1
 #define POPNMUSIC 1
 
-#define SHOULD_PRINT 1
+#define SHOULD_PRINT 0		// Nice for debugging but can cause timing issues
 
 #define USE_FAST_PARSER 1
 
@@ -573,24 +573,33 @@ int AddData(uint8_t ByteA, uint8_t ByteB)
 void BuildTable()
 {
 	BuildBasicStates();
-	for (int S = 0; S<NUM_STATES; S++)
+	for (int S = 0; S < NUM_STATES; S++)
 	{
-		for (int V = 0; V<256; V++)
+		for (int V = 0; V < 256; V++)
 		{
 			StateMachine M = { 0 };
 			int State = S;
 			int Transitions = V;
+			int LastState = State;
 			uint8_t Data[2] = {0, 0};
 			uint Byte = 0;
 			for (int i = 0; i < 4; i++)
 			{
-				uint Status = States[State].Status;
-				if (Status & STATUS_BITSET)
+				State = States[State].Next[(Transitions >> 6) & 3];
+				if (State < 0)
 				{
-					Data[Byte] |= (1 << (7 - ((Status & ~STATUS_BITSET) - STATUS_PUSH0)));
+					M.Error = 1;
+					State = 0;
 				}
-				switch (States[State].Status & ~STATUS_BITSET)
+				if (State != LastState)
 				{
+					uint Status = States[State].Status;
+					if (Status & STATUS_BITSET)
+					{
+						Data[Byte] |= (1 << (7 - ((Status & ~STATUS_BITSET) - STATUS_PUSH0)));
+					}
+					switch (States[State].Status & ~STATUS_BITSET)
+					{
 					case STATUS_START:
 						M.Reset = 1;
 						break;
@@ -601,12 +610,8 @@ void BuildTable()
 						M.Push = 1;
 						Byte = 1;
 						break;
-				}
-				State = States[State].Next[(Transitions >> 6) & 3];
-				if (State < 0)
-				{
-					M.Error = 1;
-					State = 0;
+					}
+					LastState = State;
 				}
 				Transitions <<= 2;
 			}
@@ -663,12 +668,17 @@ static void __not_in_flash_func(core1_entry)(void)
 		{
 			if (XOR == 0)
 			{
-				if (!multicore_fifo_wready())
+				if (multicore_fifo_wready())
 				{
-					panic("Packet processing core isn't fast enough :(\n");
+					multicore_fifo_push_blocking(Offset);
+					StartOfPacket = ((Offset + 3) & ~3); // Align up for easier swizzling
 				}
-				multicore_fifo_push_blocking(Offset);
-				StartOfPacket = ((Offset + 3) & ~3); // Align up for easier swizzling
+				else
+				{
+#if !SHOULD_PRINT // Core can be too slow due to printing
+					panic("Packet processing core isn't fast enough :(\n");
+#endif
+				}
 			}
 		}
 		if ((pio1->fstat & (1u << (PIO_FSTAT_RXFULL_LSB))) != 0)
