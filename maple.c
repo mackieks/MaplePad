@@ -15,21 +15,16 @@
 // Our assembled program:
 #include "maple.pio.h"
 
-#define SHOULD_SEND 1
-#define POPNMUSIC 1
+#define SHOULD_SEND 1		// Set to zero to sniff two devices sending signals to each other
+#define POPNMUSIC 1			// Pop'n'Music controller or generic controller
 
 #define SHOULD_PRINT 0		// Nice for debugging but can cause timing issues
 
-#define USE_FAST_PARSER 1
-
-#define SIZE_SHIFT 12
-#define SIZE (1<<SIZE_SHIFT)
-uint8_t capture_buf[SIZE] __attribute__ ((aligned(SIZE)));
+#define SIZE (1<<12)
+uint8_t capture_buf[SIZE] __attribute__ ((aligned(4)));
 
 #define PICO_PIN1_PIN	14
 #define PICO_PIN5_PIN	15
-
-// Can't be same as not on same PIO?
 #define PICO_PIN1_PIN_RX	PICO_PIN1_PIN
 #define PICO_PIN5_PIN_RX	PICO_PIN5_PIN
 
@@ -352,84 +347,6 @@ bool ConsumePacket(uint Size)
 	return false;
 }
 
-#if !USE_FAST_PARSER
-uint PacketByte=0;
-uint8_t CurrentByte = 0;
-uint8_t LeftToShift = 8;
-uint8_t XOR = 0;
-
-void grabBit(uint8_t Bit, uint8_t Phase)
-{
-	static uint8_t LastPhase = 0;
-	if (Phase != LastPhase)
-	{
-		CurrentByte<<=1;
-		CurrentByte|=(Bit&1);
-		LeftToShift--;
-		if (LeftToShift == 0)
-		{
-			if (PacketByte < sizeof(Packet))
-			{
-				uint Index = PacketByte++;
-				Index = (Index&~3) + 3 - (Index&3);
-				Packet[Index] = CurrentByte;
-			}
-			XOR ^= CurrentByte;
-			LeftToShift=8;
-		}
-		LastPhase = Phase;
-	}
-	else
-	{
-		if (PacketByte > 0 && (XOR != 0 || !ConsumePacket(PacketByte)))
-		{
-#if SHOULD_PRINT
-			printf("Bad packet? XOR:%x\n", XOR);
-			for (uint i = 0; i < (PacketByte & ~3); i += 4)
-			{
-				printf("%02x %02x %02x %02x\n",
-					   Packet[i + 0], Packet[i + 1], Packet[i + 2], Packet[i + 3]);
-			}
-			for (uint i = (PacketByte & ~3); i < PacketByte; i += 4)
-			{
-				uint Index = (i & ~3) + 3 - (i & 3);
-				printf("%02x\n", Packet[Index]);
-			}
-#endif
-		}
-		LeftToShift = 8;
-		XOR = 0;
-		PacketByte = 0;
-	}
-}
-
-void processTransistions(uint8_t BitPair)
-{
-	static uint8_t LastPair = 3;
-	if ((LastPair&1)!=0 && (BitPair&1)==0)
-	{
-		grabBit(BitPair>>1, 1);
-	}
-	else if ((LastPair&2)!=0 && (BitPair&2)==0)
-	{
-		grabBit(BitPair, 2);
-	}
-	LastPair = BitPair;
-}
-
-uint dma_mask = 0;
-volatile uint dma_counter = 0;
-
-void dma_handler()
-{
-	// Clear interrupt and restart DMA
-	dma_hw->ints0 = dma_mask;
-	dma_start_channel_mask(dma_mask);
-	dma_counter++;
-}
-#endif
-
-#if USE_FAST_PARSER
 typedef struct SimpleState_s
 {
 	int Next[4];
@@ -687,15 +604,12 @@ static void __not_in_flash_func(core1_entry)(void)
 		}
 	}
 }
-#endif
 
 int main() {
 	stdio_init_all();
 	printf("Starting\n");
 
-#if USE_FAST_PARSER
 	multicore_launch_core1(core1_entry);
-#endif
 
 	BuildInfoPacket();
 	BuildControllerPacket();
@@ -740,29 +654,6 @@ int main() {
 	uint rxsm = 0;
     maple_rx_triple_program_init(rxpio, rxoffset, PICO_PIN1_PIN_RX, PICO_PIN5_PIN_RX, 3.0f);
 
-#if !USE_FAST_PARSER
-	uint dma_chan = dma_claim_unused_channel(true);
-	dma_channel_config c = dma_channel_get_default_config(dma_chan);
-    channel_config_set_read_increment(&c, false);
-    channel_config_set_write_increment(&c, true);
-	channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
-    channel_config_set_dreq(&c, pio_get_dreq(rxpio, rxsm, false));
-	channel_config_set_ring(&c, true, SIZE_SHIFT); // Loop around
-
-    dma_channel_configure(dma_chan, &c,
-        capture_buf,        // Destinatinon pointer
-        &rxpio->rxf[rxsm],  // Source pointer
-        sizeof(capture_buf),// Number of transfers
-        false               // Delay start
-    );
-
-	dma_mask = (1u << dma_chan);
-	dma_channel_set_irq0_enabled(dma_chan, true);
-	irq_set_exclusive_handler(DMA_IRQ_0, dma_handler);
-	irq_set_enabled(DMA_IRQ_0, true);
-	dma_start_channel_mask(dma_mask);
-#endif
-
 	txdma_chan = dma_claim_unused_channel(true);
 	dma_channel_config txc = dma_channel_get_default_config(txdma_chan);
     channel_config_set_read_increment(&txc, true);
@@ -785,21 +676,13 @@ int main() {
 	pio_sm_set_enabled(rxpio, rxsm+2, true);
 	pio_sm_set_enabled(rxpio, rxsm, true);
 
-#if USE_FAST_PARSER
 	// Ready to go
 	multicore_fifo_push_blocking(0);
 	// Make sure decoder is ready to go
 	uint SOP = multicore_fifo_pop_blocking();
-#endif
 
-#if !USE_FAST_PARSER
-	uint ReadLoopAddress = 0;
-	uint LastLoopAddress = 0;
-	uint8_t* LastData = capture_buf;
-#endif
     while (true)
 	{
-#if USE_FAST_PARSER
 		uint EOP = multicore_fifo_pop_blocking();
 
 		// TODO: Improve. Would be nice not to move here
@@ -825,47 +708,6 @@ int main() {
 		}
 
 		SOP = ((EOP + 3) & ~3);
-#else
-		// Detect underflow (debug only)
-		uint DMACounter = 0;
-		uint Address = 0;
-		do
-		{
-			DMACounter = dma_counter;
-			Address = dma_channel_hw_addr(dma_chan)->write_addr;
-			if ((uint8_t*)Address < capture_buf || (uint8_t*)Address >= capture_buf + sizeof(capture_buf))
-			{
-				// What?! Not sure how this can happen. Hardware bug?
-#if SHOULD_PRINT
-				printf("Bad write ptr: %08x != %08x->%08x (%d)\n", Address, capture_buf, capture_buf + sizeof(capture_buf), DMACounter);
-				printf("Now: %08x (%d)\n", dma_channel_hw_addr(dma_chan)->write_addr, dma_counter);
-#endif
-				continue;
-			}
-		}
-		while (DMACounter != dma_counter); // Solve issue when restart happens while reading address
-		uint WriteLoopAddress = (DMACounter<<SIZE_SHIFT) + (Address&(sizeof(capture_buf)-1));
-		if (WriteLoopAddress >= LastLoopAddress + sizeof(capture_buf))
-		{
-			panic("Underflow (could have been bad data) %08x %08x %08x\n", LastLoopAddress, ReadLoopAddress, WriteLoopAddress);
-		}
-		LastLoopAddress = ReadLoopAddress;
-
-		volatile uint8_t* NewData = (uint8_t*)Address;
-		while (LastData != NewData)
-		{
-			processTransistions(LastData[0]>>6);
-			processTransistions(LastData[0]>>4);
-			processTransistions(LastData[0]>>2);
-			processTransistions(LastData[0]>>0);
-			LastData++;
-			ReadLoopAddress++;
-			if (LastData >= capture_buf + sizeof(capture_buf))
-			{
-				LastData = capture_buf;
-			}
-		}
-#endif
 
 		if (SendState != SEND_NOTHING)
 		{
