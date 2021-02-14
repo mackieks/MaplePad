@@ -62,7 +62,7 @@ static inline void maple_tx_program_init(PIO TXPio, uint SM, uint Offset, uint P
 
     sm_config_set_out_pins(&SMConfig, Pin1, 1); // Only want to output on pin 1 (so we can shift directly)
 	sm_config_set_set_pins(&SMConfig, Pin1, 2); // But we need to set direction of both pins to take control of bus
-	sm_config_set_sideset_pins(&SMConfig, Pin5); // Possibly could do without but saves some instructions 
+	sm_config_set_sideset_pins(&SMConfig, Pin5); // Possibly could do without on second thoughts but saves some instructions 
 
 	sm_config_set_out_shift(&SMConfig, false, true, 32); // Autopull every 32 bits (makes DMA more efficient to do it this way)
 	sm_config_set_clkdiv(&SMConfig, ClockDivider);
