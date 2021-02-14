@@ -25,6 +25,7 @@
 #include "hardware/pwm.h"
 #include "pico/multicore.h"
 #include "maple.pio.h"
+#include "state_machine.h"
 
 #define SHOULD_SEND 1		// Set to zero to sniff two devices sending signals to each other
 #define SHOULD_PRINT 0		// Nice for debugging but can cause timing issues
@@ -341,198 +342,6 @@ bool ConsumePacket(uint Size)
 	return false;
 }
 
-typedef struct SimpleState_s
-{
-	int Next[4];
-	uint Status;
-} SimpleState;
-
-#define NUM_DATAS 64
-#define NUM_STATES 40
-SimpleState States[NUM_STATES];
-int NumStates = 0;
-
-int NewState(int Expected)
-{
-	int New = NumStates++;
-	SimpleState* s = &States[New];
-	memset(s, -1, sizeof(*s));
-	s->Next[Expected] = New;
-	return New;
-}
-
-int ExpectState(int Prev, int Expected)
-{
-	int New = NewState(Expected);
-	States[Prev].Next[Expected] = New;
-	return New;
-}
-
-int ExpectStateWithStatus(int Prev, int Expected, uint Status)
-{
-	int New = NewState(Expected);
-	States[New].Status = Status;
-	States[Prev].Next[Expected] = New;
-	return New;
-}
-
-int ExpectState2(int Prev, int OtherPrev, int Expected)
-{
-	int New = NewState(Expected);
-	States[Prev].Next[Expected] = New;
-	States[OtherPrev].Next[Expected] = New;
-	return New;
-}
-
-enum
-{
-	STATUS_NONE = -1,
-	STATUS_START,
-	STATUS_END,
-	STATUS_PUSH0,
-	STATUS_PUSH1,
-	STATUS_PUSH2,
-	STATUS_PUSH3,
-	STATUS_PUSH4,
-	STATUS_PUSH5,
-	STATUS_PUSH6,
-	STATUS_PUSH7,
-	STATUS_BITSET = 128
-};
-
-void BuildBasicStates()
-{
-	// Start (11)
-	int Prev = NewState(0b11);
-	Prev = ExpectState(Prev, 0b10);
-	Prev = ExpectState(Prev, 0b00);
-	Prev = ExpectState(Prev, 0b10);
-	Prev = ExpectState(Prev, 0b00);
-	Prev = ExpectState(Prev, 0b10);
-	Prev = ExpectState(Prev, 0b00);
-	Prev = ExpectState(Prev, 0b10);
-	Prev = ExpectState(Prev, 0b00);
-	Prev = ExpectState(Prev, 0b10);
-	Prev = ExpectStateWithStatus(Prev, 0b11, STATUS_START);
-
-	// Byte (6*4 = 24)
-	int PossibleEnd;
-	int Option = Prev;
-	int StartByte = NumStates;
-	for (int i = 0; i < 4; i++)
-	{
-		Prev = ExpectState2(Option, Prev, 0b01);
-		Option = ExpectStateWithStatus(Prev, 0b11, (STATUS_PUSH0 + i * 2) | STATUS_BITSET);
-		Prev = ExpectStateWithStatus(Prev, 0b00, (STATUS_PUSH0 + i * 2));
-		if (i == 0)
-		{
-			PossibleEnd = Option;
-		}
-
-		Prev = ExpectState2(Option, Prev, 0b10);
-		Option = ExpectStateWithStatus(Prev, 0b11, (STATUS_PUSH1 + i * 2) | STATUS_BITSET);
-		Prev = ExpectStateWithStatus(Prev, 0b00, (STATUS_PUSH1 + i * 2));
-
-		if (i == 3)
-		{
-			// Loop back around
-			States[Option].Next[0b01] = StartByte;
-			States[Prev].Next[0b01] = StartByte;
-		}
-	}
-
-	// End (5)
-	Prev = ExpectState(PossibleEnd, 0b01);
-	Prev = ExpectStateWithStatus(Prev, 0b00, STATUS_END); // Needs to be at least 4 transistions back (as only byte is pushed)
-	Prev = ExpectState(Prev, 0b01);
-	Prev = ExpectState(Prev, 0b00);
-	Prev = ExpectState(Prev, 0b01);
-	States[Prev].Next[0b11] = 0;
-	assert(NumStates == NUM_STATES);
-}
-
-typedef struct StateMachine_s
-{
-	ushort NewState:6;
-	ushort Data:6;
-	ushort Push:1;
-	ushort Error:1;
-	ushort Reset:1;
-	ushort End:1;
-} StateMachine;
-
-StateMachine Machine[NUM_STATES][256]; // 20Kb
-uint8_t DataTable[NUM_DATAS][2];
-int NumDatas = 0;
-
-int AddData(uint8_t ByteA, uint8_t ByteB)
-{
-	for (int i = 0; i < NumDatas; i++)
-	{
-		if (DataTable[i][0] == ByteA && DataTable[i][1] == ByteB)
-		{
-			return i;
-		}
-	}
-	int NewEntry = NumDatas++;
-	assert(NewEntry < NUM_DATAS);
-	DataTable[NewEntry][0] = ByteA;
-	DataTable[NewEntry][1] = ByteB;
-	return NewEntry;
-}
-
-void BuildTable()
-{
-	BuildBasicStates();
-	for (int S = 0; S < NUM_STATES; S++)
-	{
-		for (int V = 0; V < 256; V++)
-		{
-			StateMachine M = { 0 };
-			int State = S;
-			int Transitions = V;
-			int LastState = State;
-			uint8_t Data[2] = {0, 0};
-			uint Byte = 0;
-			for (int i = 0; i < 4; i++)
-			{
-				State = States[State].Next[(Transitions >> 6) & 3];
-				if (State < 0)
-				{
-					M.Error = 1;
-					State = 0;
-				}
-				if (State != LastState)
-				{
-					uint Status = States[State].Status;
-					if (Status & STATUS_BITSET)
-					{
-						Data[Byte] |= (1 << (7 - ((Status & ~STATUS_BITSET) - STATUS_PUSH0)));
-					}
-					switch (States[State].Status & ~STATUS_BITSET)
-					{
-					case STATUS_START:
-						M.Reset = 1;
-						break;
-					case STATUS_END:
-						M.End = 1;
-						break;
-					case STATUS_PUSH7:
-						M.Push = 1;
-						Byte = 1;
-						break;
-					}
-					LastState = State;
-				}
-				Transitions <<= 2;
-			}
-			M.NewState = State;
-			M.Data = AddData(Data[0], Data[1]);
-			Machine[S][V] = M;
-		}
-	}
-}
-
 // *IMPORTANT* This function must be in RAM. Will be too slow if have to fetch code from flash
 static void __not_in_flash_func(core1_entry)(void)
 {
@@ -541,9 +350,8 @@ static void __not_in_flash_func(core1_entry)(void)
 	uint8_t XOR = 0;
 	uint StartOfPacket = 0;
 	uint Offset = 0;
-	uint Processed = 0;
 	
-	BuildTable();
+	BuildStateMachineTables();
 
 	multicore_fifo_push_blocking(0); // Tell core0 we're ready
 	multicore_fifo_pop_blocking(); // Wait for core0 to acknowledge and start RXPIO
@@ -556,9 +364,8 @@ static void __not_in_flash_func(core1_entry)(void)
 
 	while (true)
 	{
-		// Worst case we have about 0.5us to process each byte if want to keep up real time
-		// So could have only 65 cycles
-		// In practice we have around 4us so this code is easily fast enough
+		// Worst case we could have only 0.5us (~65 cycles) to process each byte if want to keep up real time
+		// In practice we have around 4us on average so this code is easily fast enough
 		while ((RXPIO->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB))) != 0);
 		const uint8_t Value = RXPIO->rxf[0];
 		StateMachine M = Machine[State][Value];
@@ -569,12 +376,12 @@ static void __not_in_flash_func(core1_entry)(void)
 			Byte = 0;
 			XOR = 0;
 		}
-		Byte |= DataTable[M.Data][0];
+		Byte |= SetBits[M.SetBitsIndex][0];
 		if (M.Push)
 		{
 			RecieveBuffer[Offset & (sizeof(RecieveBuffer) - 1)] = Byte;
 			XOR ^= Byte;
-			Byte = DataTable[M.Data][1];
+			Byte = SetBits[M.SetBitsIndex][1];
 			Offset++;
 		}
 		if (M.End)
