@@ -1,7 +1,19 @@
 /**
- * Copyright (c) 2020 Raspberry Pi (Trading) Ltd.
+ * Pop'n'Music controller
+ * Dreamcast Maple Bus Transiever example for Raspberry Pi Pico (RP2040)
+ * (C) Charlie Cole 2021
  *
- * SPDX-License-Identifier: BSD-3-Clause
+ * Dreamcast controller connector pin 1 (Data) to 14 (PICO_PIN1_PIN)
+ * Dreamcast controller connector pin 5 (Data) to 15 (PICO_PIN5_PIN)
+ * Dreamcast controller connector pin 2 (5V) to VSYS (I did via diode so could power from either USB/VBUS or Dreamcast safely)
+ * Dreamcast controller connector pins 3 (GND) and 4 (Sense) to GND
+ * GPIO pins for buttons 16-22,26 and 27 (uses internal pullups, switch to GND. See ButtonInfos)
+ * LEDs on pins 13-5 (to white LED anode through resistor (say 82ohms) to GND. See ButtonInfos)
+ * 
+ * Maple TX done completely in PIO. Sends start of packet, data and end of packet. Fed by DMA so fire and forget.
+ *
+ * Maple RX done mostly in software on core 1. PIO just waits for transitions and shifts in whenever data pins change.
+ * For maximum speed the RX state machine is implemented in lookup table to process 4 transitions at a time
  */
 
 #include <stdio.h>
@@ -12,30 +24,29 @@
 #include "hardware/irq.h"
 #include "hardware/pwm.h"
 #include "pico/multicore.h"
-// Our assembled program:
 #include "maple.pio.h"
 
 #define SHOULD_SEND 1		// Set to zero to sniff two devices sending signals to each other
-#define POPNMUSIC 1			// Pop'n'Music controller or generic controller
-
 #define SHOULD_PRINT 0		// Nice for debugging but can cause timing issues
 
-#define SIZE (1<<12)
-uint8_t capture_buf[SIZE] __attribute__ ((aligned(4)));
+#define POPNMUSIC 1			// Pop'n'Music controller or generic controller
+#define NUM_BUTTONS	9		// On a Pop'n'Music controller
+#define FADE_SPEED 8		// How fast the LEDs fade after press
+#define START_BUTTON 0x0008	// Bitmask for the start button
+#define START_MASK 0x0251	// Key combination for Start as we don't have a dedicated button
 
 #define PICO_PIN1_PIN	14
 #define PICO_PIN5_PIN	15
 #define PICO_PIN1_PIN_RX	PICO_PIN1_PIN
 #define PICO_PIN5_PIN_RX	PICO_PIN5_PIN
 
-#define SWAP4(x) do { x=__builtin_bswap32(x); } while(0)
-
 #define ADDRESS_DREAMCAST 0
 #define ADDRESS_CONTROLLER 0x20
 
-PIO txpio;
-uint txsm;
-uint txdma_chan;
+#define TXPIO pio0
+#define RXPIO pio1
+
+#define SWAP4(x) do { x=__builtin_bswap32(x); } while(0)
 
 typedef enum ESendState_e
 {
@@ -43,8 +54,6 @@ typedef enum ESendState_e
 	SEND_CONTROLLER_INFO,
 	SEND_CONTROLLER_STATUS
 } ESendState;
-
-ESendState SendState = SEND_NOTHING;
 
 enum ECommands
 {
@@ -78,8 +87,8 @@ typedef struct PacketHeader_s
 
 typedef struct PacketDeviceInfo_s
 {
-	uint Func;			// BE
-	uint FuncData[3];	// BE
+	uint Func;			// Nb. Big endian
+	uint FuncData[3];	// Nb. Big endian
 	int8_t AreaCode;
 	uint8_t ConnectorDirection;
 	char ProductName[30];
@@ -90,7 +99,7 @@ typedef struct PacketDeviceInfo_s
 
 typedef struct PacketControllerCondition_s
 {
-	uint Condition;
+	uint Condition;		// Nb. Big endian
 	uint16_t Buttons;
 	uint8_t RightTrigger;
 	uint8_t LeftTrigger;
@@ -100,6 +109,22 @@ typedef struct PacketControllerCondition_s
 	uint8_t JoyY2;
 } PacketControllerCondition;
 
+typedef struct FInfoPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketDeviceInfo Info;
+	uint CRC;
+} FInfoPacket;
+
+typedef struct FControllerPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketControllerCondition Controller;
+	uint CRC;
+} FControllerPacket;
+
 typedef struct ButtonInfo_s
 {
 	int InputIO;
@@ -108,42 +133,29 @@ typedef struct ButtonInfo_s
 	int Fade;
 } ButtonInfo;
 
-#define NUM_BUTTONS	9
-#define FADE_SPEED 8
-#define START_BUTTON 0x0008
-#define START_MASK 0x0251
-
-bool bPressingStart = false;
-
-// A - White left   = 0xFFBF = 0x0040
-// B - Yellow left  = 0xFFEF = 0x0010
-// C - Green left   = 0xFFDF = 0x0020
-// D - Blue left    = 0xFF7F = 0x0080
-// E - Red centre   = 0xFFFB = 0x0004
-// F - Blue right   = 0xFBFF = 0x0400
-// G - Green right  = 0xFFFD = 0x0002
-// H - Yellow right = 0xFDFF = 0x0200
-// I - White right  = 0xFFFE = 0x0001
-// Start            = 0xFFF7 = 0x0008
-
-ButtonInfo ButtonInfos[NUM_BUTTONS]=
+static ButtonInfo ButtonInfos[NUM_BUTTONS]=
 {
-	{ 16, 13, 0x0040, 0 },
-	{ 17, 12, 0x0010, 0 },
-	{ 18, 11, 0x0020, 0 },
-	{ 19, 10, 0x0080, 0 },
-	{ 20, 9, 0x0004, 0 },
-	{ 21, 8, 0x0400, 0 },
-	{ 22, 7, 0x0002, 0 },
-	{ 26, 6, 0x0200, 0 },
-	{ 27, 5, 0x0001, 0 }
+	{ 16, 13, 0x0040, 0 },	// White left
+	{ 17, 12, 0x0010, 0 },	// Yellow left
+	{ 18, 11, 0x0020, 0 },	// Green left
+	{ 19, 10, 0x0080, 0 },	// Blue left
+	{ 20, 9, 0x0004, 0 },	// Red centre
+	{ 21, 8, 0x0400, 0 },	// Blue right
+	{ 22, 7, 0x0002, 0 },	// Green right
+	{ 26, 6, 0x0200, 0 },	// Yellow right
+	{ 27, 5, 0x0001, 0 }	// White right
 };
 
-int sendPacket(const uint* Words, uint NumWords)
-{
-	dma_channel_set_read_addr(txdma_chan, Words, false);
-	dma_channel_set_trans_count(txdma_chan, NumWords, true);
-}
+// Buffers
+static uint8_t RecieveBuffer[4096] __attribute__ ((aligned(4))); // Ring buffer for reading packets
+static uint8_t Packet[1024 + 8] __attribute__ ((aligned(4))); // Temp buffer for consuming packets (could remove)
+static FControllerPacket ControllerPacket; // Send buffer for controller status packet (pre-built for speed)
+static FInfoPacket InfoPacket;	// Send buffer for controller info packet (pre-built for speed)
+
+static ESendState NextPacketSend = SEND_NOTHING;
+static uint OriginalControllerCRC = 0;
+static uint TXDMAChannel = 0;
+static bool bPressingStart = false;
 
 uint CalcCRC(const uint* Words, uint NumWords)
 {
@@ -156,14 +168,6 @@ uint CalcCRC(const uint* Words, uint NumWords)
 	XOR_Checksum ^= (XOR_Checksum << 8);
 	return XOR_Checksum;
 }
-
-struct FInfoPacket
-{
-	uint BitPairsMinus1;
-	PacketHeader Header;
-	PacketDeviceInfo Info;
-	uint CRC;
-} InfoPacket;
 
 void BuildInfoPacket()
 {
@@ -200,21 +204,6 @@ void BuildInfoPacket()
 	InfoPacket.CRC = CalcCRC((uint *)&InfoPacket.Header, sizeof(InfoPacket) / sizeof(uint) - 2);
 }
 
-void SendInfoPacket()
-{
-	sendPacket((uint*)&InfoPacket, sizeof(InfoPacket) / sizeof(uint));
-}
-
-struct FControllerPacket
-{
-	uint BitPairsMinus1;
-	PacketHeader Header;
-	PacketControllerCondition Controller;
-	uint CRC;
-} ControllerPacket;
-
-uint OriginalControllerCRC = 0;
-
 void BuildControllerPacket()
 {
 	ControllerPacket.BitPairsMinus1 = (sizeof(ControllerPacket) - 7) * 4 - 1;
@@ -236,11 +225,18 @@ void BuildControllerPacket()
 	OriginalControllerCRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
 }
 
-void SendControllerPacket()
+int SendPacket(const uint* Words, uint NumWords)
+{
+	dma_channel_set_read_addr(TXDMAChannel, Words, false);
+	dma_channel_set_trans_count(TXDMAChannel, NumWords, true);
+}
+
+void SendControllerStatus()
 {
 	uint Buttons = 0xFFFF;
 
-	// TODO: Move this somewhere more appropriate? While waiting for packet?
+	// TODO: Possible improvement if we did while waiting for packet from core1
+	// Or run it all in interrupts
 	for (int i = 0; i < NUM_BUTTONS; i++)
 	{
 		if (!gpio_get(ButtonInfos[i].InputIO))
@@ -259,7 +255,7 @@ void SendControllerPacket()
 	{
 		if ((Buttons & START_MASK) == START_MASK)
 		{
-			bPressingStart=false;
+			bPressingStart = false;
 		}
 		else
 		{
@@ -275,10 +271,8 @@ void SendControllerPacket()
 	CRC ^= OriginalControllerCRC;
 	ControllerPacket.CRC = CRC;
 
-	sendPacket((uint *)&ControllerPacket, sizeof(ControllerPacket) / sizeof(uint));
+	SendPacket((uint *)&ControllerPacket, sizeof(ControllerPacket) / sizeof(uint));
 }
-
-uint8_t Packet[1024 + 8]; // Maximum possible size
 
 bool ConsumePacket(uint Size)
 {
@@ -294,12 +288,12 @@ bool ConsumePacket(uint Size)
 				{
 				case CMD_REQUEST_DEVICE_INFO:
 				{
-					SendState = SEND_CONTROLLER_INFO;
+					NextPacketSend = SEND_CONTROLLER_INFO;
 					return true;
 				}
 				case CMD_GET_CONDITION:
 				{
-					SendState = SEND_CONTROLLER_STATUS;
+					NextPacketSend = SEND_CONTROLLER_STATUS;
 					return true;
 				}
 				case CMD_RESPOND_DEVICE_INFO:
@@ -539,10 +533,9 @@ void BuildTable()
 	}
 }
 
+// *IMPORTANT* This function must be in RAM. Will be too slow if have to fetch code from flash
 static void __not_in_flash_func(core1_entry)(void)
 {
-	BuildTable();
-
 	uint State = 0;
 	uint8_t Byte = 0;
 	uint8_t XOR = 0;
@@ -550,21 +543,24 @@ static void __not_in_flash_func(core1_entry)(void)
 	uint Offset = 0;
 	uint Processed = 0;
 	
-	multicore_fifo_pop_blocking(0); // Main thread is setup
-	multicore_fifo_push_blocking(0); // Let's get going (gulp!)
+	BuildTable();
+
+	multicore_fifo_push_blocking(0); // Tell core0 we're ready
+	multicore_fifo_pop_blocking(); // Wait for core0 to acknowledge and start RXPIO
 
 	// Make sure we are ready to go	by flushing the FIFO 
-	while ((pio1->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB))) == 0)
+	while ((RXPIO->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB))) == 0)
 	{
-		pio_sm_get(pio1, 0);
+		pio_sm_get(RXPIO, 0);
 	}
 
 	while (true)
 	{
-		// Worst case w have about 0.5us to process each byte if want to keep up real time
-		// Got to do this in under 65 clocks. Good luck!
-		while ((pio1->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB))) != 0);
-		const uint8_t Value = pio1->rxf[0];
+		// Worst case we have about 0.5us to process each byte if want to keep up real time
+		// So could have only 65 cycles
+		// In practice we have around 4us so this code is easily fast enough
+		while ((RXPIO->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB))) != 0);
+		const uint8_t Value = RXPIO->rxf[0];
 		StateMachine M = Machine[State][Value];
 		State = M.NewState;
 		if (M.Reset)
@@ -576,7 +572,7 @@ static void __not_in_flash_func(core1_entry)(void)
 		Byte |= DataTable[M.Data][0];
 		if (M.Push)
 		{
-			capture_buf[Offset & (sizeof(capture_buf) - 1)] = Byte;
+			RecieveBuffer[Offset & (sizeof(RecieveBuffer) - 1)] = Byte;
 			XOR ^= Byte;
 			Byte = DataTable[M.Data][1];
 			Offset++;
@@ -598,22 +594,15 @@ static void __not_in_flash_func(core1_entry)(void)
 				}
 			}
 		}
-		if ((pio1->fstat & (1u << (PIO_FSTAT_RXFULL_LSB))) != 0)
+		if ((RXPIO->fstat & (1u << (PIO_FSTAT_RXFULL_LSB))) != 0)
 		{
 			panic("Probably overflowed. This code isn't fast enough :(\n");
 		}
 	}
 }
 
-int main() {
-	stdio_init_all();
-	printf("Starting\n");
-
-	multicore_launch_core1(core1_entry);
-
-	BuildInfoPacket();
-	BuildControllerPacket();
-
+void SetupButtons()
+{
 	pwm_config PWMConfig = pwm_get_default_config();
 	pwm_config_set_clkdiv(&PWMConfig, 4.0f);
 	for (int i = 0; i < NUM_BUTTONS; i++)
@@ -627,71 +616,77 @@ int main() {
 	}
 	for (int i = 0; i < NUM_BUTTONS; i++)
 	{
+		// Light up buttons dimly so can tell we are powered
 		pwm_set_gpio_level(ButtonInfos[i].OutputIO, 64*64);
 	}
+}
 
-	// Choose which PIO instance to use (there are two instances)
-    txpio = pio0;
-    PIO rxpio = pio1;
+void SetupMapleTX()
+{
+    uint TXStateMachine = pio_claim_unused_sm(TXPIO, true);
+    uint TXPIOOffset = pio_add_program(TXPIO, &maple_tx_program);
+    maple_tx_program_init(TXPIO, TXStateMachine, TXPIOOffset, PICO_PIN1_PIN, PICO_PIN5_PIN, 3.0f);
 
-    // Our assembled program needs to be loaded into this PIO's instruction
-    // memory. This SDK function will find a location (offset) in the
-    // instruction memory where there is enough space for our program. We need
-    // to remember this location!
-    uint txoffset = pio_add_program(txpio, &maple_tx_program);
-    uint rxoffset[3] = {
-		pio_add_program(rxpio, &maple_rx_triple1_program),
-		pio_add_program(rxpio, &maple_rx_triple2_program),
-		pio_add_program(rxpio, &maple_rx_triple3_program)
-		};
-
-    // Find a free state machine on our chosen PIO (erroring if there are
-    // none). Configure it to run our program, and start it, using the
-    // helper function we included in our .pio file.
-    txsm = 0;//pio_claim_unused_sm(pio, true);
-    maple_tx_program_init(txpio, txsm, txoffset, PICO_PIN1_PIN, PICO_PIN5_PIN, 3.0f);
-
-	uint rxsm = 0;
-    maple_rx_triple_program_init(rxpio, rxoffset, PICO_PIN1_PIN_RX, PICO_PIN5_PIN_RX, 3.0f);
-
-	txdma_chan = dma_claim_unused_channel(true);
-	dma_channel_config txc = dma_channel_get_default_config(txdma_chan);
-    channel_config_set_read_increment(&txc, true);
-    channel_config_set_write_increment(&txc, false);
-	channel_config_set_transfer_data_size(&txc, DMA_SIZE_32);
-    channel_config_set_dreq(&txc, pio_get_dreq(txpio, txsm, true));
-    dma_channel_configure(txdma_chan, &txc,
-        &txpio->txf[txsm],	// Destinatinon pointer
-        NULL,  				// Source pointer
-        0,					// Number of transfers
-        false               // Delay start
+	uint TXDMAChannel = dma_claim_unused_channel(true);
+	dma_channel_config TXDMAConfig = dma_channel_get_default_config(TXDMAChannel);
+    channel_config_set_read_increment(&TXDMAConfig, true);
+    channel_config_set_write_increment(&TXDMAConfig, false);
+	channel_config_set_transfer_data_size(&TXDMAConfig, DMA_SIZE_32);
+    channel_config_set_dreq(&TXDMAConfig, pio_get_dreq(TXPIO, TXStateMachine, true));
+    dma_channel_configure(TXDMAChannel, &TXDMAConfig,
+        &TXPIO->txf[TXStateMachine],	// Destinatinon pointer
+        NULL,  							// Source pointer (will set when want to send)
+        0,								// Number of transfers (will set when want to send)
+        false              				// Don't start yet
     );
-	
-	printf("Starting RX PIO\n");
 
 	gpio_pull_up(PICO_PIN1_PIN);
 	gpio_pull_up(PICO_PIN5_PIN);
+}
 
-	pio_sm_set_enabled(rxpio, rxsm+1, true);
-	pio_sm_set_enabled(rxpio, rxsm+2, true);
-	pio_sm_set_enabled(rxpio, rxsm, true);
+void SetupMapleRX()
+{
+	uint RXPIOOffsets[3] = {
+		pio_add_program(RXPIO, &maple_rx_triple1_program),
+		pio_add_program(RXPIO, &maple_rx_triple2_program),
+		pio_add_program(RXPIO, &maple_rx_triple3_program)
+		};
+	maple_rx_triple_program_init(RXPIO, RXPIOOffsets, PICO_PIN1_PIN_RX, PICO_PIN5_PIN_RX, 3.0f);
 
-	// Ready to go
+	// Make sure core1 is ready to say we are ready
+	multicore_fifo_pop_blocking();
 	multicore_fifo_push_blocking(0);
-	// Make sure decoder is ready to go
-	uint SOP = multicore_fifo_pop_blocking();
 
+	pio_sm_set_enabled(RXPIO, 1, true);
+	pio_sm_set_enabled(RXPIO, 2, true);
+	pio_sm_set_enabled(RXPIO, 0, true);
+}
+
+int main() {
+	stdio_init_all();
+	printf("Starting\n");
+
+	multicore_launch_core1(core1_entry);
+
+	BuildInfoPacket();
+	BuildControllerPacket();
+
+	SetupButtons();
+	SetupMapleTX();
+	SetupMapleRX();
+	
+	uint StartOfPacket = 0;
     while (true)
 	{
-		uint EOP = multicore_fifo_pop_blocking();
+		uint EndOfPacket = multicore_fifo_pop_blocking();
 
 		// TODO: Improve. Would be nice not to move here
-		for (uint i = SOP; i < EOP; i += 4)
+		for (uint i = StartOfPacket; i < EndOfPacket; i += 4)
 		{
-			*(uint*)&Packet[i - SOP] = __builtin_bswap32(*(uint*)&capture_buf[i & (sizeof(capture_buf) - 1)]);
+			*(uint*)&Packet[i - StartOfPacket] = __builtin_bswap32(*(uint*)&RecieveBuffer[i & (sizeof(RecieveBuffer) - 1)]);
 		}
 		
-		uint PacketSize = EOP - SOP;
+		uint PacketSize = EndOfPacket - StartOfPacket;
 		if (!ConsumePacket(PacketSize))
 		{
 #if SHOULD_PRINT
@@ -706,25 +701,24 @@ int main() {
 			}
 #endif
 		}
+		StartOfPacket = ((EndOfPacket + 3) & ~3);
 
-		SOP = ((EOP + 3) & ~3);
-
-		if (SendState != SEND_NOTHING)
+		if (NextPacketSend != SEND_NOTHING)
 		{
 #if SHOULD_SEND
-			if (!dma_channel_is_busy(txdma_chan))
+			if (!dma_channel_is_busy(TXDMAChannel))
 			{
-				if (SendState == SEND_CONTROLLER_INFO)
+				if (NextPacketSend == SEND_CONTROLLER_INFO)
 				{
-					SendInfoPacket();
+					SendPacket((uint*)&InfoPacket, sizeof(InfoPacket) / sizeof(uint));
 				}
-				else if (SendState == SEND_CONTROLLER_STATUS)
+				else if (NextPacketSend == SEND_CONTROLLER_STATUS)
 				{
-					SendControllerPacket();
+					SendControllerStatus();
 				}
 			}
 #endif
-			SendState = SEND_NOTHING;
+			NextPacketSend = SEND_NOTHING;
 		}
 	}
 }
