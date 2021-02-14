@@ -4,7 +4,7 @@
 This is a homebrew controller for playing the Pop'n'Music games on the Sega Dreamcast using a Raspberry Pi Pico.
 
 ![Image of controller](https://github.com/charcole/Dreamcast-PopnMusic/blob/main/Photos/IMG_4824.jpeg)
-*Please excuse the kid mess in this photo :)*
+*Please excuse the kid mess in this photo (and my own mess) :)*
 
 ## Software
 The physical construction was done a couple years ago but I put off doing the software. The Maple (Dreamcast controller) bus is quite a fast bus so a bit tricky to do with a low end microcontroller (although can be done). When the Raspbery Pi Pico was announced the Programmable IO seemed like it would be perfect for implementing this which spurred me into action to get this finished off. As the RP2040 (chip in the Pico) is fairly new I thought I'd write up my first impressions.
