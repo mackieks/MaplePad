@@ -1,7 +1,7 @@
-# Dreamcast Pop'n'Music Controller<br/>Using Raspbery Pi Pico (RP2040)
+# Dreamcast Pop'n Music Controller<br/>Using Raspbery Pi Pico (RP2040)
 
 ## Intro
-This is a homebrew controller for playing the Pop'n'Music games on the Sega Dreamcast using a Raspberry Pi Pico.
+This is a homebrew controller for playing the Pop'n Music games on the Sega Dreamcast using a Raspberry Pi Pico.
 
 ![Image of controller](https://github.com/charcole/Dreamcast-PopnMusic/blob/main/Photos/IMG_4824.jpeg)
 *Please excuse the kid mess in this photo (and my own mess) :)*
@@ -10,7 +10,7 @@ This is a homebrew controller for playing the Pop'n'Music games on the Sega Drea
 The physical construction was done a couple years ago but I put off doing the software. The Maple (Dreamcast controller) bus is quite a fast bus so a bit tricky to do with a low end microcontroller (although can be done). When the Raspbery Pi Pico was announced the Programmable IO seemed like it would be perfect for implementing this which spurred me into action to get this finished off. As the RP2040 (chip in the Pico) is fairly new I thought I'd write up my first impressions.
 
 ### Programmable IO (PIO)
-I started off with using the PIO to send Maple packets with the start and end sync pulses. This wasn't really needed as sending is quite straight forward and could easily be done with bit banging but I was keen to get to grips with the PIO with a simple case first. Working with more than one pin was a bit clunky (having to use side channels) but it was fairly simple to write. Sending became very simple as it's just a case of starting a DMA to the PIO. Was really fire and forget once working which is really cool.
+I started off with using the PIO to send Maple packets with the start and end sync pulses. This wasn't really needed as sending is quite straight forward and could easily be done with bit banging but I was keen to get to grips with the PIO with a simple case first. Working with more than one output pin was a bit clunky (having to use side channels) but it was fairly simple to write. Sending a packet then became completely trivial, just a case of starting a DMA to the PIO. Was really fire and forget once working which is really cool.
 
 Recieving, the bit I was excited for using PIO for, turned out to be a harder problem. The Maple bus (that Dreamcast controllers use to communicate with the console) is a two wire protocol (http://mc.pp.se/dc/maplewire.html) where the two wires take turns at being the clock. This makes it challenging to work with in the PIO as...
 * You can select a pin to branch on but only one per PIO state machine (but Maple needs two)
@@ -50,7 +50,7 @@ I was lucky enough to be able to get three Raspberry Pi Pico's on launch day so 
 
 ### Overall impressions of the Pico
 
-I know I've bought up some problems but I actually really like the Pico. It's new so information seems a bit thin on the ground but hopefully that'll improve in time. The Programmable IO is limited in some annoying ways but for what it's good at it's brilliant. The documentation and libraries are all top notch as far as I'm concerned (as a hobbiest). I have used a lot of ESP32s recently and has been my go to microcontroller for quite some years now. I'm not sure the Pico can unseat it as my favourite microcontroller just yet but it's giving it a good run for the money. I'm really looking forward to where the Pico goes next.
+I know I've bought up some problems but I actually really like the Pico. It's new so information seems a bit thin on the ground but hopefully that'll improve in time. The Programmable IO is limited in some annoying ways but for what it's good at it's brilliant. Now I know the limitations I'm excited by a few other ideas that should play to its strengths more. The documentation and libraries are all top notch as far as I'm concerned (as a hobbiest). I have used a lot of ESP32s recently and has been my go to microcontroller for quite some years now. I'm not sure the Pico can unseat it as my favourite microcontroller just yet but it's giving it a good run for the money. I'm really looking forward to where the Pico goes next.
 
 ## Physical Construction
 The controller itself is made from many laser cut slices of 6mm MDF. The top layer is clear acrylic and underneath that are the graphics printed on normal paper (I used a poster printing company). The bottom layer is cork matting to make a nice non slip surface. All the layers are sandwiched together using hefty M8 bolts apart from the bottom couple layers which are glued to provide a space for the nuts. In all it's a very heavy and substatial feeling controller that should live up to a lot of punishment like the real arcade machine.
@@ -61,4 +61,6 @@ Buttons are generic 100mm arcade buttons found on eBay or AliExpress. Be warned 
 
 For strain relief on the cable I left room for the wire to curl around one of the bolts a couple times. As I didn't want the wire to be cut by the thread of the bolt I asked a friend to show me how to use the lathe at the local hackspace (where I also used the laser cutter) and we machined a small tube out of Delrin with an M8 thread on the inside (so it doesn't rotate). I suppose you could get similar results with a 3D printed spacer though if you don't have access to a friendly machinist.
 
-I did leave a slot within the shell for the electronic but I ended up just putting the Pico in one of the button wells as there was more space for Dupont connectors (for easy serviceability). I might do a PCB at some time in the future and try out the castellations for soldering the Pico as a module. 
+I did leave a slot within the shell for the electronic but I ended up just putting the Pico in one of the button wells as there was more space for Dupont connectors (for easy serviceability). I might do a PCB at some time in the future and try out the castellations for soldering the Pico as a module.
+
+One thing I would change if I were doing it all again would be adding at least one extra button. This is needed as you must press Start to get past the start screen of at least the first Pop'n Music game. As the controller was already built at this stage I put in a slightly hacky feature where holding down a button combination (all yellow and white buttons at once) simulates a Start button press.

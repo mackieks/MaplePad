@@ -30,8 +30,8 @@
 #define SHOULD_SEND 1		// Set to zero to sniff two devices sending signals to each other
 #define SHOULD_PRINT 0		// Nice for debugging but can cause timing issues
 
-#define POPNMUSIC 1			// Pop'n'Music controller or generic controller
-#define NUM_BUTTONS	9		// On a Pop'n'Music controller
+#define POPNMUSIC 1			// Pop'n Music controller or generic controller
+#define NUM_BUTTONS	9		// On a Pop'n Music controller
 #define FADE_SPEED 8		// How fast the LEDs fade after press
 #define START_BUTTON 0x0008	// Bitmask for the start button
 #define START_MASK 0x0251	// Key combination for Start as we don't have a dedicated button
@@ -197,6 +197,7 @@ void BuildInfoPacket()
 #endif
 			sizeof(InfoPacket.Info.ProductName));
 	strncpy(InfoPacket.Info.ProductLicense,
+			// NOT REALLY! Don't sue me Sega!
 			"Produced By or Under License From SEGA ENTERPRISES,LTD.     ",
 			sizeof(InfoPacket.Info.ProductLicense));
 	InfoPacket.Info.StandbyPower = 430;
