@@ -435,7 +435,7 @@ void SetupMapleTX()
     uint TXPIOOffset = pio_add_program(TXPIO, &maple_tx_program);
     maple_tx_program_init(TXPIO, TXStateMachine, TXPIOOffset, PICO_PIN1_PIN, PICO_PIN5_PIN, 3.0f);
 
-	uint TXDMAChannel = dma_claim_unused_channel(true);
+	TXDMAChannel = dma_claim_unused_channel(true);
 	dma_channel_config TXDMAConfig = dma_channel_get_default_config(TXDMAChannel);
     channel_config_set_read_increment(&TXDMAConfig, true);
     channel_config_set_write_increment(&TXDMAConfig, false);
