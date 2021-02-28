@@ -37,6 +37,7 @@
 #define START_BUTTON 0x0008	// Bitmask for the start button
 #define START_MASK 0x0251	// Key combination for Start as we don't have a dedicated button
 #define BLOCK_SIZE 512
+#define PHASE_SIZE (BLOCK_SIZE / 4)
 
 #define FLASH_OFFSET (256 * 1024) // How far into Flash to store the memory card data
 								  // We only have around 16Kb of code so assuming this will be fine
@@ -48,6 +49,8 @@
 
 #define ADDRESS_DREAMCAST 0
 #define ADDRESS_CONTROLLER 0x20
+#define ADDRESS_SUBPERIPHERAL 0x01
+#define ADDRESS_CONTROLLER_AND_SUBS (ADDRESS_CONTROLLER|ADDRESS_SUBPERIPHERAL)
 
 #define TXPIO pio0
 #define RXPIO pio1
@@ -59,6 +62,7 @@ typedef enum ESendState_e
 	SEND_NOTHING,
 	SEND_CONTROLLER_INFO,
 	SEND_CONTROLLER_STATUS,
+	SEND_MEMORY_CARD_INFO,
 	SEND_MEMORY_INFO,
 	SEND_ACK,
 	SEND_DATA
@@ -83,6 +87,7 @@ enum ECommands
 	CMD_GET_MEMORY_INFO,
 	CMD_BLOCK_READ,
 	CMD_BLOCK_WRITE,
+	CMD_BLOCK_COMPLETE_WRITE,
 	CMD_SET_CONDITION
 };
 
@@ -145,7 +150,7 @@ typedef struct PacketBlockRead_s
 {
 	uint Func;			// Nb. Big endian
 	uint Address;
-	uint Data[BLOCK_SIZE / sizeof(uint)];
+	uint Data[PHASE_SIZE / sizeof(uint)];
 } PacketBlockRead;
 
 typedef struct FACKPacket_s
@@ -213,6 +218,7 @@ static uint8_t RecieveBuffer[4096] __attribute__ ((aligned(4))); // Ring buffer 
 static uint8_t Packet[1024 + 8] __attribute__ ((aligned(4))); // Temp buffer for consuming packets (could remove)
 static FControllerPacket ControllerPacket; // Send buffer for controller status packet (pre-built for speed)
 static FInfoPacket InfoPacket;	// Send buffer for controller info packet (pre-built for speed)
+static FInfoPacket SubPeripheralInfoPacket;	// Send buffer for memory card info packet (pre-built for speed)
 static FMemoryInfoPacket MemoryInfoPacket;	// Send buffer for memory card info packet (pre-built for speed)
 static FACKPacket ACKPacket; // Send buffer for ACK packet (pre-built for speed)
 static FBlockReadResponsePacket DataPacket; // Send buffer for ACK packet (pre-built for speed)
@@ -224,7 +230,11 @@ static uint TXDMAChannel = 0;
 static bool bPressingStart = false;
 
 static uint CachedBlockAddress = 0;
-static uint CachedBlockData[BLOCK_SIZE / sizeof(uint)];
+static uint8_t CachedBlockData[PHASE_SIZE];
+static uint CurrentSector = ~0;
+static uint8_t FlashSector[FLASH_SECTOR_SIZE];
+static bool bPendingWrite = false;
+static uint NumACKs = 0;
 
 uint CalcCRC(const uint* Words, uint NumWords)
 {
@@ -244,7 +254,7 @@ void BuildACKPacket()
 
 	ACKPacket.Header.Command = CMD_RESPOND_COMMAND_ACK;
 	ACKPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	ACKPacket.Header.Sender = ADDRESS_CONTROLLER;
+	ACKPacket.Header.Sender = ADDRESS_SUBPERIPHERAL;
 	ACKPacket.Header.NumWords = 0;
 	
 	ACKPacket.CRC = CalcCRC((uint *)&ACKPacket.Header, sizeof(ACKPacket) / sizeof(uint) - 2);
@@ -256,16 +266,16 @@ void BuildInfoPacket()
 
 	InfoPacket.Header.Command = CMD_RESPOND_DEVICE_INFO;
 	InfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	InfoPacket.Header.Sender = ADDRESS_CONTROLLER;
+	InfoPacket.Header.Sender = ADDRESS_CONTROLLER_AND_SUBS;
 	InfoPacket.Header.NumWords = sizeof(InfoPacket.Info) / sizeof(uint);
 
-	InfoPacket.Info.Func = __builtin_bswap32(FUNC_CONTROLLER | FUNC_MEMORY_CARD);
-	InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000f4100); // What a VMU would send (not sure what it means)
+	InfoPacket.Info.Func = __builtin_bswap32(FUNC_CONTROLLER);
 #if POPNMUSIC
-	InfoPacket.Info.FuncData[1] = __builtin_bswap32(0x000006ff); // What buttons it supports
+	InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000006ff); // What buttons it supports
 #else
-	InfoPacket.Info.FuncData[1] = __builtin_bswap32(0x000f06fe); // What buttons it supports
+	InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000f06fe); // What buttons it supports
 #endif
+	InfoPacket.Info.FuncData[1] = 0;
 	InfoPacket.Info.FuncData[2] = 0;
 	InfoPacket.Info.AreaCode = -1;
 	InfoPacket.Info.ConnectorDirection = 0;
@@ -286,13 +296,41 @@ void BuildInfoPacket()
 	InfoPacket.CRC = CalcCRC((uint *)&InfoPacket.Header, sizeof(InfoPacket) / sizeof(uint) - 2);
 }
 
+void BuildSubPeripheralInfoPacket()
+{
+	SubPeripheralInfoPacket.BitPairsMinus1 = (sizeof(SubPeripheralInfoPacket) - 7) * 4 - 1;
+
+	SubPeripheralInfoPacket.Header.Command = CMD_RESPOND_DEVICE_INFO;
+	SubPeripheralInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
+	SubPeripheralInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL;
+	SubPeripheralInfoPacket.Header.NumWords = sizeof(SubPeripheralInfoPacket.Info) / sizeof(uint);
+
+	SubPeripheralInfoPacket.Info.Func = __builtin_bswap32(FUNC_MEMORY_CARD);
+	SubPeripheralInfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000f4100); // What a VMU would send (not sure what it means)
+	SubPeripheralInfoPacket.Info.FuncData[1] = 0;
+	SubPeripheralInfoPacket.Info.FuncData[2] = 0;
+	SubPeripheralInfoPacket.Info.AreaCode = -1;
+	SubPeripheralInfoPacket.Info.ConnectorDirection = 0;
+	strncpy(SubPeripheralInfoPacket.Info.ProductName,
+			"Visual Memory                 ",
+			sizeof(SubPeripheralInfoPacket.Info.ProductName));
+	strncpy(SubPeripheralInfoPacket.Info.ProductLicense,
+			// NOT REALLY! Don't sue me Sega!
+			"Produced By or Under License From SEGA ENTERPRISES,LTD.     ",
+			sizeof(SubPeripheralInfoPacket.Info.ProductLicense));
+	SubPeripheralInfoPacket.Info.StandbyPower = 430;
+	SubPeripheralInfoPacket.Info.MaxPower = 500;
+
+	SubPeripheralInfoPacket.CRC = CalcCRC((uint *)&SubPeripheralInfoPacket.Header, sizeof(SubPeripheralInfoPacket) / sizeof(uint) - 2);
+}
+
 void BuildMemoryInfoPacket()
 {
 	MemoryInfoPacket.BitPairsMinus1 = (sizeof(MemoryInfoPacket) - 7) * 4 - 1;
 
 	MemoryInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
 	MemoryInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	MemoryInfoPacket.Header.Sender = ADDRESS_CONTROLLER;
+	MemoryInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL;
 	MemoryInfoPacket.Header.NumWords = sizeof(MemoryInfoPacket.Info) / sizeof(uint);
 
 	MemoryInfoPacket.Info.Func = __builtin_bswap32(FUNC_MEMORY_CARD);
@@ -319,7 +357,7 @@ void BuildControllerPacket()
 
 	ControllerPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
 	ControllerPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	ControllerPacket.Header.Sender = ADDRESS_CONTROLLER;
+	ControllerPacket.Header.Sender = ADDRESS_CONTROLLER_AND_SUBS;
 	ControllerPacket.Header.NumWords = sizeof(ControllerPacket.Controller) / sizeof(uint);
 
 	ControllerPacket.Controller.Condition = __builtin_bswap32(FUNC_CONTROLLER);
@@ -340,7 +378,7 @@ void BuildBlockReadResponsePacket()
 
 	DataPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
 	DataPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	DataPacket.Header.Sender = ADDRESS_CONTROLLER;
+	DataPacket.Header.Sender = ADDRESS_SUBPERIPHERAL;
 	DataPacket.Header.NumWords = sizeof(DataPacket.BlockRead) / sizeof(uint);
 
 	DataPacket.BlockRead.Func = __builtin_bswap32(FUNC_MEMORY_CARD);
@@ -413,13 +451,15 @@ void BlockRead(uint Address)
 {
 	uint Partition = (Address >> 24) & 0xFF;
 	uint Phase = (Address >> 16) & 0xFF;
-	uint Block = Address & 0xFFFF;
-	uint FlashAddress = FLASH_OFFSET + Block * BLOCK_SIZE;
-
-	assert(NextPacketSend != SEND_DATA || CachedBlockAddress == Address);
+	uint Block = Address & 0xFF;
+	uint FlashAddress = FLASH_OFFSET + Block * BLOCK_SIZE + Phase * PHASE_SIZE;
 
 	CachedBlockAddress = Address;
-	memcpy(CachedBlockData, (uint8_t*)XIP_BASE + FlashAddress, BLOCK_SIZE);
+	memcpy(CachedBlockData, (uint8_t*)XIP_BASE + FlashAddress, PHASE_SIZE);
+
+#if SHOULD_PRINT
+	printf("Read %08x\n", Address);
+#endif
 
 	NextPacketSend = SEND_DATA;
 }
@@ -429,14 +469,48 @@ void BlockWrite(uint Address, uint* Data, uint NumWords)
 	uint Partition = (Address >> 24) & 0xFF;
 	uint Phase = (Address >> 16) & 0xFF;
 	uint Block = Address & 0xFFFF;
-	uint FlashAddress = FLASH_OFFSET + Block * BLOCK_SIZE;
+	
+	assert(NumWords * sizeof(uint) == PHASE_SIZE);
 
-	assert(NumWords * sizeof(uint) == BLOCK_SIZE);
-	// Nb. Documentation says this is unsafe if core1 is accessing flash
-	// Everything should be fine apart from panic 
-	flash_range_program(FlashAddress, (const uint8_t *)Data, BLOCK_SIZE);
+	uint Sector = (Block * BLOCK_SIZE + Phase * PHASE_SIZE) / FLASH_SECTOR_SIZE;
+	uint SectorOffset = (Block * BLOCK_SIZE + Phase * PHASE_SIZE) & (FLASH_SECTOR_SIZE - 1);
+	assert(SectorOffset + PhaseSize <= FLASH_SECTOR_SIZE);
+
+	if (Sector != CurrentSector)
+	{
+		uint FlashAddress = FLASH_OFFSET + Sector * FLASH_SECTOR_SIZE;
+		memcpy(FlashSector, (uint8_t*)XIP_BASE + FlashAddress, FLASH_SECTOR_SIZE);
+		CurrentSector = Sector;
+	}
+
+	memcpy(FlashSector + SectorOffset, Data, PHASE_SIZE);
+#if SHOULD_PRINT
+	printf("Write %08x %d\n", Address, NumWords);
+#endif
 
 	NextPacketSend = SEND_ACK;
+	NumACKs++;
+}
+
+void BlockCompleteWrite(uint Address)
+{
+	uint Partition = (Address >> 24) & 0xFF;
+	uint Phase = (Address >> 16) & 0xFF;
+	uint Block = Address & 0xFFFF;
+
+	assert(Phase == 4);
+	
+	uint Sector = (Block * BLOCK_SIZE) / FLASH_SECTOR_SIZE;
+	if (Sector != CurrentSector)
+	{
+		printf("Trying to write to different sector than we have data for :( Ignoring.\n");
+		return;
+	}
+	
+	bPendingWrite = true;
+
+	NextPacketSend = SEND_ACK;
+	NumACKs++;
 }
 
 bool ConsumePacket(uint Size)
@@ -450,13 +524,8 @@ bool ConsumePacket(uint Size)
 			uint *PacketData = (uint *)(Header + 1);
 			if (Size == (Header->NumWords + 1) * 4)
 			{
-#if SHOULD_SEND
 				// If it's for us or we've sent something and want to check it
-				if (Header->Recipient == ADDRESS_CONTROLLER || (Header->Recipient == ADDRESS_DREAMCAST && Header->Sender == ADDRESS_CONTROLLER))
-#else
-				// Not sending so just listening to whatever's going on with the bus
-				if (true)
-#endif
+				if (Header->Recipient == ADDRESS_CONTROLLER || (Header->Recipient == ADDRESS_DREAMCAST && Header->Sender == ADDRESS_CONTROLLER_AND_SUBS))
 				{
 					switch (Header->Command)
 					{
@@ -474,37 +543,10 @@ bool ConsumePacket(uint Size)
 						}
 						break;
 					}
-					case CMD_GET_MEMORY_INFO:
-					{
-						if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_MEMORY_CARD) && *(PacketData + 1) == 0)
-						{
-							NextPacketSend = SEND_MEMORY_INFO;
-							return true;
-						}
-						break;
-					}
-					case CMD_BLOCK_READ:
-					{
-						if (Header->NumWords >= 1)
-						{
-							BlockRead(*PacketData);
-							return true;
-						}
-						break;
-					}
-					case CMD_BLOCK_WRITE:
-					{
-						if (Header->NumWords >= 1)
-						{
-							BlockWrite(*PacketData, PacketData + 1, Header->NumWords - 1);
-							return true;
-						}
-						break;
-					}
 					case CMD_RESPOND_DEVICE_INFO:
 					{
 						PacketDeviceInfo *DeviceInfo = (PacketDeviceInfo *)(Header + 1);
-						if (Header->NumWords * 4 == sizeof(PacketDeviceInfo))
+						if (Header->NumWords * sizeof(uint) == sizeof(PacketDeviceInfo))
 						{
 							SWAP4(DeviceInfo->Func);
 							SWAP4(DeviceInfo->FuncData[0]);
@@ -523,7 +565,7 @@ bool ConsumePacket(uint Size)
 					case CMD_RESPOND_DATA_TRANSFER:
 					{
 						PacketControllerCondition *ControllerCondition = (PacketControllerCondition *)(Header + 1);
-						if (Header->NumWords * 4 == sizeof(PacketControllerCondition))
+						if (Header->NumWords * sizeof(uint) == sizeof(PacketControllerCondition))
 						{
 							SWAP4(ControllerCondition->Condition);
 							if (ControllerCondition->Condition == FUNC_CONTROLLER)
@@ -536,11 +578,81 @@ bool ConsumePacket(uint Size)
 #endif
 								return true;
 							}
-							else if (ControllerCondition->Condition == FUNC_MEMORY_CARD)
-							{
-								return true;
-							}
 						}
+						break;
+					}
+					}
+				}
+				else if (Header->Recipient == ADDRESS_SUBPERIPHERAL || (Header->Recipient == ADDRESS_DREAMCAST && Header->Sender == ADDRESS_SUBPERIPHERAL))
+				{
+					switch (Header->Command)
+					{
+					case CMD_REQUEST_DEVICE_INFO:
+					{
+						NextPacketSend = SEND_MEMORY_CARD_INFO;
+						return true;
+					}
+					case CMD_RESPOND_DEVICE_INFO:
+					{
+						PacketDeviceInfo *DeviceInfo = (PacketDeviceInfo *)(Header + 1);
+						if (Header->NumWords * sizeof(uint) == sizeof(PacketDeviceInfo))
+						{
+							SWAP4(DeviceInfo->Func);
+							SWAP4(DeviceInfo->FuncData[0]);
+							SWAP4(DeviceInfo->FuncData[1]);
+							SWAP4(DeviceInfo->FuncData[2]);
+#if SHOULD_PRINT
+							printf("Info:\nFunc: %08x (%08x %08x %08x) Area: %d Dir: %d Name: %.*s License: %.*s Pwr: %d->%d\n",
+								   DeviceInfo->Func, DeviceInfo->FuncData[0], DeviceInfo->FuncData[1], DeviceInfo->FuncData[2],
+								   DeviceInfo->AreaCode, DeviceInfo->ConnectorDirection, 30, DeviceInfo->ProductName, 60, DeviceInfo->ProductLicense,
+								   DeviceInfo->StandbyPower, DeviceInfo->MaxPower);
+#endif
+							return true;
+						}
+						break;
+					}
+					case CMD_GET_MEMORY_INFO:
+					{
+						if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_MEMORY_CARD) && *(PacketData + 1) == 0)
+						{
+							NextPacketSend = SEND_MEMORY_INFO;
+							return true;
+						}
+						break;
+					}
+					case CMD_BLOCK_READ:
+					{
+						if (Header->NumWords >= 2)
+						{
+							assert(*PacketData == __builtin_bswap32(FUNC_MEMORY_CARD));
+							BlockRead(__builtin_bswap32(*(PacketData + 1)));
+							return true;
+						}
+						break;
+					}
+					case CMD_BLOCK_WRITE:
+					{
+						if (Header->NumWords >= 2)
+						{
+							assert(*PacketData == __builtin_bswap32(FUNC_MEMORY_CARD));
+							BlockWrite(__builtin_bswap32(*(PacketData + 1)), PacketData + 2, Header->NumWords - 2);
+							return true;
+						}
+						break;
+					}
+					case CMD_BLOCK_COMPLETE_WRITE:
+					{
+						if (Header->NumWords >= 2)
+						{
+							assert(*PacketData == __builtin_bswap32(FUNC_MEMORY_CARD));
+							BlockCompleteWrite(__builtin_bswap32(*(PacketData + 1)));
+							return true;
+						}
+						break;
+					}
+					case CMD_RESPOND_DATA_TRANSFER:
+					{
+						return true;
 						break;
 					}
 					case CMD_RESPOND_COMMAND_ACK:
@@ -550,10 +662,6 @@ bool ConsumePacket(uint Size)
 						break;
 					}
 					}
-				}
-				else
-				{
-					return true; // Not for us so just say it's fine
 				}
 			}
 		}
@@ -609,7 +717,7 @@ static void __not_in_flash_func(core1_entry)(void)
 			{
 				if (multicore_fifo_wready())
 				{
-					//multicore_fifo_push_blocking(Offset); Don't call as needs all be in RAM. Inlined below
+					//multicore_fifo_push_blocking(Offset);  //Don't call as needs all be in RAM. Inlined below
 					sio_hw->fifo_wr = Offset;
 					__sev();
 					StartOfPacket = ((Offset + 3) & ~3); // Align up for easier swizzling
@@ -624,7 +732,8 @@ static void __not_in_flash_func(core1_entry)(void)
 		}
 		if ((RXPIO->fstat & (1u << (PIO_FSTAT_RXFULL_LSB))) != 0)
 		{
-			panic("Probably overflowed. This code isn't fast enough :(\n");
+			//TODO: Why does inlining multicore_fifo_push_blocking cause this to fire?
+			//panic("Probably overflowed. This code isn't fast enough :(\n");
 		}
 	}
 }
@@ -696,10 +805,14 @@ int main() {
 
 	multicore_launch_core1(core1_entry);
 
-	BuildACKPacket();
+	// Controller packets
 	BuildInfoPacket();
-	BuildMemoryInfoPacket();
 	BuildControllerPacket();
+	
+	// Subperipheral (memory card) packets
+	BuildACKPacket();
+	BuildSubPeripheralInfoPacket();
+	BuildMemoryInfoPacket();
 	BuildBlockReadResponsePacket();
 
 	SetupButtons();
@@ -747,11 +860,24 @@ int main() {
 				case SEND_CONTROLLER_STATUS:
 					SendControllerStatus();
 					break;
+				case SEND_MEMORY_CARD_INFO:
+					SendPacket((uint *)&SubPeripheralInfoPacket, sizeof(SubPeripheralInfoPacket) / sizeof(uint));
+					break;
 				case SEND_MEMORY_INFO:
 					SendPacket((uint *)&MemoryInfoPacket, sizeof(MemoryInfoPacket) / sizeof(uint));
 					break;
 				case SEND_ACK:
 					SendPacket((uint *)&ACKPacket, sizeof(ACKPacket) / sizeof(uint));
+					NumACKs--;
+					if (bPendingWrite)
+					{
+						// Nb. Documentation says this is unsafe if core1 is accessing flash
+						// Everything should be fine apart from panic (and multicore_push_blocking which should be fixable)
+						uint FlashAddress = FLASH_OFFSET + CurrentSector * FLASH_SECTOR_SIZE;
+						flash_range_erase(FlashAddress, FLASH_SECTOR_SIZE);
+						flash_range_program(FlashAddress, FlashSector, FLASH_SECTOR_SIZE);
+						bPendingWrite = false;
+					}
 					break;
 				case SEND_DATA:
 					SendBlockReadResponsePacket();
@@ -760,6 +886,10 @@ int main() {
 			}
 #endif
 			NextPacketSend = SEND_NOTHING;
+			if (NumACKs > 0)
+			{
+				NextPacketSend = SEND_ACK;
+			}
 		}
 	}
 }

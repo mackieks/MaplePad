@@ -1,7 +1,7 @@
 # Dreamcast Pop'n Music Controller<br/>Using Raspbery Pi Pico (RP2040)
 
 ## Intro
-This is a homebrew controller for playing the Pop'n Music games on the Sega Dreamcast using a Raspberry Pi Pico.
+This is a homebrew controller for playing the Pop'n Music games on the Sega Dreamcast using a Raspberry Pi Pico. It emulates both the controller and a memory card (using the Raspberry Pi Pico's flash for storage).
 
 ![Image of controller](https://github.com/charcole/Dreamcast-PopnMusic/blob/main/Photos/IMG_4824.jpeg)
 *Please excuse the kid mess in this photo (and my own mess) :)*
