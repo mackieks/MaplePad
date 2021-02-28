@@ -39,6 +39,7 @@
 #define BLOCK_SIZE 512
 #define PHASE_SIZE (BLOCK_SIZE / 4)
 
+#define FLASH_WRITE_DELAY	16    // About quarter of a second if polling once a frame
 #define FLASH_OFFSET (256 * 1024) // How far into Flash to store the memory card data
 								  // We only have around 16Kb of code so assuming this will be fine
 
@@ -150,7 +151,7 @@ typedef struct PacketBlockRead_s
 {
 	uint Func;			// Nb. Big endian
 	uint Address;
-	uint Data[PHASE_SIZE / sizeof(uint)];
+	uint8_t Data[BLOCK_SIZE];
 } PacketBlockRead;
 
 typedef struct FACKPacket_s
@@ -229,12 +230,10 @@ static uint OriginalReadBlockResponseCRC = 0;
 static uint TXDMAChannel = 0;
 static bool bPressingStart = false;
 
-static uint CachedBlockAddress = 0;
-static uint8_t CachedBlockData[PHASE_SIZE];
-static uint CurrentSector = ~0;
-static uint8_t FlashSector[FLASH_SECTOR_SIZE];
-static bool bPendingWrite = false;
-static uint NumACKs = 0;
+static uint8_t MemoryCard[128 * 1024];
+static uint SectorDirty = 0;
+static uint SendBlockAddress = ~0u;
+static uint MessagesSinceWrite = FLASH_WRITE_DELAY;
 
 uint CalcCRC(const uint* Words, uint NumWords)
 {
@@ -334,9 +333,8 @@ void BuildMemoryInfoPacket()
 	MemoryInfoPacket.Header.NumWords = sizeof(MemoryInfoPacket.Info) / sizeof(uint);
 
 	MemoryInfoPacket.Info.Func = __builtin_bswap32(FUNC_MEMORY_CARD);
-	// This seems to be what emulators return but seems a bit weird
-	// Want to sniff the communication with a real VMU
-	// Seems to work but only says 74 blocks free when should be 200?
+	// This seems to be what emulators return but some values seem a bit weird
+	// TODO: Sniff the communication with a real VMU
 	MemoryInfoPacket.Info.TotalSize = 255;
 	MemoryInfoPacket.Info.ParitionNumber = 0;
 	MemoryInfoPacket.Info.SystemArea = 255;
@@ -441,28 +439,30 @@ void SendControllerStatus()
 
 void SendBlockReadResponsePacket()
 {
-	DataPacket.BlockRead.Address = CachedBlockAddress;
-	memcpy(DataPacket.BlockRead.Data, CachedBlockData, sizeof(DataPacket.BlockRead.Data));
+	uint Partition = (SendBlockAddress >> 24) & 0xFF;
+	uint Phase = (SendBlockAddress >> 16) & 0xFF;
+	uint Block = SendBlockAddress & 0xFF; // Emulators also seem to ignore top bits for a read
+
+	assert(Phase == 0);
+	uint MemoryOffset = Block * BLOCK_SIZE + Phase * PHASE_SIZE;
+
+	DataPacket.BlockRead.Address = SendBlockAddress;
+	memcpy(DataPacket.BlockRead.Data, &MemoryCard[MemoryOffset], sizeof(DataPacket.BlockRead.Data));
 	uint CRC = CalcCRC(&DataPacket.BlockRead.Address, 1 + (sizeof(DataPacket.BlockRead.Data) / sizeof(uint)));
-	DataPacket.CRC = CRC ^ OriginalReadBlockResponseCRC;	
+	DataPacket.CRC = CRC ^ OriginalReadBlockResponseCRC;
+	
+	SendBlockAddress = ~0u;
 	
 	SendPacket((uint *)&DataPacket, sizeof(DataPacket) / sizeof(uint));
 }
 
 void BlockRead(uint Address)
 {
-	uint Partition = (Address >> 24) & 0xFF;
-	uint Phase = (Address >> 16) & 0xFF;
-	uint Block = Address & 0xFF;
-	uint FlashAddress = FLASH_OFFSET + Block * BLOCK_SIZE + Phase * PHASE_SIZE;
-
-	CachedBlockAddress = Address;
-	memcpy(CachedBlockData, (uint8_t*)XIP_BASE + FlashAddress, PHASE_SIZE);
-
 #if SHOULD_PRINT
 	printf("Read %08x\n", Address);
 #endif
-
+	assert(SendBlockAddress == ~0u); // No send pending
+	SendBlockAddress = Address;
 	NextPacketSend = SEND_DATA;
 }
 
@@ -473,25 +473,16 @@ void BlockWrite(uint Address, uint* Data, uint NumWords)
 	uint Block = Address & 0xFFFF;
 	
 	assert(NumWords * sizeof(uint) == PHASE_SIZE);
-
-	uint Sector = (Block * BLOCK_SIZE + Phase * PHASE_SIZE) / FLASH_SECTOR_SIZE;
-	uint SectorOffset = (Block * BLOCK_SIZE + Phase * PHASE_SIZE) & (FLASH_SECTOR_SIZE - 1);
-	assert(SectorOffset + PhaseSize <= FLASH_SECTOR_SIZE);
-
-	if (Sector != CurrentSector)
-	{
-		uint FlashAddress = FLASH_OFFSET + Sector * FLASH_SECTOR_SIZE;
-		memcpy(FlashSector, (uint8_t*)XIP_BASE + FlashAddress, FLASH_SECTOR_SIZE);
-		CurrentSector = Sector;
-	}
-
-	memcpy(FlashSector + SectorOffset, Data, PHASE_SIZE);
 #if SHOULD_PRINT
 	printf("Write %08x %d\n", Address, NumWords);
 #endif
 
+	uint MemoryOffset = Block * BLOCK_SIZE + Phase * PHASE_SIZE;
+	memcpy(&MemoryCard[MemoryOffset], Data, PHASE_SIZE);
+	SectorDirty |= 1u << (MemoryOffset / FLASH_SECTOR_SIZE);
+	MessagesSinceWrite = 0;
+
 	NextPacketSend = SEND_ACK;
-	NumACKs++;
 }
 
 void BlockCompleteWrite(uint Address)
@@ -502,19 +493,11 @@ void BlockCompleteWrite(uint Address)
 
 	assert(Phase == 4);
 	
-	uint Sector = (Block * BLOCK_SIZE) / FLASH_SECTOR_SIZE;
-	if (Sector != CurrentSector)
-	{
-		printf("Trying to write to different sector than we have data for :( Ignoring.\n");
-		return;
-	}
-	
-	// If we write then send the ACK the dreamcast things we haven't responded
-	// So delay actual write until later
-	bPendingWrite = true;
+	uint MemoryOffset = Block * BLOCK_SIZE;
+	SectorDirty |= 1u << (MemoryOffset / FLASH_SECTOR_SIZE);
+	MessagesSinceWrite = 0;
 
 	NextPacketSend = SEND_ACK;
-	NumACKs++;
 }
 
 bool ConsumePacket(uint Size)
@@ -805,9 +788,17 @@ void SetupMapleRX()
 	pio_sm_set_enabled(RXPIO, 0, true);
 }
 
+void ReadFlash()
+{
+	memcpy(MemoryCard, (uint8_t*)XIP_BASE + FLASH_OFFSET, sizeof(MemoryCard));
+	SectorDirty = 0;
+}
+
 int main() {
 	stdio_init_all();
 	printf("Starting\n");
+
+	ReadFlash();
 
 	multicore_launch_core1(core1_entry);
 
@@ -865,6 +856,27 @@ int main() {
 					break;
 				case SEND_CONTROLLER_STATUS:
 					SendControllerStatus();
+
+					// Doing flash writes on controller status as likely got a frame until next message
+					// And unlikely to be in middle of doing rapid flash operations like a format or reading a large file
+					// Ideally this would be asynchronous but doesn't seem possible :(
+				    // We delay writes as flash reprogramming too slow to keep up with Dreamcast
+					// Also has side benefit of amalgamating flash writes thus reducing wear 
+					if (SectorDirty && !multicore_fifo_rvalid() && MessagesSinceWrite >= FLASH_WRITE_DELAY)
+					{
+						uint Sector = 31 - __builtin_clz(SectorDirty);
+						SectorDirty &= ~(1 << Sector);
+						uint SectorOffset = Sector * FLASH_SECTOR_SIZE;
+
+						uint Interrupts = save_and_disable_interrupts();
+						flash_range_erase(FLASH_OFFSET + SectorOffset, FLASH_SECTOR_SIZE);
+						flash_range_program(FLASH_OFFSET + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
+						restore_interrupts(Interrupts);
+					}
+					else if (MessagesSinceWrite < FLASH_WRITE_DELAY)
+					{
+						MessagesSinceWrite++;
+					}
 					break;
 				case SEND_MEMORY_CARD_INFO:
 					SendPacket((uint *)&SubPeripheralInfoPacket, sizeof(SubPeripheralInfoPacket) / sizeof(uint));
@@ -874,16 +886,6 @@ int main() {
 					break;
 				case SEND_ACK:
 					SendPacket((uint *)&ACKPacket, sizeof(ACKPacket) / sizeof(uint));
-					NumACKs--;
-					if (bPendingWrite)
-					{
-						// Nb. Documentation says this is unsafe if core1 is accessing flash
-						// Everything should be fine apart from panic/printf
-						uint FlashAddress = FLASH_OFFSET + CurrentSector * FLASH_SECTOR_SIZE;
-						flash_range_erase(FlashAddress, FLASH_SECTOR_SIZE);
-						flash_range_program(FlashAddress, FlashSector, FLASH_SECTOR_SIZE);
-						bPendingWrite = false;
-					}
 					break;
 				case SEND_DATA:
 					SendBlockReadResponsePacket();
@@ -892,10 +894,6 @@ int main() {
 			}
 #endif
 			NextPacketSend = SEND_NOTHING;
-			if (NumACKs > 0)
-			{
-				NextPacketSend = SEND_ACK;
-			}
 		}
 	}
 }
