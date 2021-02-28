@@ -335,6 +335,8 @@ void BuildMemoryInfoPacket()
 
 	MemoryInfoPacket.Info.Func = __builtin_bswap32(FUNC_MEMORY_CARD);
 	// This seems to be what emulators return but seems a bit weird
+	// Want to sniff the communication with a real VMU
+	// Seems to work but only says 74 blocks free when should be 200?
 	MemoryInfoPacket.Info.TotalSize = 255;
 	MemoryInfoPacket.Info.ParitionNumber = 0;
 	MemoryInfoPacket.Info.SystemArea = 255;
@@ -507,6 +509,8 @@ void BlockCompleteWrite(uint Address)
 		return;
 	}
 	
+	// If we write then send the ACK the dreamcast things we haven't responded
+	// So delay actual write until later
 	bPendingWrite = true;
 
 	NextPacketSend = SEND_ACK;
@@ -677,7 +681,7 @@ static void __not_in_flash_func(core1_entry)(void)
 	uint8_t XOR = 0;
 	uint StartOfPacket = 0;
 	uint Offset = 0;
-	
+
 	BuildStateMachineTables();
 
 	multicore_fifo_push_blocking(0); // Tell core0 we're ready
@@ -732,8 +736,10 @@ static void __not_in_flash_func(core1_entry)(void)
 		}
 		if ((RXPIO->fstat & (1u << (PIO_FSTAT_RXFULL_LSB))) != 0)
 		{
-			//TODO: Why does inlining multicore_fifo_push_blocking cause this to fire?
-			//panic("Probably overflowed. This code isn't fast enough :(\n");
+			// Should be a panic but the inlining of multicore_fifo_push_blocking caused it to fire
+			// Weirdly after changing this to a printf it never gets called :/
+			// Something to work out...
+			printf("Probably overflowed. This code isn't fast enough :(\n");
 		}
 	}
 }
@@ -872,7 +878,7 @@ int main() {
 					if (bPendingWrite)
 					{
 						// Nb. Documentation says this is unsafe if core1 is accessing flash
-						// Everything should be fine apart from panic (and multicore_push_blocking which should be fixable)
+						// Everything should be fine apart from panic/printf
 						uint FlashAddress = FLASH_OFFSET + CurrentSector * FLASH_SECTOR_SIZE;
 						flash_range_erase(FlashAddress, FLASH_SECTOR_SIZE);
 						flash_range_program(FlashAddress, FlashSector, FLASH_SECTOR_SIZE);
