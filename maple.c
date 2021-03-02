@@ -40,7 +40,7 @@
 #define PHASE_SIZE (BLOCK_SIZE / 4)
 
 #define FLASH_WRITE_DELAY	16    // About quarter of a second if polling once a frame
-#define FLASH_OFFSET (256 * 1024) // How far into Flash to store the memory card data
+#define FLASH_OFFSET (512 * 1024) // How far into Flash to store the memory card data
 								  // We only have around 16Kb of code so assuming this will be fine
 
 #define PICO_PIN1_PIN	14
