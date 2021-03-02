@@ -11,13 +11,15 @@ pico_sdk_init()
 
 add_executable(maple_pio)
 
+target_compile_definitions(maple_pio PRIVATE PICO_HW)
+
 pico_enable_stdio_usb(maple_pio 0)
 pico_enable_stdio_uart(maple_pio 1)
 pico_add_extra_outputs(maple_pio)
 
 pico_generate_pio_header(maple_pio ${CMAKE_CURRENT_LIST_DIR}/maple.pio)
 
-target_sources(maple_pio PRIVATE maple.c state_machine.c)
+target_sources(maple_pio PRIVATE maple.c state_machine.c format.c)
 
 target_link_libraries(maple_pio PRIVATE
         pico_stdlib

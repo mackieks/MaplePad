@@ -27,6 +27,7 @@
 #include "pico/multicore.h"
 #include "maple.pio.h"
 #include "state_machine.h"
+#include "format.h"
 
 #define SHOULD_SEND 1		// Set to zero to sniff two devices sending signals to each other
 #define SHOULD_PRINT 0		// Nice for debugging but can cause timing issues
@@ -36,7 +37,6 @@
 #define FADE_SPEED 8		// How fast the LEDs fade after press
 #define START_BUTTON 0x0008	// Bitmask for the start button
 #define START_MASK 0x0251	// Key combination for Start as we don't have a dedicated button
-#define BLOCK_SIZE 512
 #define PHASE_SIZE (BLOCK_SIZE / 4)
 
 #define FLASH_WRITE_DELAY	16    // About quarter of a second if polling once a frame
@@ -335,17 +335,17 @@ void BuildMemoryInfoPacket()
 	MemoryInfoPacket.Info.Func = __builtin_bswap32(FUNC_MEMORY_CARD);
 	// This seems to be what emulators return but some values seem a bit weird
 	// TODO: Sniff the communication with a real VMU
-	MemoryInfoPacket.Info.TotalSize = 255;
+	MemoryInfoPacket.Info.TotalSize = CARD_BLOCKS - 1;
 	MemoryInfoPacket.Info.ParitionNumber = 0;
-	MemoryInfoPacket.Info.SystemArea = 255;
-	MemoryInfoPacket.Info.FATArea = 254;
-	MemoryInfoPacket.Info.NumFATBlocks = 1;
-	MemoryInfoPacket.Info.FileInfoArea = 253;
-	MemoryInfoPacket.Info.NumInfoBlocks = 13; // Grows downwards?
+	MemoryInfoPacket.Info.SystemArea = ROOT_BLOCK;	// Seems like this should be root block instead of "system area"
+	MemoryInfoPacket.Info.FATArea = FAT_BLOCK;
+	MemoryInfoPacket.Info.NumFATBlocks = NUM_FAT_BLOCKS;
+	MemoryInfoPacket.Info.FileInfoArea = DIRECTORY_BLOCK;
+	MemoryInfoPacket.Info.NumInfoBlocks = NUM_DIRECTORY_BLOCKS; // Grows downwards?
 	MemoryInfoPacket.Info.VolumeIcon = 0;
 	MemoryInfoPacket.Info.Reserved = 0;
-	MemoryInfoPacket.Info.SaveArea = 200;
-	MemoryInfoPacket.Info.NumSaveBlocks = 31; // Grows downwards? Shouldn't it to be 200?
+	MemoryInfoPacket.Info.SaveArea = SAVE_BLOCK;
+	MemoryInfoPacket.Info.NumSaveBlocks = NUM_SAVE_BLOCKS; // Grows downwards? Shouldn't it to be 200?
 	MemoryInfoPacket.Info.Reserved32 = 0;
 
 	MemoryInfoPacket.CRC = CalcCRC((uint *)&MemoryInfoPacket.Header, sizeof(MemoryInfoPacket) / sizeof(uint) - 2);
@@ -790,8 +790,8 @@ void SetupMapleRX()
 
 void ReadFlash()
 {
-	memcpy(MemoryCard, (uint8_t*)XIP_BASE + FLASH_OFFSET, sizeof(MemoryCard));
-	SectorDirty = 0;
+	memcpy(MemoryCard, (uint8_t *)XIP_BASE + FLASH_OFFSET, sizeof(MemoryCard));
+	SectorDirty = CheckFormatted(MemoryCard);
 }
 
 int main() {
