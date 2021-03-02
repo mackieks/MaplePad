@@ -38,6 +38,18 @@ To split up the work I decided to use the second core to read directly from the 
 
 I knew there might not be much time to process data (maybe as little as half a microsecond for each byte of input) so to keep up with the receiving PIO I used the large amount of RAM available to store a table (20Kb) of precalculated responses so a byte of transitions could be decoded at a time with just a simple lookup. I was a bit shocked to discover even this code couldn't keep up at first but after a bit of head scratching I realized the problem. Code is stored in flash and paged into a cache in RAM as needed. This is a slow process and if my time critical function wasn't paged in then by the time it was fetched from flash the input FIFO would be full and data could have been missed. The magic incantation I needed was to declare my function as `__not_in_flash_func(core1_entry)(void)` to force it to always be in RAM. For then on it was smooth sailing.
 
+### Memory Card (VMU/VMS)
+
+After a small amount of Pop'n Music play I realised a memory card was essential. I could have plugged in a normal controller with a VMU in another port but as the Raspberry Pi Pico has 2Mb of flash, why not use that to store save games.
+
+I originally changed the device that we report to the Dreamcast to be a controller with storage functionality. This seems perfectly valid (and might be) but it didn't appear in the system software as it seems to only expect a memory card to be a subperipheral of the controller (like a normal VMU). After reimplementing as a subperipheral it showed up and I could attempt to format it. The flash on the Pico can only be erased (needed before reprogramming) in 4Kb blocks and the Dreamcast writes 512 byte blocks (in 128 byte chunks) which means a naive approach of doing a block at a time was quite slow and inefficient. An erase/reprogram cycle also seemed to be slow enough that the Dreamcast would get upset as the responses weren't being returned fast enough for it. In the end we again used the large amount of RAM available to get us out of a bind by have the whole memory card contents stored in RAM. On startup we read the contents from flash into this RAM buffer and all writes we also initially write to RAM but record which sectors are dirty. The dirty sectors are then lazily flushed back to flash when all the memory card activity has finished. This solves the speed issue but also does a good job of amalgamating the writes.
+
+Finally once this was working I figured it'd be nice to have a custom icon for the new memory card. As this icon is more or less a regular file it seemed easiest to just initialize the flash with a preformatted memory card with the icon file already in place on first run.
+
+![Screenshot of memory card](https://github.com/charcole/Dreamcast-PopnMusic/blob/main/Photos/MemoryCard.png)
+
+As an aside the flash memory can be easily read back using picotool which means this is a way to transfer Dreamcast saves back to a computer. The above screenshot is from an emulator (Reicast) but using the memory card data read back via picotool.
+
 ### PWM
 
 I used PWM for all the LEDs so I could fade them slowly after each button press. Again everything was well documented and the library really easy to use. Only slight wrinkle was as there are less PWM channels than GPIO pins so I had to be careful not to have two LEDs on pins that shared the same PWM channel. This was easily done by just making sure they were all consecutive numbered IO pins.
