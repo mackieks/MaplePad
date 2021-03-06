@@ -52,6 +52,8 @@
 #define ADDRESS_CONTROLLER 0x20
 #define ADDRESS_SUBPERIPHERAL 0x01
 #define ADDRESS_CONTROLLER_AND_SUBS (ADDRESS_CONTROLLER|ADDRESS_SUBPERIPHERAL)
+#define ADDRESS_PORT_MASK 0xC0
+#define ADDRESS_PERIPHERAL_MASK (~ADDRESS_PORT_MASK)
 
 #define TXPIO pio0
 #define RXPIO pio1
@@ -229,6 +231,7 @@ static uint OriginalControllerCRC = 0;
 static uint OriginalReadBlockResponseCRC = 0;
 static uint TXDMAChannel = 0;
 static bool bPressingStart = false;
+static uint CurrentPort = 0;
 
 static uint8_t MemoryCard[128 * 1024];
 static uint SectorDirty = 0;
@@ -390,6 +393,11 @@ void BuildBlockReadResponsePacket()
 
 int SendPacket(const uint* Words, uint NumWords)
 {
+	// Correct the port number. Doesn't change CRC as same on both sender and recipient
+	PacketHeader *Header = (PacketHeader *)(Words + 1);
+	Header->Sender = (Header->Sender & ADDRESS_PERIPHERAL_MASK) | CurrentPort;
+	Header->Recipient = (Header->Recipient & ADDRESS_PERIPHERAL_MASK) | CurrentPort;
+
 	dma_channel_set_read_addr(TXDMAChannel, Words, false);
 	dma_channel_set_trans_count(TXDMAChannel, NumWords, true);
 }
@@ -511,6 +519,14 @@ bool ConsumePacket(uint Size)
 			uint *PacketData = (uint *)(Header + 1);
 			if (Size == (Header->NumWords + 1) * 4)
 			{
+				// Set the port number then mask it off
+				if ((Header->Sender & ADDRESS_PERIPHERAL_MASK) == ADDRESS_DREAMCAST)
+				{
+					CurrentPort = Header->Sender & ADDRESS_PORT_MASK;
+				}
+				Header->Recipient &= ADDRESS_PERIPHERAL_MASK;
+				Header->Sender &= ADDRESS_PERIPHERAL_MASK;
+
 				// If it's for us or we've sent something and want to check it
 				if (Header->Recipient == ADDRESS_CONTROLLER || (Header->Recipient == ADDRESS_DREAMCAST && Header->Sender == ADDRESS_CONTROLLER_AND_SUBS))
 				{
