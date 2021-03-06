@@ -3,3 +3,5 @@
 build/*
 
 maple*.txt
+*-bak
+fp-info-cache
