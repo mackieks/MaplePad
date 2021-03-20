@@ -76,3 +76,9 @@ For strain relief on the cable I left room for the wire to curl around one of th
 I did leave a slot within the shell for the electronic but I ended up just putting the Pico in one of the button wells as there was more space for Dupont connectors (for easy serviceability). I might do a PCB at some time in the future and try out the castellations for soldering the Pico as a module.
 
 One thing I would change if I were doing it all again would be adding at least one extra button. This is needed as you must press Start to get past the start screen of at least the first Pop'n Music game. As the controller was already built at this stage I put in a slightly hacky feature where holding down a button combination (all yellow and white buttons at once) simulates a Start button press.
+
+### PCB
+
+UPDATE: I decided to go back and make a PCB that'd fit in the slot I'd left. Ended up being a very tight fit but managed to squeeze everything in even with the missing LED driver circuitry. The slot I'd left was only just deep enough to accommodate a right angled header, therefore the Pico had to be squeezed in under this (being careful to avoid the tall components like the button). I also ran out of horizontal space for the maple connector so it had be be squeezed in under the right angled header too. This was done by soldering a right angled header upside down then removing the plastic part so the female connector could slide all the way on. To drive the LEDs from 5V (instead of directly off the GPIO) I used super cheap PUMD15 ICs which are dual PNP and NPN transistors with bias resistors integrated into a tiny SOT363 package. I was very happy to have a microscope to solder these as they were ridiculously tiny. This went on the back of the PCB so as not to make the layout ridiculous but they were so small they didn't add to the depth of the board.
+
+![Image of PCB](https://github.com/charcole/Dreamcast-PopnMusic/blob/main/Photos/IMG_4926.jpeg)
