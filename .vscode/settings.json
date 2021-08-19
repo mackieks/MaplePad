@@ -19,5 +19,10 @@
             "visibility": "hidden"
         }
     },
-    "cmake.buildBeforeRun": true
+    "cmake.buildBeforeRun": true,
+    "files.associations": {
+        "flash.h": "c",
+        "pio.h": "c",
+        "pwm.h": "c"
+    }
 }

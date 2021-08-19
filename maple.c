@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "pico/stdlib.h"
+#include "hardware/adc.h"
 #include "hardware/pio.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
@@ -32,7 +33,7 @@
 #define SHOULD_SEND 1		// Set to zero to sniff two devices sending signals to each other
 #define SHOULD_PRINT 0		// Nice for debugging but can cause timing issues
 
-#define POPNMUSIC 1			// Pop'n Music controller or generic controller
+#define POPNMUSIC 0			// Pop'n Music controller or generic controller
 #define NUM_BUTTONS	9		// On a Pop'n Music controller
 #define FADE_SPEED 8		// How fast the LEDs fade after press
 #define START_BUTTON 0x0008	// Bitmask for the start button
@@ -198,22 +199,21 @@ typedef struct FBlockReadResponsePacket_s
 typedef struct ButtonInfo_s
 {
 	int InputIO;
-	int OutputIO;
 	int DCButtonMask;
-	int Fade;
 } ButtonInfo;
 
 static ButtonInfo ButtonInfos[NUM_BUTTONS]=
 {
-	{ 16, 13, 0x0040, 0 },	// White left
-	{ 17, 12, 0x0010, 0 },	// Yellow left
-	{ 18, 11, 0x0020, 0 },	// Green left
-	{ 19, 10, 0x0080, 0 },	// Blue left
-	{ 20, 9, 0x0004, 0 },	// Red centre
-	{ 21, 8, 0x0400, 0 },	// Blue right
-	{ 22, 7, 0x0002, 0 },	// Green right
-	{ 26, 6, 0x0200, 0 },	// Yellow right
-	{ 27, 5, 0x0001, 0 }	// White right
+	{ 2, 0x0200},	// Yellow right, Y
+	{ 3, 0x0008},	// White right, START
+	{ 16, 0x0040},	// White left, LEFT
+	{ 17, 0x0010},	// Yellow left, UP
+	{ 18, 0x0020},	// Green left, DOWN
+	{ 19, 0x0080},	// Blue left, RIGHT
+	{ 20, 0x0004},	// Red centre, A
+	{ 21, 0x0400},	// Blue right, X
+	{ 22, 0x0002}	// Green right, B
+	// { 27, 0x0001}	// White right, C
 };
 
 // Buffers
@@ -404,43 +404,23 @@ int SendPacket(const uint* Words, uint NumWords)
 
 void SendControllerStatus()
 {
-	uint Buttons = 0xFFFF;
+	uint Buttons = 0x0000FFFF;
 
-	// TODO: Possible improvement if we did while waiting for packet from core1
-	// Or run it all in interrupts
 	for (int i = 0; i < NUM_BUTTONS; i++)
 	{
 		if (!gpio_get(ButtonInfos[i].InputIO))
 		{
 			Buttons &= ~ButtonInfos[i].DCButtonMask;
-			ButtonInfos[i].Fade = 0xFF;
-		}
-		ButtonInfos[i].Fade = (ButtonInfos[i].Fade > FADE_SPEED) ? ButtonInfos[i].Fade - FADE_SPEED : 0;
-		pwm_set_gpio_level(ButtonInfos[i].OutputIO, ButtonInfos[i].Fade * ButtonInfos[i].Fade);
-	}
-	if ((Buttons & START_MASK) == 0)
-	{
-		bPressingStart = true;
-	}
-	if (bPressingStart)
-	{
-		if ((Buttons & START_MASK) == START_MASK)
-		{
-			bPressingStart = false;
-		}
-		else
-		{
-			Buttons |= START_MASK;
-			Buttons &= ~START_BUTTON;
 		}
 	}
-	
+
+	adc_select_input(0);
+    ControllerPacket.Controller.JoyX = adc_read() >> 4;
+	adc_select_input(1);
+	ControllerPacket.Controller.JoyY = adc_read() >> 4;
 	ControllerPacket.Controller.Buttons = Buttons;
-	uint CRC = Buttons;
-	CRC ^= CRC << 16;
-	CRC ^= CRC << 8;
-	CRC ^= OriginalControllerCRC;
-	ControllerPacket.CRC = CRC;
+
+	ControllerPacket.CRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
 
 	SendPacket((uint *)&ControllerPacket, sizeof(ControllerPacket) / sizeof(uint));
 }
@@ -448,7 +428,7 @@ void SendControllerStatus()
 void SendBlockReadResponsePacket()
 {
 	uint Partition = (SendBlockAddress >> 24) & 0xFF;
-	uint Phase = (SendBlockAddress >> 16) & 0xFF;
+	uint Phase = (SendBlockAddress >> 16) & 0xFF;	
 	uint Block = SendBlockAddress & 0xFF; // Emulators also seem to ignore top bits for a read
 
 	assert(Phase == 0);
@@ -745,21 +725,12 @@ static void __not_in_flash_func(core1_entry)(void)
 
 void SetupButtons()
 {
-	pwm_config PWMConfig = pwm_get_default_config();
-	pwm_config_set_clkdiv(&PWMConfig, 4.0f);
 	for (int i = 0; i < NUM_BUTTONS; i++)
 	{
 		gpio_init(ButtonInfos[i].InputIO);
 		gpio_set_dir(ButtonInfos[i].InputIO, false);
 		gpio_pull_up(ButtonInfos[i].InputIO);
 
-		gpio_set_function(ButtonInfos[i].OutputIO, GPIO_FUNC_PWM);
-		pwm_init(pwm_gpio_to_slice_num(ButtonInfos[i].OutputIO), &PWMConfig, true);
-	}
-	for (int i = 0; i < NUM_BUTTONS; i++)
-	{
-		// Light up buttons dimly so can tell we are powered
-		pwm_set_gpio_level(ButtonInfos[i].OutputIO, 64*64);
 	}
 }
 
@@ -812,6 +783,12 @@ void ReadFlash()
 
 int main() {
 	stdio_init_all();
+	//set_sys_clock_khz(280000, true);
+	adc_init();
+	adc_set_clkdiv(0);
+	adc_gpio_init(26);
+    adc_gpio_init(27);
+
 	printf("Starting\n");
 
 	ReadFlash();
