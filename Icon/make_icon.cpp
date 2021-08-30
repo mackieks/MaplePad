@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
+#include <stddef.h>
 #include "Icon.c"
 #include "IconMono.c"
 #include "../format.h"
@@ -23,7 +25,7 @@ int main()
 {
 	memset(Padding, 0xFF, sizeof(Padding));
 
-	strncpy(VMU.Comment, "Pop'n Music     ", sizeof(VMU.Comment));
+	strncpy(VMU.Comment, "Visual Memory   ", sizeof(VMU.Comment));
 	VMU.MonochromeOffset = offsetof(IconData, Monochrome);
 	VMU.ColourOffset = offsetof(IconData, Palette);
 	for (int y = 0; y < 32; y++)
@@ -43,7 +45,7 @@ int main()
 	{
 		for (int x = 0; x < 32; x++)
 		{
-			uint32_t Pixel = *(uint32_t *)&Icon.pixel_data[4 * (y * 32 + x)];
+			uint32_t Pixel = *(uint32_t *)&IconMono.pixel_data[4 * (y * 32 + x)];
 			int Index;
 			for (Index = 0; Index < NumEntries; Index++)
 			{
@@ -84,7 +86,7 @@ int main()
 
 	uint8_t MemoryCard[128 * 1024];
 	memset(MemoryCard, 0, sizeof(MemoryCard));
-	CheckFormatted(MemoryCard);
+	//CheckFormatted(MemoryCard);
 	f = fopen("VMU.bin", "wb");
 	if (f)
 	{
