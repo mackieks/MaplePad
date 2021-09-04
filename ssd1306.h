@@ -8,7 +8,7 @@ static int DEVICE_ADDRESS = 0x3C;
  // This can be overclocked, 2000 seems to work on the device being tested
  // Spec says 400 is the maximum. Try faster clocks until it stops working!
  // KHz.
-#define I2C_CLOCK  2000
+#define I2C_CLOCK  3000
 
 #define SSD1306_LCDWIDTH            128
 #define SSD1306_LCDHEIGHT           64

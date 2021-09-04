@@ -6,8 +6,8 @@
  * Modified by Mackie Kannard-Smith 2021
  * SSD1306 I2C library by James Hughes (JamesH65)
  *
- * Dreamcast controller connector pin 1 (Data) to 14 (PICO_PIN1_PIN)
- * Dreamcast controller connector pin 5 (Data) to 15 (PICO_PIN5_PIN)
+ * Dreamcast controller connector pin 1 (Maple A) to 11 (PICO_PIN1_PIN)
+ * Dreamcast controller connector pin 5 (Maple B) to 12 (PICO_PIN5_PIN)
  * Dreamcast controller connector pins 3 (GND) and 4 (Sense) to GND
  * GPIO pins for buttons (uses internal pullups, switch to GND. See ButtonInfos)
  *  
@@ -111,15 +111,16 @@ static void SetPixel(int x,int y, bool on) {
 #define FLASH_OFFSET (512 * 1024) // How far into Flash to store the memory card data
 								  // We only have around 16Kb of code so assuming this will be fine
 
-#define PICO_PIN1_PIN	14
-#define PICO_PIN5_PIN	15
+#define PICO_PIN1_PIN	11
+#define PICO_PIN5_PIN	12
 #define PICO_PIN1_PIN_RX	PICO_PIN1_PIN
 #define PICO_PIN5_PIN_RX	PICO_PIN5_PIN
 
 #define ADDRESS_DREAMCAST 0
 #define ADDRESS_CONTROLLER 0x20
-#define ADDRESS_SUBPERIPHERAL 0x01
-#define ADDRESS_CONTROLLER_AND_SUBS (ADDRESS_CONTROLLER|ADDRESS_SUBPERIPHERAL)
+#define ADDRESS_SUBPERIPHERAL0 0x01
+#define ADDRESS_SUBPERIPHERAL1 0x02
+#define ADDRESS_CONTROLLER_AND_SUBS (ADDRESS_CONTROLLER|ADDRESS_SUBPERIPHERAL0)
 #define ADDRESS_PORT_MASK 0xC0
 #define ADDRESS_PERIPHERAL_MASK (~ADDRESS_PORT_MASK)
 
@@ -137,6 +138,7 @@ typedef enum ESendState_e
 	SEND_MEMORY_INFO,
 	SEND_LCD_INFO,
 	SEND_TIMER_INFO,
+	SEND_PURUPURU_INFO,
 	SEND_ACK,
 	SEND_DATA
 } ESendState;
@@ -166,10 +168,11 @@ enum ECommands
 
 enum EFunction
 {
-	FUNC_CONTROLLER = 1,
-	FUNC_MEMORY_CARD = 2,
-	FUNC_LCD = 4,
-	FUNC_TIMER = 8
+	FUNC_CONTROLLER = 1,	// FT0
+	FUNC_MEMORY_CARD = 2,	// FT1
+	FUNC_LCD = 4,			// FT2
+	FUNC_TIMER = 8,			// FT3
+	FUNC_VIBRATION = 256	// FT8
 };
 
 typedef struct PacketHeader_s
@@ -229,6 +232,17 @@ typedef struct PacketTimerInfo_s
 
 } PacketTimerInfo;
 
+typedef struct PacketPuruPuruInfo_s
+{
+	uint Func;			// Nb. Big endian
+	uint8_t VSet0;			// Upper nybble is number of vibration sources, lower nybble is vibration source location and vibration source axis
+	uint8_t Vset1;			// b7: Variable vibration intensity flag, b6: Continuous vibration flag, b5: Vibration direction control flag, b4: Arbitrary waveform flag
+							// Lower nybble is Vibration Attribute flag (fixed freq. or ranged freq.)
+	uint8_t FMin;			// Minimum vibration frequency when VA = 0000 (Ffix when VA = 0001, reserved when VA = 1111)
+	uint8_t FMax;			// Maximum vibration frequency when VA = 0000 (reserved when VA= 0001 or 1111)
+
+} PacketPuruPuruInfo;
+
 typedef struct PacketControllerCondition_s
 {
 	uint Condition;		// Nb. Big endian
@@ -287,6 +301,14 @@ typedef struct FTimerInfoPacket_s
 	uint CRC;
 } FTimerInfoPacket;
 
+typedef struct FPuruPuruInfoPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketPuruPuruInfo Info;
+	uint CRC;
+} FPuruPuruInfoPacket;
+
 typedef struct FControllerPacket_s
 {
 	uint BitPairsMinus1;
@@ -328,9 +350,12 @@ static uint8_t RecieveBuffer[4096] __attribute__ ((aligned(4))); // Ring buffer 
 static uint8_t Packet[1024 + 8] __attribute__ ((aligned(4))); // Temp buffer for consuming packets (could remove)
 static FControllerPacket ControllerPacket; // Send buffer for controller status packet (pre-built for speed)
 static FInfoPacket InfoPacket;	// Send buffer for controller info packet (pre-built for speed)
-static FInfoPacket SubPeripheralInfoPacket;	// Send buffer for memory card info packet (pre-built for speed)
+static FInfoPacket SubPeripheral0InfoPacket;	// Send buffer for memory card info packet (pre-built for speed)
+static FInfoPacket SubPeripheral1InfoPacket;	// Send buffer for memory card info packet (pre-built for speed)
 static FMemoryInfoPacket MemoryInfoPacket;	// Send buffer for memory card info packet (pre-built for speed)
 static FLCDInfoPacket LCDInfoPacket; // Send buffer for LCD info packet (pre-built for speed)
+static FTimerInfoPacket TimerInfoPacket; // Send buffer for Timer info packet (pre-built for speed)
+static FPuruPuruInfoPacket PuruPuruInfoPacket; // Send buffer for PuruPuru info packet (pre-built for speed)
 static FACKPacket ACKPacket; // Send buffer for ACK packet (pre-built for speed)
 static FBlockReadResponsePacket DataPacket; // Send buffer for ACK packet (pre-built for speed)
 
@@ -345,7 +370,11 @@ static uint SectorDirty = 0;
 static uint SendBlockAddress = ~0u;
 static uint MessagesSinceWrite = FLASH_WRITE_DELAY;
 
-static uint8_t LCDFramebuffer[32 * 6]; // (32 * 48) / 8
+#define LCD_Width 48
+#define LCD_Height 32
+#define LCD_NumCols 6				// 48 / 8
+#define LCDFramebufferSize 192		// (32 * 48) / 8
+static uint8_t LCDFramebuffer[LCDFramebufferSize]; 
 volatile bool LCDUpdated = false;
 
 uint CalcCRC(const uint* Words, uint NumWords)
@@ -366,7 +395,7 @@ void BuildACKPacket()
 
 	ACKPacket.Header.Command = CMD_RESPOND_COMMAND_ACK;
 	ACKPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	ACKPacket.Header.Sender = ADDRESS_SUBPERIPHERAL;
+	ACKPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
 	ACKPacket.Header.NumWords = 0;
 	
 	ACKPacket.CRC = CalcCRC((uint *)&ACKPacket.Header, sizeof(ACKPacket) / sizeof(uint) - 2);
@@ -382,22 +411,15 @@ void BuildInfoPacket()
 	InfoPacket.Header.NumWords = sizeof(InfoPacket.Info) / sizeof(uint);
 
 	InfoPacket.Info.Func = __builtin_bswap32(FUNC_CONTROLLER);
-#if POPNMUSIC
-	InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000006ff); // What buttons it supports
-#else
 	InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000f06fe); // What buttons it supports
-#endif
 	InfoPacket.Info.FuncData[1] = 0;
 	InfoPacket.Info.FuncData[2] = 0;
 	InfoPacket.Info.AreaCode = -1;
 	InfoPacket.Info.ConnectorDirection = 0;
-	strncpy(InfoPacket.Info.ProductName,
-#if POPNMUSIC
-			"pop'n music controller        ",
-#else
-			"Dreamcast Controller          ",
-#endif
+	strncpy(InfoPacket.Info.ProductName, 
+			"Dreamcast Controller         ", 
 			sizeof(InfoPacket.Info.ProductName));
+
 	strncpy(InfoPacket.Info.ProductLicense,
 			// NOT REALLY! Don't sue me Sega!
 			"Produced By or Under License From SEGA ENTERPRISES,LTD.     ",
@@ -408,32 +430,60 @@ void BuildInfoPacket()
 	InfoPacket.CRC = CalcCRC((uint *)&InfoPacket.Header, sizeof(InfoPacket) / sizeof(uint) - 2);
 }
 
-void BuildSubPeripheralInfoPacket()
+void BuildSubPeripheral0InfoPacket()							// Visual Memory Unit
 {
-	SubPeripheralInfoPacket.BitPairsMinus1 = (sizeof(SubPeripheralInfoPacket) - 7) * 4 - 1;
+	SubPeripheral0InfoPacket.BitPairsMinus1 = (sizeof(SubPeripheral0InfoPacket) - 7) * 4 - 1;
 
-	SubPeripheralInfoPacket.Header.Command = CMD_RESPOND_DEVICE_INFO;
-	SubPeripheralInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	SubPeripheralInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL;
-	SubPeripheralInfoPacket.Header.NumWords = sizeof(SubPeripheralInfoPacket.Info) / sizeof(uint);
+	SubPeripheral0InfoPacket.Header.Command = CMD_RESPOND_DEVICE_INFO;
+	SubPeripheral0InfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
+	SubPeripheral0InfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
+	SubPeripheral0InfoPacket.Header.NumWords = sizeof(SubPeripheral0InfoPacket.Info) / sizeof(uint);
 
-	SubPeripheralInfoPacket.Info.Func = __builtin_bswap32(0x0E); // Function Types (up to 3). Note: Higher index in FuncData means higher priority on DC subperipheral
-	SubPeripheralInfoPacket.Info.FuncData[0] = __builtin_bswap32(0x7E7E3F40); // Function Definition Block for Function Type 3 (Timer)
-	SubPeripheralInfoPacket.Info.FuncData[1] = __builtin_bswap32(0x00051000); // Function Definition Block for Function Type 2 (LCD)
-	SubPeripheralInfoPacket.Info.FuncData[2] = __builtin_bswap32(0x000f4100); // Function Definition Block for Function Type 1 (Storage)
-	SubPeripheralInfoPacket.Info.AreaCode = -1;
-	SubPeripheralInfoPacket.Info.ConnectorDirection = 0;
-	strncpy(SubPeripheralInfoPacket.Info.ProductName,
+	SubPeripheral0InfoPacket.Info.Func = __builtin_bswap32(0x0E); // Function Types (up to 3). Note: Higher index in FuncData means higher priority on DC subperipheral
+	SubPeripheral0InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x7E7E3F40); // Function Definition Block for Function Type 3 (Timer)
+	SubPeripheral0InfoPacket.Info.FuncData[1] = __builtin_bswap32(0x00051000); // Function Definition Block for Function Type 2 (LCD)
+	SubPeripheral0InfoPacket.Info.FuncData[2] = __builtin_bswap32(0x000f4100); // Function Definition Block for Function Type 1 (Storage)
+	SubPeripheral0InfoPacket.Info.AreaCode = -1;
+	SubPeripheral0InfoPacket.Info.ConnectorDirection = 0;
+	strncpy(SubPeripheral0InfoPacket.Info.ProductName,
 			"VISUAL MEMORY                 ",
-			sizeof(SubPeripheralInfoPacket.Info.ProductName));
-	strncpy(SubPeripheralInfoPacket.Info.ProductLicense,
+			sizeof(SubPeripheral0InfoPacket.Info.ProductName));
+	strncpy(SubPeripheral0InfoPacket.Info.ProductLicense,
 			// NOT REALLY! Don't sue me Sega!
 			"Produced By or Under License From SEGA ENTERPRISES,LTD.     ",
-			sizeof(SubPeripheralInfoPacket.Info.ProductLicense));
-	SubPeripheralInfoPacket.Info.StandbyPower = 430;
-	SubPeripheralInfoPacket.Info.MaxPower = 500;
+			sizeof(SubPeripheral0InfoPacket.Info.ProductLicense));
+	SubPeripheral0InfoPacket.Info.StandbyPower = 100;
+	SubPeripheral0InfoPacket.Info.MaxPower = 130;
 
-	SubPeripheralInfoPacket.CRC = CalcCRC((uint *)&SubPeripheralInfoPacket.Header, sizeof(SubPeripheralInfoPacket) / sizeof(uint) - 2);
+	SubPeripheral0InfoPacket.CRC = CalcCRC((uint *)&SubPeripheral0InfoPacket.Header, sizeof(SubPeripheral0InfoPacket) / sizeof(uint) - 2);
+}
+
+void BuildSubPeripheral1InfoPacket()							// Puru Puru Pack
+{
+	SubPeripheral1InfoPacket.BitPairsMinus1 = (sizeof(SubPeripheral1InfoPacket) - 7) * 4 - 1;
+
+	SubPeripheral1InfoPacket.Header.Command = CMD_RESPOND_DEVICE_INFO;
+	SubPeripheral1InfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
+	SubPeripheral1InfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL1;
+	SubPeripheral1InfoPacket.Header.NumWords = sizeof(SubPeripheral1InfoPacket.Info) / sizeof(uint);
+
+	SubPeripheral1InfoPacket.Info.Func = __builtin_bswap32(0x0E); // Function Types (up to 3). Note: Higher index in FuncData means higher priority on DC subperipheral
+	SubPeripheral1InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x7E7E3F40); // Function Definition Block for Function Type 3 (Vibration)
+	SubPeripheral1InfoPacket.Info.FuncData[1] = 0; 
+	SubPeripheral1InfoPacket.Info.FuncData[2] = 0; 
+	SubPeripheral1InfoPacket.Info.AreaCode = -1;
+	SubPeripheral1InfoPacket.Info.ConnectorDirection = 0;
+	strncpy(SubPeripheral1InfoPacket.Info.ProductName,
+			"Puru Puru Pack     ",
+			sizeof(SubPeripheral1InfoPacket.Info.ProductName));
+	strncpy(SubPeripheral1InfoPacket.Info.ProductLicense,
+			// NOT REALLY! Don't sue me Sega!
+			"Produced By or Under License From SEGA ENTERPRISES,LTD.     ",
+			sizeof(SubPeripheral1InfoPacket.Info.ProductLicense));
+	SubPeripheral1InfoPacket.Info.StandbyPower = 200;
+	SubPeripheral1InfoPacket.Info.MaxPower = 1600;
+
+	SubPeripheral1InfoPacket.CRC = CalcCRC((uint *)&SubPeripheral1InfoPacket.Header, sizeof(SubPeripheral1InfoPacket) / sizeof(uint) - 2);
 }
 
 void BuildMemoryInfoPacket()
@@ -442,7 +492,7 @@ void BuildMemoryInfoPacket()
 
 	MemoryInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
 	MemoryInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	MemoryInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL;
+	MemoryInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
 	MemoryInfoPacket.Header.NumWords = sizeof(MemoryInfoPacket.Info) / sizeof(uint);
 
 	MemoryInfoPacket.Info.Func = __builtin_bswap32(FUNC_MEMORY_CARD);
@@ -470,12 +520,12 @@ void BuildLCDInfoPacket()
 
 	LCDInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
 	LCDInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	LCDInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL;
+	LCDInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
 	LCDInfoPacket.Header.NumWords = sizeof(LCDInfoPacket.Info) / sizeof(uint);
 
 	LCDInfoPacket.Info.Func = __builtin_bswap32(FUNC_LCD);
 	
-	LCDInfoPacket.Info.dX = 47; // 48 dots wide (dX + 1)
+	LCDInfoPacket.Info.dX = LCD_Width - 1; // 48 dots wide (dX + 1)
 	LCDInfoPacket.Info.dY = 31; // 32 dots tall (dY + 1)
 	LCDInfoPacket.Info.GradContrast = 0x10; // Gradation = 1 bit/dot, Contrast = 0 (disabled)
 	LCDInfoPacket.Info.Reserved = 0;	
@@ -489,13 +539,32 @@ void BuildTimerInfoPacket()
 
 	LCDInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
 	LCDInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	LCDInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL;
+	LCDInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
 	LCDInfoPacket.Header.NumWords = sizeof(LCDInfoPacket.Info) / sizeof(uint);
+
+	LCDInfoPacket.Info.Func = __builtin_bswap32(FUNC_TIMER);
+	
+	LCDInfoPacket.Info.dX = LCD_Width - 1; // 48 dots wide (dX + 1)
+	LCDInfoPacket.Info.dY = LCD_Height - 1; // 32 dots tall (dY + 1)
+	LCDInfoPacket.Info.GradContrast = 0x10; // Gradation = 1 bit/dot, Contrast = 0 (disabled)
+	LCDInfoPacket.Info.Reserved = 0;	
+
+	LCDInfoPacket.CRC = CalcCRC((uint *)&LCDInfoPacket.Header, sizeof(LCDInfoPacket) / sizeof(uint) - 2);
+}
+
+void BuildPuruPuruInfoPacket()
+{
+	LCDInfoPacket.BitPairsMinus1 = (sizeof(LCDInfoPacket) - 7) * 4 - 1;
+
+	LCDInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
+	LCDInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
+	LCDInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL1;
+	LCDInfoPacket.Header.NumWords = sizeof(PuruPuruInfoPacket.Info) / sizeof(uint);
 
 	LCDInfoPacket.Info.Func = __builtin_bswap32(FUNC_LCD);
 	
-	LCDInfoPacket.Info.dX = 47; // 48 dots wide (dX + 1)
-	LCDInfoPacket.Info.dY = 31; // 32 dots tall (dY + 1)
+	LCDInfoPacket.Info.dX = LCD_Width - 1; // 48 dots wide (dX + 1)
+	LCDInfoPacket.Info.dY = LCD_Height - 1; // 32 dots tall (dY + 1)
 	LCDInfoPacket.Info.GradContrast = 0x10; // Gradation = 1 bit/dot, Contrast = 0 (disabled)
 	LCDInfoPacket.Info.Reserved = 0;	
 
@@ -529,7 +598,7 @@ void BuildBlockReadResponsePacket()
 
 	DataPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
 	DataPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	DataPacket.Header.Sender = ADDRESS_SUBPERIPHERAL;
+	DataPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
 	DataPacket.Header.NumWords = sizeof(DataPacket.BlockRead) / sizeof(uint);
 
 	DataPacket.BlockRead.Func = __builtin_bswap32(FUNC_MEMORY_CARD);
@@ -563,13 +632,13 @@ void SendControllerStatus()
 	}
 	
 	adc_select_input(0);
-    ControllerPacket.Controller.JoyX = adc_read() >> 4;
+    ControllerPacket.Controller.JoyX2 = adc_read() >> 4;
 	adc_select_input(1);
-	ControllerPacket.Controller.JoyY = adc_read() >> 4;
-	adc_select_input(2);
-    ControllerPacket.Controller.LeftTrigger = adc_read() >> 4;
-	adc_select_input(3);
-	ControllerPacket.Controller.RightTrigger = adc_read() >> 4;
+	ControllerPacket.Controller.JoyY2 = adc_read() >> 4;
+	//adc_select_input(2);
+    //ControllerPacket.Controller.LeftTrigger = adc_read() >> 4;
+	//adc_select_input(3);
+	//ControllerPacket.Controller.RightTrigger = adc_read() >> 4;
 
 	ControllerPacket.Controller.Buttons = Buttons;
 
@@ -628,9 +697,9 @@ void BlockWrite(uint Address, uint* Data, uint NumWords)
 
 void LCDWrite(uint Address, uint* Data, uint NumWords)
 {
-	assert(NumWords * sizeof(uint) == 192);
+	assert(NumWords * sizeof(uint) == LCDFramebufferSize);
 
-	memcpy(LCDFramebuffer, Data, 192u);
+	memcpy(LCDFramebuffer, Data, LCDFramebufferSize);
 	LCDUpdated = true;
 
 	NextPacketSend = SEND_ACK;
@@ -729,7 +798,7 @@ bool ConsumePacket(uint Size)
 					}
 					}
 				}
-				else if (Header->Recipient == ADDRESS_SUBPERIPHERAL || (Header->Recipient == ADDRESS_DREAMCAST && Header->Sender == ADDRESS_SUBPERIPHERAL))
+				else if (Header->Recipient == ADDRESS_SUBPERIPHERAL0 || (Header->Recipient == ADDRESS_DREAMCAST && Header->Sender == ADDRESS_SUBPERIPHERAL0))
 				{
 					switch (Header->Command)
 					{
@@ -955,7 +1024,7 @@ void ReadFlash()
 
 int main() {
 	stdio_init_all();
-	set_sys_clock_khz(250000, true);
+	//set_sys_clock_khz(250000, true);
 	adc_init();
 	adc_set_clkdiv(0);
 	adc_gpio_init(26); // Stick X
@@ -983,7 +1052,8 @@ int main() {
 	
 	// Subperipheral packets
 	BuildACKPacket();
-	BuildSubPeripheralInfoPacket();
+	BuildSubPeripheral0InfoPacket();
+	BuildSubPeripheral1InfoPacket();
 	BuildMemoryInfoPacket();
 	BuildLCDInfoPacket();
 	BuildBlockReadResponsePacket();
@@ -1055,19 +1125,19 @@ int main() {
 					}
 					if (LCDUpdated) 
 					{
-						for(int fb = 0; fb < 192; fb++){ // iterate through LCD framebuffer
+						for(int fb = 0; fb < LCDFramebufferSize; fb++){ // iterate through LCD framebuffer
 							for(int bb = 0; bb <= 7; bb++){ // iterate through bits of each LCD data byte
 								if( ((LCDFramebuffer[fb] >> bb)  & 0x01) ){  // if bit is set...
-									SetPixel( 16 + ((fb % 6)*8 + (7 - bb))*2, (fb/6)*2, true); // set corresponding OLED pixels! 
-									SetPixel( 16 + (((fb % 6)*8 + (7 - bb))*2) + 1, (fb/6)*2, true); // Each VMU dot corresponds to 4 OLED pixels. 
-									SetPixel( 16 + ((fb % 6)*8 + (7 - bb))*2, ((fb/6)*2) + 1, true);
-									SetPixel( 16 + (((fb % 6)*8 + (7 - bb))*2) + 1, ((fb/6)*2) + 1, true);
+									SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, true); // set corresponding OLED pixels! 
+									SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, true); // Each VMU dot corresponds to 4 OLED pixels. 
+									SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, true);
+									SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, true);
 								}
 								else {
-									SetPixel( 16 + ((fb % 6)*8 + (7 - bb))*2, (fb/6)*2, false); // ...otherwise, clear the four OLED pixels.
-									SetPixel( 16 + (((fb % 6)*8 + (7 - bb))*2) + 1, (fb/6)*2, false);  
-									SetPixel( 16 + ((fb % 6)*8 + (7 - bb))*2, ((fb/6)*2) + 1, false);
-									SetPixel( 16 + (((fb % 6)*8 + (7 - bb))*2) + 1, ((fb/6)*2) + 1, false);
+									SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, false); // ...otherwise, clear the four OLED pixels.
+									SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, false);  
+									SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, false);
+									SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, false);
 								}
 							}    
 						}
@@ -1076,7 +1146,7 @@ int main() {
 					}
 					break;
 				case SEND_MEMORY_CARD_INFO:
-					SendPacket((uint *)&SubPeripheralInfoPacket, sizeof(SubPeripheralInfoPacket) / sizeof(uint));
+					SendPacket((uint *)&SubPeripheral0InfoPacket, sizeof(SubPeripheral0InfoPacket) / sizeof(uint));
 					break;
 				case SEND_MEMORY_INFO:
 					SendPacket((uint *)&MemoryInfoPacket, sizeof(MemoryInfoPacket) / sizeof(uint));
