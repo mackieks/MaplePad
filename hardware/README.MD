@@ -2,6 +2,8 @@
 
 Replacement Dreamcast controller PCB using RP2040.
 
+<img src="maplepad_v1.0.png" width="350">
+
 Features:
 - [x] 17 x 22mm
 - [x] Analog joystick and triggers
@@ -14,4 +16,4 @@ What it doesn't support:
 - [ ] Vibration
 - [ ] Dual analog sticks
 
-A future version will include these features.
+A future version will support these features.
