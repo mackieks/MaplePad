@@ -1,6 +1,6 @@
 # MaplePad 
 
-Replacement Dreamcast controller PCB using RP2040.
+Replacement Dreamcast controller PCB using RP2040. Gerbers and BOM available in this directory.
 
 <img src="maplepad_v1.0.png" width="350">
 
