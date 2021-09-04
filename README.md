@@ -10,6 +10,6 @@ Feature List:
 
 To-do: (highest priority to lowest)
 - [ ] Implement FT<sub>8</sub> (vibration) support
-- [ ] Finish FT<sub>3</sub> (timer/RTC) support with either dummy time values or external RTC
 - [ ] Multipaging for memory card
+- [ ] Finish FT<sub>3</sub> (timer/RTC) support with either dummy time values or external RTC
 - [ ] Implement FT<sub>4</sub> (microphone) support

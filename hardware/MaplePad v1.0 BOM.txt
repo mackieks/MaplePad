@@ -1,0 +1,18 @@
+MaplePad v1.0 BOM
+
+Qty     Name                Value       Package
+1       RP2040                          QFN56
+1       W25Q16JVUXIQ                    USON-8
+1       ISL9122A                        WLCSP (W2X4.8)
+1       USB3070                         USB MICRO-B
+9       CAPACITOR           0.1uF       0201 (Imperial)
+2       CAPACITOR           1uF         0402 (Imperial)
+1       CAPACITOR           2.2uF       0402 (Imperial)
+2       CAPACITOR           15pF        0201 (Imperial)
+2       CAPACITOR           10uF        0603 (Imperial)
+2       RESISTOR            1k          0201 (Imperial)
+2       RESISTOR            10k         0201 (Imperial)
+2       RESISTOR            4.7k        0201 (Imperial)
+2       RESISTOR            22          0201 (Imperial)
+1       RESISTOR            200         0201 (Imperial)
+1       INDUCTOR            1uH         0603 (Imperial)
