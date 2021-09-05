@@ -21,6 +21,7 @@
 #include <string.h>
 #include <math.h>
 #include "pico/stdlib.h"
+#include "pico/time.h"
 #include "hardware/adc.h"
 #include "hardware/pio.h"
 #include "hardware/dma.h"
@@ -373,12 +374,15 @@ static uint MessagesSinceWrite = FLASH_WRITE_DELAY;
 static uint CurrentPage = 1;
 volatile bool PageCycle = false;
 volatile bool VMUCycle = false;
+int lastPress = 0;
 
 #define LCD_Width 48
 #define LCD_Height 32
-#define LCD_NumCols 6				// 48 / 8
-#define LCDFramebufferSize 192		// (32 * 48) / 8
-static uint8_t LCDFramebuffer[LCDFramebufferSize]; 
+#define LCD_NumCols 6				// 128 / 8
+#define LCDFramebufferSize 192	// (128 * 64) / 8
+#define BPPacket 192
+static const uint8_t NumWrites =  LCDFramebufferSize / BPPacket;
+static uint8_t LCDFramebuffer[LCDFramebufferSize] = {0}; 
 volatile bool LCDUpdated = false;
 
 uint CalcCRC(const uint* Words, uint NumWords)
@@ -699,11 +703,19 @@ void BlockWrite(uint Address, uint* Data, uint NumWords)
 	NextPacketSend = SEND_ACK;
 }
 
-void LCDWrite(uint Address, uint* Data, uint NumWords)
+void LCDWrite(uint Address, uint* Data, uint NumWords, uint BlockNum)
 {
-	assert(NumWords * sizeof(uint) == LCDFramebufferSize);
+	assert(NumWords * sizeof(uint) == (LCDFramebufferSize/NumWrites) );
 
-	memcpy(LCDFramebuffer, Data, LCDFramebufferSize);
+	if (BlockNum == 0x10)	// 128x64 Test Mode
+	{
+		memcpy(&LCDFramebuffer[512], Data, NumWords * sizeof(uint));
+	}
+	else if (BlockNum == 0x00)
+	{
+		memcpy(LCDFramebuffer, Data, NumWords * sizeof(uint));
+	}
+	
 	LCDUpdated = true;
 
 	NextPacketSend = SEND_ACK;
@@ -863,8 +875,15 @@ bool ConsumePacket(uint Size)
 						}
 						else if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_LCD))
 						{
-							LCDWrite(__builtin_bswap32(*(PacketData + 1)), PacketData + 2, Header->NumWords - 2);
-							return true;
+							if ( *(PacketData + 1) == __builtin_bswap32(0) )	// Block 0
+							{
+								LCDWrite(__builtin_bswap32(*(PacketData + 1)), PacketData + 2, Header->NumWords - 2, 0);
+								return true;
+							}
+							else if ( *(PacketData + 1) == __builtin_bswap32(0x10) ){	// Block 1
+								LCDWrite(__builtin_bswap32(*(PacketData + 1)), PacketData + 2, Header->NumWords - 2, 1);
+								return true;
+							}		
 						}
 						break;
 					}
@@ -1029,11 +1048,16 @@ void readFlash()
 
 void pageToggle(uint gpio, uint32_t events) {
 	gpio_acknowledge_irq(gpio, events);
-    if(CurrentPage == 8)
-		CurrentPage = 1;
-	else
-		CurrentPage++;
-	PageCycle = true;				
+	int pressTime = to_ms_since_boot (get_absolute_time());
+    if ( (pressTime - lastPress) >= 500 )
+	{
+		if(CurrentPage == 8)
+			CurrentPage = 1;
+		else
+			CurrentPage++;
+		PageCycle = true;
+		lastPress = pressTime;
+	}				
 }
 
 int main() {
@@ -1057,6 +1081,8 @@ int main() {
 	gpio_set_dir(PAGE_BUTTON, GPIO_IN);
     gpio_pull_up(PAGE_BUTTON);
 	gpio_set_irq_enabled_with_callback(PAGE_BUTTON, GPIO_IRQ_EDGE_FALL, true, &pageToggle);
+
+	lastPress = to_ms_since_boot (get_absolute_time());
 
     SSD1306_initialise();
 
@@ -1162,17 +1188,31 @@ int main() {
 					{
 						for(int fb = 0; fb < LCDFramebufferSize; fb++){ // iterate through LCD framebuffer
 							for(int bb = 0; bb <= 7; bb++){ // iterate through bits of each LCD data byte
-								if( ((LCDFramebuffer[fb] >> bb)  & 0x01) ){  // if bit is set...
-									SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, true); // set corresponding OLED pixels! 
-									SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, true); // Each VMU dot corresponds to 4 OLED pixels. 
-									SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, true);
-									SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, true);
+								if(LCD_Width == 48 && LCD_Height == 32)		// Standard LCD
+								{
+									if( ((LCDFramebuffer[fb] >> bb)  & 0x01) ){  // if bit is set...
+										SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, true); // set corresponding OLED pixels! 
+										SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, true); // Each VMU dot corresponds to 4 OLED pixels. 
+										SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, true);
+										SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, true);
+									}
+									else {
+										SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, false); // ...otherwise, clear the four OLED pixels.
+										SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, false);  
+										SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, false);
+										SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, false);
+									}
 								}
-								else {
-									SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, false); // ...otherwise, clear the four OLED pixels.
-									SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, false);  
-									SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, false);
-									SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, false);
+								else	// 128x64 Test Mode
+								{
+									if( ((LCDFramebuffer[fb] >> bb)  & 0x01) )
+									{  
+										SetPixel( ((fb % LCD_NumCols)*8 + (7 - bb)), (fb/LCD_NumCols), true);  
+									}
+									else 
+									{
+										SetPixel( ((fb % LCD_NumCols)*8 + (7 - bb)), (fb/LCD_NumCols), false); 
+									}
 								}
 							}    
 						}

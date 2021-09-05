@@ -23,6 +23,7 @@ target_sources(maple_pio PRIVATE maple.c state_machine.c format.c)
 target_link_libraries(maple_pio PRIVATE
         pico_stdlib
         pico_multicore
+        pico_time
         hardware_adc
         hardware_pio
         hardware_dma
