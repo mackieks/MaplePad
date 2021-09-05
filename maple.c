@@ -6,8 +6,8 @@
  * Modified by Mackie Kannard-Smith 2021
  * SSD1306 I2C library by James Hughes (JamesH65)
  *
- * Dreamcast controller connector pin 1 (Maple A) to 11 (PICO_PIN1_PIN)
- * Dreamcast controller connector pin 5 (Maple B) to 12 (PICO_PIN5_PIN)
+ * Dreamcast controller connector pin 1 (Maple A) to GP11 (PICO_PIN1_PIN)
+ * Dreamcast controller connector pin 5 (Maple B) to GP12 (PICO_PIN5_PIN)
  * Dreamcast controller connector pins 3 (GND) and 4 (Sense) to GND
  * GPIO pins for buttons (uses internal pullups, switch to GND. See ButtonInfos)
  *  
@@ -108,8 +108,9 @@ static void SetPixel(int x,int y, bool on) {
 #define PHASE_SIZE (BLOCK_SIZE / 4)
 
 #define FLASH_WRITE_DELAY	16    // About quarter of a second if polling once a frame
-#define FLASH_OFFSET (512 * 1024) // How far into Flash to store the memory card data
-								  // We only have around 16Kb of code so assuming this will be fine
+#define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data
+								   // We only have around 16Kb of code so assuming this will be fine
+#define PAGE_BUTTON 21		// Pull GP21 low for Page Cycle. Avoid page cycling for ~10sec after saving or copying VMU data
 
 #define PICO_PIN1_PIN	11
 #define PICO_PIN5_PIN	12
@@ -357,7 +358,7 @@ static FLCDInfoPacket LCDInfoPacket; // Send buffer for LCD info packet (pre-bui
 static FTimerInfoPacket TimerInfoPacket; // Send buffer for Timer info packet (pre-built for speed)
 static FPuruPuruInfoPacket PuruPuruInfoPacket; // Send buffer for PuruPuru info packet (pre-built for speed)
 static FACKPacket ACKPacket; // Send buffer for ACK packet (pre-built for speed)
-static FBlockReadResponsePacket DataPacket; // Send buffer for ACK packet (pre-built for speed)
+static FBlockReadResponsePacket DataPacket; // Send buffer for Data packet (pre-built for speed)
 
 static ESendState NextPacketSend = SEND_NOTHING;
 static uint OriginalControllerCRC = 0;
@@ -369,6 +370,9 @@ static uint8_t MemoryCard[128 * 1024];
 static uint SectorDirty = 0;
 static uint SendBlockAddress = ~0u;
 static uint MessagesSinceWrite = FLASH_WRITE_DELAY;
+static uint CurrentPage = 1;
+volatile bool PageCycle = false;
+volatile bool VMUCycle = false;
 
 #define LCD_Width 48
 #define LCD_Height 32
@@ -526,7 +530,7 @@ void BuildLCDInfoPacket()
 	LCDInfoPacket.Info.Func = __builtin_bswap32(FUNC_LCD);
 	
 	LCDInfoPacket.Info.dX = LCD_Width - 1; // 48 dots wide (dX + 1)
-	LCDInfoPacket.Info.dY = 31; // 32 dots tall (dY + 1)
+	LCDInfoPacket.Info.dY = LCD_Height - 1; // 32 dots tall (dY + 1)
 	LCDInfoPacket.Info.GradContrast = 0x10; // Gradation = 1 bit/dot, Contrast = 0 (disabled)
 	LCDInfoPacket.Info.Reserved = 0;	
 
@@ -1016,15 +1020,25 @@ void SetupMapleRX()
 	pio_sm_set_enabled(RXPIO, 0, true);
 }
 
-void ReadFlash()
+void readFlash()
 {
-	memcpy(MemoryCard, (uint8_t *)XIP_BASE + FLASH_OFFSET, sizeof(MemoryCard));
+	memset(MemoryCard, 0, sizeof(MemoryCard));
+	memcpy(MemoryCard, (uint8_t *)XIP_BASE + (FLASH_OFFSET * CurrentPage), sizeof(MemoryCard));
 	SectorDirty = CheckFormatted(MemoryCard);
+}
+
+void pageToggle(uint gpio, uint32_t events) {
+	gpio_acknowledge_irq(gpio, events);
+    if(CurrentPage == 8)
+		CurrentPage = 1;
+	else
+		CurrentPage++;
+	PageCycle = true;				
 }
 
 int main() {
 	stdio_init_all();
-	//set_sys_clock_khz(250000, true);
+	set_sys_clock_khz(200000, true);
 	adc_init();
 	adc_set_clkdiv(0);
 	adc_gpio_init(26); // Stick X
@@ -1038,11 +1052,17 @@ int main() {
     gpio_pull_up(I2C_SDA_PIN);
     gpio_pull_up(I2C_SCL_PIN);
 
+	// Page cycle interrupt
+	gpio_init(PAGE_BUTTON);
+	gpio_set_dir(PAGE_BUTTON, GPIO_IN);
+    gpio_pull_up(PAGE_BUTTON);
+	gpio_set_irq_enabled_with_callback(PAGE_BUTTON, GPIO_IRQ_EDGE_FALL, true, &pageToggle);
+
     SSD1306_initialise();
 
     ClearDisplay();
 
-	ReadFlash();
+	readFlash();
 
 	multicore_launch_core1(core1_entry);
 
@@ -1101,6 +1121,15 @@ int main() {
 					SendPacket((uint *)&InfoPacket, sizeof(InfoPacket) / sizeof(uint));
 					break;
 				case SEND_CONTROLLER_STATUS:
+					if (VMUCycle)
+					{
+						ControllerPacket.Header.Sender = ADDRESS_CONTROLLER;
+						VMUCycle = false;
+					}
+					else
+					{
+						ControllerPacket.Header.Sender = ADDRESS_CONTROLLER_AND_SUBS;
+					}
 					SendControllerStatus();
 
 					// Doing flash writes on controller status as likely got a frame until next message
@@ -1115,9 +1144,15 @@ int main() {
 						uint SectorOffset = Sector * FLASH_SECTOR_SIZE;
 
 						uint Interrupts = save_and_disable_interrupts();
-						flash_range_erase(FLASH_OFFSET + SectorOffset, FLASH_SECTOR_SIZE);
-						flash_range_program(FLASH_OFFSET + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
+						flash_range_erase( (FLASH_OFFSET * CurrentPage) + SectorOffset, FLASH_SECTOR_SIZE);
+						flash_range_program( (FLASH_OFFSET * CurrentPage) + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
 						restore_interrupts(Interrupts);
+					}
+					else if (!SectorDirty && MessagesSinceWrite >= FLASH_WRITE_DELAY && PageCycle)
+					{
+						readFlash();
+						PageCycle = false;
+						VMUCycle = true;
 					}
 					else if (MessagesSinceWrite < FLASH_WRITE_DELAY)
 					{
