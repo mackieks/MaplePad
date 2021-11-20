@@ -28,6 +28,11 @@
         "*.tcc": "c",
         "cinttypes": "c",
         "cstdlib": "c",
-        "math.h": "c"
+        "math.h": "c",
+        "string.h": "c",
+        "i2c.h": "c",
+        "stdio.h": "c",
+        "ssd1306.h": "c",
+        "spi.h": "c"
     }
 }

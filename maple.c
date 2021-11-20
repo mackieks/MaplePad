@@ -34,84 +34,24 @@
 #include "state_machine.h"
 #include "format.h"
 #include "ssd1306.h"
-
-// SSD1306 funcs
-// We need a 0x40 in the byte before our framebuffer
-uint8_t _Framebuffer[SSD1306_FRAMEBUFFER_SIZE + 1] = {0x40};
-uint8_t *Framebuffer = _Framebuffer+1;
-
-static void SendCommand(uint8_t cmd) {
-    uint8_t buf[] = {0x00, cmd};
-    i2c_write_blocking(I2C_PORT, DEVICE_ADDRESS, buf, 2, false);
-}
-
-static void SendCommandBuffer(uint8_t *inbuf, int len) {
-    i2c_write_blocking(I2C_PORT, DEVICE_ADDRESS, inbuf, len, false);
-}
-
-static void SSD1306_initialise() {
-
-uint8_t init_cmds[]=
-    {0x00,
-    SSD1306_DISPLAYOFF,
-    SSD1306_SETMULTIPLEX, 0x3f,
-    SSD1306_SETDISPLAYOFFSET, 0x00,
-    SSD1306_SETSTARTLINE,
-    SSD1306_SEGREMAP127,
-    SSD1306_COMSCANDEC,
-    SSD1306_SETCOMPINS, 0x12,
-    SSD1306_SETCONTRAST, 0xff,
-    SSD1306_DISPLAYALLON_RESUME,
-    SSD1306_NORMALDISPLAY,
-    SSD1306_SETDISPLAYCLOCKDIV, 0x80,
-    SSD1306_CHARGEPUMP, 0x14,
-    SSD1306_DISPLAYON,
-    SSD1306_MEMORYMODE, 0x00,   // 0 = horizontal, 1 = vertical, 2 = page
-    SSD1306_COLUMNADDR, 0, SSD1306_LCDWIDTH-1,  // Set the screen wrapping points
-    SSD1306_PAGEADDR, 0, 7};
-
-    SendCommandBuffer(init_cmds, sizeof(init_cmds));
-}
-
-// This copies the entire framebuffer to the display.
-static void UpdateDisplay() {
-    i2c_write_blocking(I2C_PORT, DEVICE_ADDRESS, _Framebuffer, sizeof(_Framebuffer), false);
-}
-
-static void ClearDisplay() {
-    memset(Framebuffer, 0, SSD1306_FRAMEBUFFER_SIZE);
-    UpdateDisplay();
-}
-
-static void SetPixel(int x,int y, bool on) {
-    assert(x >= 0 && x < SSD1306_LCDWIDTH && y >=0 && y < SSD1306_LCDHEIGHT);
-
-    const int BytesPerRow = SSD1306_LCDWIDTH; // 128 pixels, 1bpp, but each row is 8 pixel high, so (128 / 8) * 8
-
-    int byte_idx = (y / 8) * BytesPerRow  +  x;
-    uint8_t byte = Framebuffer[byte_idx];
-
-    if (on)
-        byte |=  1 << (y % 8);
-    else
-        byte &= ~(1 << (y % 8));
-
-    Framebuffer[byte_idx] = byte;
-}
+#include "ssd1331.h"
 
 // Maple Bus Defines and Funcs
 
 #define SHOULD_SEND 1		// Set to zero to sniff two devices sending signals to each other
 #define SHOULD_PRINT 0		// Nice for debugging but can cause timing issues
 
-#define POPNMUSIC 0			// Pop'n Music controller or generic controller
-#define NUM_BUTTONS	9		// On a Pop'n Music controller
+#define POPNMUSIC 0			// Generic controller
+#define NUM_BUTTONS	9		
 #define PHASE_SIZE (BLOCK_SIZE / 4)
 
-#define FLASH_WRITE_DELAY	16    // About quarter of a second if polling once a frame
+#define VMU 0
+#define PURUPURU 1
+
+#define FLASH_WRITE_DELAY	8    // About quarter of a second if polling once a frame
 #define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data
 								   // We only have around 16Kb of code so assuming this will be fine
-#define PAGE_BUTTON 21		// Pull GP21 low for Page Cycle. Avoid page cycling for ~10sec after saving or copying VMU data
+#define PAGE_BUTTON 21		// Pull GP21 low for Page Cycle. Avoid page cycling for ~10s after saving or copying VMU data to avoid data corruption
 
 #define PICO_PIN1_PIN	11
 #define PICO_PIN5_PIN	12
@@ -122,7 +62,7 @@ static void SetPixel(int x,int y, bool on) {
 #define ADDRESS_CONTROLLER 0x20
 #define ADDRESS_SUBPERIPHERAL0 0x01
 #define ADDRESS_SUBPERIPHERAL1 0x02
-#define ADDRESS_CONTROLLER_AND_SUBS (ADDRESS_CONTROLLER|ADDRESS_SUBPERIPHERAL0)
+#define ADDRESS_CONTROLLER_AND_SUBS (ADDRESS_CONTROLLER|ADDRESS_SUBPERIPHERAL0|ADDRESS_SUBPERIPHERAL1) // Determines which peripherals MaplePad reports
 #define ADDRESS_PORT_MASK 0xC0
 #define ADDRESS_PERIPHERAL_MASK (~ADDRESS_PORT_MASK)
 
@@ -130,6 +70,14 @@ static void SetPixel(int x,int y, bool on) {
 #define RXPIO pio1
 
 #define SWAP4(x) do { x=__builtin_bswap32(x); } while(0)
+
+#define LCD_Width 48
+#define LCD_Height 32
+#define LCD_NumCols 6				// 48 / 8
+#define LCDFramebufferSize 192	// (48 * 32) / 8
+#define BPPacket 192			// Bytes Per Packet
+
+uint16_t color = 0xffff;
 
 typedef enum ESendState_e
 {
@@ -142,7 +90,9 @@ typedef enum ESendState_e
 	SEND_TIMER_INFO,
 	SEND_PURUPURU_INFO,
 	SEND_ACK,
-	SEND_DATA
+	SEND_DATA,
+	SEND_PURUPURU_DATA,
+	SEND_CONDITION
 } ESendState;
 
 enum ECommands
@@ -257,12 +207,28 @@ typedef struct PacketControllerCondition_s
 	uint8_t JoyY2;
 } PacketControllerCondition;
 
+typedef struct PacketPuruPuruCondition_s
+{
+	uint Func;		// Nb. Big endian
+	uint8_t VSource;	// Vibration control
+	uint8_t Power;		// Vibration intensity
+	uint8_t Freq;		// Vibration frequency
+	uint8_t Inc;		// Vibration inclination
+} PacketPuruPuruCondition;
+
 typedef struct PacketBlockRead_s
 {
 	uint Func;			// Nb. Big endian
 	uint Address;
 	uint8_t Data[BLOCK_SIZE];
 } PacketBlockRead;
+
+typedef struct FPuruPuruBlockReadPacket_s
+{
+	uint Func;			// Nb. Big endian
+	uint Address;
+	uint8_t Data[4];
+} FPuruPuruBlockReadPacket;
 
 typedef struct FACKPacket_s
 {
@@ -311,6 +277,14 @@ typedef struct FPuruPuruInfoPacket_s
 	uint CRC;
 } FPuruPuruInfoPacket;
 
+typedef struct FPuruPuruConditionPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketPuruPuruCondition Condition;
+	uint CRC;
+} FPuruPuruConditionPacket;
+
 typedef struct FControllerPacket_s
 {
 	uint BitPairsMinus1;
@@ -318,6 +292,14 @@ typedef struct FControllerPacket_s
 	PacketControllerCondition Controller;
 	uint CRC;
 } FControllerPacket;
+
+typedef struct FPuruPuruBlockReadResponsePacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	FPuruPuruBlockReadPacket PuruPuruBlockRead;
+	uint CRC;
+} FPuruPuruBlockReadResponsePacket;
 
 typedef struct FBlockReadResponsePacket_s
 {
@@ -358,8 +340,10 @@ static FMemoryInfoPacket MemoryInfoPacket;	// Send buffer for memory card info p
 static FLCDInfoPacket LCDInfoPacket; // Send buffer for LCD info packet (pre-built for speed)
 static FTimerInfoPacket TimerInfoPacket; // Send buffer for Timer info packet (pre-built for speed)
 static FPuruPuruInfoPacket PuruPuruInfoPacket; // Send buffer for PuruPuru info packet (pre-built for speed)
+static FPuruPuruConditionPacket PuruPuruConditionPacket; // Send buffer for PuruPuru condition packet (pre-built for speed)
 static FACKPacket ACKPacket; // Send buffer for ACK packet (pre-built for speed)
 static FBlockReadResponsePacket DataPacket; // Send buffer for Data packet (pre-built for speed)
+static FPuruPuruBlockReadResponsePacket PuruPuruDataPacket; // Send buffer for PuruPuru packet (pre-built for speed)
 
 static ESendState NextPacketSend = SEND_NOTHING;
 static uint OriginalControllerCRC = 0;
@@ -376,14 +360,28 @@ volatile bool PageCycle = false;
 volatile bool VMUCycle = false;
 int lastPress = 0;
 
-#define LCD_Width 48
-#define LCD_Height 32
-#define LCD_NumCols 6				// 128 / 8
-#define LCDFramebufferSize 192	// (128 * 64) / 8
-#define BPPacket 192
+int rumbleTime = 0;
+
+uint8_t val_X, val_Y;
+
+unsigned long X_CENTER, X_MIN, X_MAX;
+unsigned long Y_CENTER, Y_MIN, Y_MAX;
+
+unsigned long cal_X; 
+unsigned long cal_Y;
+
 static const uint8_t NumWrites =  LCDFramebufferSize / BPPacket;
 static uint8_t LCDFramebuffer[LCDFramebufferSize] = {0}; 
 volatile bool LCDUpdated = false;
+
+static uint8_t AST[4] = {0};	// Vibration auto-stop time setting
+
+static uint StickConfig[10] = {0};	// Joystick configuration values
+
+uint8_t map(uint8_t x, uint8_t in_min, uint8_t in_max, uint8_t out_min, uint8_t out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
 
 uint CalcCRC(const uint* Words, uint NumWords)
 {
@@ -425,7 +423,7 @@ void BuildInfoPacket()
 	InfoPacket.Info.AreaCode = -1;
 	InfoPacket.Info.ConnectorDirection = 0;
 	strncpy(InfoPacket.Info.ProductName, 
-			"Dreamcast Controller         ", 
+			"Dreamcast Controller          ", 
 			sizeof(InfoPacket.Info.ProductName));
 
 	strncpy(InfoPacket.Info.ProductLicense,
@@ -454,7 +452,7 @@ void BuildSubPeripheral0InfoPacket()							// Visual Memory Unit
 	SubPeripheral0InfoPacket.Info.AreaCode = -1;
 	SubPeripheral0InfoPacket.Info.ConnectorDirection = 0;
 	strncpy(SubPeripheral0InfoPacket.Info.ProductName,
-			"VISUAL MEMORY                 ",
+			"Visual Memory                 ",
 			sizeof(SubPeripheral0InfoPacket.Info.ProductName));
 	strncpy(SubPeripheral0InfoPacket.Info.ProductLicense,
 			// NOT REALLY! Don't sue me Sega!
@@ -475,14 +473,14 @@ void BuildSubPeripheral1InfoPacket()							// Puru Puru Pack
 	SubPeripheral1InfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL1;
 	SubPeripheral1InfoPacket.Header.NumWords = sizeof(SubPeripheral1InfoPacket.Info) / sizeof(uint);
 
-	SubPeripheral1InfoPacket.Info.Func = __builtin_bswap32(0x0E); // Function Types (up to 3). Note: Higher index in FuncData means higher priority on DC subperipheral
-	SubPeripheral1InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x7E7E3F40); // Function Definition Block for Function Type 3 (Vibration)
+	SubPeripheral1InfoPacket.Info.Func = __builtin_bswap32(0x100); // Function Types (up to 3). Note: Higher index in FuncData means higher priority on DC subperipheral
+	SubPeripheral1InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x04500000); // Function Definition Block for Function Type 1 (Vibration)
 	SubPeripheral1InfoPacket.Info.FuncData[1] = 0; 
 	SubPeripheral1InfoPacket.Info.FuncData[2] = 0; 
 	SubPeripheral1InfoPacket.Info.AreaCode = -1;
 	SubPeripheral1InfoPacket.Info.ConnectorDirection = 0;
 	strncpy(SubPeripheral1InfoPacket.Info.ProductName,
-			"Puru Puru Pack     ",
+			"Puru Puru Pack                ",
 			sizeof(SubPeripheral1InfoPacket.Info.ProductName));
 	strncpy(SubPeripheral1InfoPacket.Info.ProductLicense,
 			// NOT REALLY! Don't sue me Sega!
@@ -562,21 +560,40 @@ void BuildTimerInfoPacket()
 
 void BuildPuruPuruInfoPacket()
 {
-	LCDInfoPacket.BitPairsMinus1 = (sizeof(LCDInfoPacket) - 7) * 4 - 1;
+	PuruPuruInfoPacket.BitPairsMinus1 = (sizeof(PuruPuruInfoPacket) - 7) * 4 - 1;
 
-	LCDInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
-	LCDInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	LCDInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL1;
-	LCDInfoPacket.Header.NumWords = sizeof(PuruPuruInfoPacket.Info) / sizeof(uint);
+	PuruPuruInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
+	PuruPuruInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
+	PuruPuruInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL1;
+	PuruPuruInfoPacket.Header.NumWords = sizeof(PuruPuruInfoPacket.Info) / sizeof(uint);
 
-	LCDInfoPacket.Info.Func = __builtin_bswap32(FUNC_LCD);
+	PuruPuruInfoPacket.Info.Func = __builtin_bswap32(FUNC_VIBRATION);
 	
-	LCDInfoPacket.Info.dX = LCD_Width - 1; // 48 dots wide (dX + 1)
-	LCDInfoPacket.Info.dY = LCD_Height - 1; // 32 dots tall (dY + 1)
-	LCDInfoPacket.Info.GradContrast = 0x10; // Gradation = 1 bit/dot, Contrast = 0 (disabled)
-	LCDInfoPacket.Info.Reserved = 0;	
+	PuruPuruInfoPacket.Info.VSet0 = 0x10;
+	PuruPuruInfoPacket.Info.Vset1 = 0xE0;
+	PuruPuruInfoPacket.Info.FMin = 0x07;
+	PuruPuruInfoPacket.Info.FMin = 0x3B;
+	
+	PuruPuruInfoPacket.CRC = CalcCRC((uint *)&PuruPuruInfoPacket.Header, sizeof(PuruPuruInfoPacket) / sizeof(uint) - 2);
+}
 
-	LCDInfoPacket.CRC = CalcCRC((uint *)&LCDInfoPacket.Header, sizeof(LCDInfoPacket) / sizeof(uint) - 2);
+void BuildPuruPuruConditionPacket()
+{
+	PuruPuruConditionPacket.BitPairsMinus1 = (sizeof(PuruPuruConditionPacket) - 7) * 4 - 1;
+
+	PuruPuruConditionPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
+	PuruPuruConditionPacket.Header.Recipient = ADDRESS_DREAMCAST;
+	PuruPuruConditionPacket.Header.Sender = ADDRESS_SUBPERIPHERAL1;
+	PuruPuruConditionPacket.Header.NumWords = sizeof(PuruPuruConditionPacket.Condition) / sizeof(uint);
+
+	PuruPuruConditionPacket.Condition.Func = __builtin_bswap32(FUNC_VIBRATION);
+	
+	PuruPuruConditionPacket.Condition.VSource = 0x00;
+	PuruPuruConditionPacket.Condition.Power = 0x00;
+	PuruPuruConditionPacket.Condition.Freq = 0x00;
+	PuruPuruConditionPacket.Condition.Inc = 0x00;
+	
+	PuruPuruConditionPacket.CRC = CalcCRC((uint *)&PuruPuruConditionPacket.Header, sizeof(PuruPuruConditionPacket) / sizeof(uint) - 2);
 }
 
 void BuildControllerPacket()
@@ -600,7 +617,7 @@ void BuildControllerPacket()
 	OriginalControllerCRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
 }
 	
-void BuildBlockReadResponsePacket()
+void BuildDataPacket()
 {
 	DataPacket.BitPairsMinus1 = (sizeof(DataPacket) - 7) * 4 - 1;
 
@@ -614,6 +631,22 @@ void BuildBlockReadResponsePacket()
 	memset(DataPacket.BlockRead.Data, 0, sizeof(DataPacket.BlockRead.Data));
 	
 	OriginalReadBlockResponseCRC = CalcCRC((uint *)&DataPacket.Header, sizeof(DataPacket) / sizeof(uint) - 2);
+}
+
+void BuildPuruPuruBlockReadPacket()
+{
+	PuruPuruDataPacket.BitPairsMinus1 = (sizeof(PuruPuruDataPacket) - 7) * 4 - 1;
+
+	PuruPuruDataPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
+	PuruPuruDataPacket.Header.Recipient = ADDRESS_DREAMCAST;
+	PuruPuruDataPacket.Header.Sender = ADDRESS_SUBPERIPHERAL1;
+	PuruPuruDataPacket.Header.NumWords = sizeof(PuruPuruDataPacket.PuruPuruBlockRead) / sizeof(uint);
+
+	PuruPuruDataPacket.PuruPuruBlockRead.Func = __builtin_bswap32(FUNC_VIBRATION);
+	PuruPuruDataPacket.PuruPuruBlockRead.Address = 0;
+	memset(PuruPuruDataPacket.PuruPuruBlockRead.Data, 0, sizeof(PuruPuruDataPacket.PuruPuruBlockRead.Data));
+	
+	OriginalReadBlockResponseCRC = CalcCRC((uint *)&PuruPuruDataPacket.Header, sizeof(PuruPuruDataPacket) / sizeof(uint) - 2);
 }
 
 int SendPacket(const uint* Words, uint NumWords)
@@ -638,16 +671,50 @@ void SendControllerStatus()
 			Buttons &= ~ButtonInfos[i].DCButtonMask;
 		}
 	}
+
+	// StickConfig[0] 	// xCenter
+	// StickConfig[1] 	// xMin
+	// StickConfig[2] 	// xMax
+	// StickConfig[3]	// yCenter
+	// StickConfig[4]	// yMin
+	// StickConfig[5]	// yMax
+	// StickConfig[6]	// lMax
+	// StickConfig[7]	// lMin
+	// StickConfig[8]	// rMax
+	// StickConfig[9] 	// rMin
 	
 	adc_select_input(0);
-    ControllerPacket.Controller.JoyX2 = adc_read() >> 4;
-	adc_select_input(1);
-	ControllerPacket.Controller.JoyY2 = adc_read() >> 4;
-	//adc_select_input(2);
-    //ControllerPacket.Controller.LeftTrigger = adc_read() >> 4;
-	//adc_select_input(3);
-	//ControllerPacket.Controller.RightTrigger = adc_read() >> 4;
+	uint8_t xRead = adc_read() >> 4;
+	if(xRead > (StickConfig[0] - 0x0F) && xRead < (StickConfig[0] + 0x0F))	// deadzone
+		ControllerPacket.Controller.JoyX = 0x80;
+	else if (xRead < StickConfig[0])
+		ControllerPacket.Controller.JoyX = map(xRead, StickConfig[1] - 0x04, StickConfig[0] - 0x0F, 0x00, 0x7F);
+	else if (xRead > StickConfig[0])
+		ControllerPacket.Controller.JoyX = map(xRead, StickConfig[0] + 0x0F, StickConfig[2] + 0x04, 0x81, 0xFF);
 
+	adc_select_input(1);
+	uint8_t yRead = adc_read() >> 4;
+	if(yRead > (StickConfig[3] - 0x0F) && yRead < (StickConfig[3] + 0x0F))	// deadzone
+		ControllerPacket.Controller.JoyY = 0x80;
+	else if (yRead < StickConfig[3])
+		ControllerPacket.Controller.JoyY = map(yRead, StickConfig[4] - 0x04, StickConfig[3] - 0x0F, 0x00, 0x7F);
+	else if (yRead > StickConfig[3])
+		ControllerPacket.Controller.JoyY = map(yRead, StickConfig[3] + 0x0F, StickConfig[5] + 0x04, 0x81, 0xFF);
+	
+	adc_select_input(2);
+	uint8_t lRead = adc_read() >> 4;
+	if(lRead > (StickConfig[6] - 0x0F))	// deadzone
+		ControllerPacket.Controller.LeftTrigger = 0x00;
+	else if (lRead <= (StickConfig[6] - 0x0F))
+		ControllerPacket.Controller.LeftTrigger = ~map(lRead, StickConfig[7] - 0x04, StickConfig[6] - 0x0F, 0x01, 0xFF);
+
+	adc_select_input(3);
+	uint8_t rRead = adc_read() >> 4;
+	if(rRead > (StickConfig[8] - 0x0F))	// deadzone
+		ControllerPacket.Controller.RightTrigger = 0x00;
+	else if (rRead <= (StickConfig[8] + 0x0F))
+		ControllerPacket.Controller.RightTrigger = ~map(rRead, StickConfig[9] - 0x04, StickConfig[8] - 0x0F, 0x01, 0xFF);
+	
 	ControllerPacket.Controller.Buttons = Buttons;
 
 	ControllerPacket.CRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
@@ -655,33 +722,45 @@ void SendControllerStatus()
 	SendPacket((uint *)&ControllerPacket, sizeof(ControllerPacket) / sizeof(uint));
 }
 
-void SendBlockReadResponsePacket()
+void SendBlockReadResponsePacket(uint PuruPuru)
 {
 	uint Partition = (SendBlockAddress >> 24) & 0xFF;
 	uint Phase = (SendBlockAddress >> 16) & 0xFF;	
 	uint Block = SendBlockAddress & 0xFF; // Emulators also seem to ignore top bits for a read
 
-	assert(Phase == 0);
+	assert(Phase == 0);						// Note: Phase is analogous to the VN parameter in a vibration AST block R/W.
 	uint MemoryOffset = Block * BLOCK_SIZE + Phase * PHASE_SIZE;
 
-	DataPacket.BlockRead.Address = SendBlockAddress;
-	memcpy(DataPacket.BlockRead.Data, &MemoryCard[MemoryOffset], sizeof(DataPacket.BlockRead.Data));
-	uint CRC = CalcCRC(&DataPacket.BlockRead.Address, 1 + (sizeof(DataPacket.BlockRead.Data) / sizeof(uint)));
-	DataPacket.CRC = CRC ^ OriginalReadBlockResponseCRC;
+	if(PuruPuru) {	// PuruPuru AST Block Read
+		PuruPuruDataPacket.PuruPuruBlockRead.Address = SendBlockAddress;
+		memcpy(PuruPuruDataPacket.PuruPuruBlockRead.Data, &AST[0], sizeof(PuruPuruDataPacket.PuruPuruBlockRead.Data));
+		uint CRC = CalcCRC(&PuruPuruDataPacket.PuruPuruBlockRead.Address, 1 + (sizeof(PuruPuruDataPacket.PuruPuruBlockRead.Data) / sizeof(uint)));
+		PuruPuruDataPacket.CRC = CRC ^ OriginalReadBlockResponseCRC;
 	
-	SendBlockAddress = ~0u;
+		SendBlockAddress = ~0u;
 	
-	SendPacket((uint *)&DataPacket, sizeof(DataPacket) / sizeof(uint));
+		SendPacket((uint *)&PuruPuruDataPacket, sizeof(PuruPuruDataPacket) / sizeof(uint));
+	}
+	else {			//
+		DataPacket.BlockRead.Address = SendBlockAddress;
+		memcpy(DataPacket.BlockRead.Data, &MemoryCard[MemoryOffset], sizeof(DataPacket.BlockRead.Data));
+		uint CRC = CalcCRC(&DataPacket.BlockRead.Address, 1 + (sizeof(DataPacket.BlockRead.Data) / sizeof(uint)));
+		DataPacket.CRC = CRC ^ OriginalReadBlockResponseCRC;
+	
+		SendBlockAddress = ~0u;
+	
+		SendPacket((uint *)&DataPacket, sizeof(DataPacket) / sizeof(uint));
+	}
 }
 
-void BlockRead(uint Address)
+void BlockRead(uint Address, uint PuruPuru)	// ### Figure out how to tell SendBlockReadResponse to send PuruPuru. (Separate function and NextPacketSend code...?)
 {
-#if SHOULD_PRINT
-	printf("Read %08x\n", Address);
-#endif
 	assert(SendBlockAddress == ~0u); // No send pending
 	SendBlockAddress = Address;
-	NextPacketSend = SEND_DATA;
+	if(PuruPuru)
+		NextPacketSend = SEND_PURUPURU_DATA;
+	else
+		NextPacketSend = SEND_DATA;
 }
 
 void BlockWrite(uint Address, uint* Data, uint NumWords)
@@ -691,9 +770,6 @@ void BlockWrite(uint Address, uint* Data, uint NumWords)
 	uint Block = Address & 0xFFFF;
 	
 	assert(NumWords * sizeof(uint) == PHASE_SIZE);
-#if SHOULD_PRINT
-	printf("Write %08x %d\n", Address, NumWords);
-#endif
 
 	uint MemoryOffset = Block * BLOCK_SIZE + Phase * PHASE_SIZE;
 	memcpy(&MemoryCard[MemoryOffset], Data, PHASE_SIZE);
@@ -718,6 +794,12 @@ void LCDWrite(uint Address, uint* Data, uint NumWords, uint BlockNum)
 	
 	LCDUpdated = true;
 
+	NextPacketSend = SEND_ACK;
+}
+
+void PuruPuruWrite(uint Address, uint* Data, uint NumWords)
+{
+	memcpy(AST, Data, NumWords * sizeof(uint));
 	NextPacketSend = SEND_ACK;
 }
 
@@ -783,12 +865,6 @@ bool ConsumePacket(uint Size)
 							SWAP4(DeviceInfo->FuncData[0]);
 							SWAP4(DeviceInfo->FuncData[1]);
 							SWAP4(DeviceInfo->FuncData[2]);
-#if SHOULD_PRINT
-							printf("Info:\nFunc: %08x (%08x %08x %08x) Area: %d Dir: %d Name: %.*s License: %.*s Pwr: %d->%d\n",
-								   DeviceInfo->Func, DeviceInfo->FuncData[0], DeviceInfo->FuncData[1], DeviceInfo->FuncData[2],
-								   DeviceInfo->AreaCode, DeviceInfo->ConnectorDirection, 30, DeviceInfo->ProductName, 60, DeviceInfo->ProductLicense,
-								   DeviceInfo->StandbyPower, DeviceInfo->MaxPower);
-#endif
 							return true;
 						}
 						break;
@@ -801,12 +877,6 @@ bool ConsumePacket(uint Size)
 							SWAP4(ControllerCondition->Condition);
 							if (ControllerCondition->Condition == FUNC_CONTROLLER)
 							{
-#if SHOULD_PRINT
-								printf("Buttons: %02x LT:%d RT:%d Joy: %d %d Joy2: %d %d\n",
-									   ControllerCondition->Buttons, ControllerCondition->LeftTrigger, ControllerCondition->RightTrigger,
-									   ControllerCondition->JoyX - 0x80, ControllerCondition->JoyY - 0x80,
-									   ControllerCondition->JoyX2 - 0x80, ControllerCondition->JoyY2 - 0x80);
-#endif
 								return true;
 							}
 						}
@@ -814,6 +884,7 @@ bool ConsumePacket(uint Size)
 					}
 					}
 				}
+				// Subperipheral 0 (VMU)
 				else if (Header->Recipient == ADDRESS_SUBPERIPHERAL0 || (Header->Recipient == ADDRESS_DREAMCAST && Header->Sender == ADDRESS_SUBPERIPHERAL0))
 				{
 					switch (Header->Command)
@@ -832,12 +903,6 @@ bool ConsumePacket(uint Size)
 							SWAP4(DeviceInfo->FuncData[0]);
 							SWAP4(DeviceInfo->FuncData[1]);
 							SWAP4(DeviceInfo->FuncData[2]);
-#if SHOULD_PRINT
-							printf("Info:\nFunc: %08x (%08x %08x %08x) Area: %d Dir: %d Name: %.*s License: %.*s Pwr: %d->%d\n",
-								   DeviceInfo->Func, DeviceInfo->FuncData[0], DeviceInfo->FuncData[1], DeviceInfo->FuncData[2],
-								   DeviceInfo->AreaCode, DeviceInfo->ConnectorDirection, 30, DeviceInfo->ProductName, 60, DeviceInfo->ProductLicense,
-								   DeviceInfo->StandbyPower, DeviceInfo->MaxPower);
-#endif
 							return true;
 						}
 						break;
@@ -861,7 +926,7 @@ bool ConsumePacket(uint Size)
 						if (Header->NumWords >= 2)
 						{
 							assert(*PacketData == __builtin_bswap32(FUNC_MEMORY_CARD));
-							BlockRead(__builtin_bswap32(*(PacketData + 1)));
+							BlockRead(__builtin_bswap32(*(PacketData + 1)), VMU);
 							return true;
 						}
 						break;
@@ -909,6 +974,98 @@ bool ConsumePacket(uint Size)
 						break;
 					}
 					}
+				}
+				// Subperipheral 1 (Rumble)
+				else if (Header->Recipient == ADDRESS_SUBPERIPHERAL1 || (Header->Recipient == ADDRESS_DREAMCAST && Header->Sender == ADDRESS_SUBPERIPHERAL1))
+				{
+					switch (Header->Command)
+					{
+					case CMD_REQUEST_DEVICE_INFO:
+					{
+						NextPacketSend = SEND_PURUPURU_INFO;
+						return true;
+					}
+					case CMD_RESPOND_DEVICE_INFO:
+					{
+						PacketDeviceInfo *DeviceInfo = (PacketDeviceInfo *)(Header + 1);
+						if (Header->NumWords * sizeof(uint) == sizeof(PacketDeviceInfo))
+						{
+							SWAP4(DeviceInfo->Func);
+							SWAP4(DeviceInfo->FuncData[0]);
+							SWAP4(DeviceInfo->FuncData[1]);
+							SWAP4(DeviceInfo->FuncData[2]);
+							return true;
+						}
+						break;
+					}
+					case CMD_GET_MEDIA_INFO:
+					{
+						if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_VIBRATION) && *(PacketData + 1) == 0)
+						{
+							NextPacketSend = SEND_PURUPURU_INFO;
+							return true;
+						}
+						break;
+					}
+					case CMD_SET_CONDITION:
+					{
+						if (Header->NumWords >= 2)
+						{
+							assert(*PacketData == __builtin_bswap32(FUNC_VIBRATION));
+							if( ( *(PacketData + 1) >> 24 ) && 0x11 ){
+								uint16_t powSetting = ( *(PacketData + 1) >> 16) & 0x07; // ( *(PacketData + 1) >> 20) & 0x07;
+								pwm_set_gpio_level(15, (powSetting * (powSetting >> 1)));
+								//gpio_put(15, 1);
+								//rumbleTime = to_ms_since_boot (get_absolute_time());
+							}
+							else //if ( (to_ms_since_boot(get_absolute_time()) - rumbleTime) > 250)
+								pwm_set_gpio_level(15, 0);
+							NextPacketSend = SEND_ACK;
+							return true;
+						}
+						break;
+					}
+					case CMD_GET_CONDITION:
+					{
+						if (Header->NumWords >= 2)
+						{
+							assert(*PacketData == __builtin_bswap32(FUNC_VIBRATION));
+							NextPacketSend = SEND_CONDITION;
+							return true;
+						}
+						break;
+					}
+					case CMD_BLOCK_READ:
+					{
+						if (Header->NumWords >= 2)
+						{
+							assert(*PacketData == __builtin_bswap32(FUNC_VIBRATION));
+							BlockRead(__builtin_bswap32(*(PacketData + 1)), PURUPURU);
+							return true;
+						}
+						break;
+					}
+					case CMD_BLOCK_WRITE:
+					{
+						if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_VIBRATION))
+						{
+							PuruPuruWrite(__builtin_bswap32(*(PacketData + 1)), PacketData + 2, Header->NumWords - 2);
+							return true;
+						}
+						break;
+					}
+					case CMD_RESPOND_DATA_TRANSFER:
+					{
+						return true;
+						break;
+					}
+					case CMD_RESPOND_COMMAND_ACK:
+					{
+						if (Header->NumWords == 0)
+							return true;
+						break;
+					}
+				}
 				}
 			}
 		}
@@ -1042,7 +1199,7 @@ void SetupMapleRX()
 void readFlash()
 {
 	memset(MemoryCard, 0, sizeof(MemoryCard));
-	memcpy(MemoryCard, (uint8_t *)XIP_BASE + (FLASH_OFFSET * CurrentPage), sizeof(MemoryCard));
+	memcpy(MemoryCard, (uint8_t *)XIP_BASE + (FLASH_OFFSET * CurrentPage), sizeof(MemoryCard)); // read into variable
 	SectorDirty = CheckFormatted(MemoryCard);
 }
 
@@ -1062,7 +1219,7 @@ void pageToggle(uint gpio, uint32_t events) {
 
 int main() {
 	stdio_init_all();
-	set_sys_clock_khz(200000, true);
+	//set_sys_clock_khz(250000, true); // Overclock sometimes avoids disconnects, but leads to instability over time as flash wears
 	adc_init();
 	adc_set_clkdiv(0);
 	adc_gpio_init(26); // Stick X
@@ -1070,11 +1227,19 @@ int main() {
 	adc_gpio_init(28); // Left Trigger
     adc_gpio_init(29); // Right Trigger
 
-	i2c_init(I2C_PORT, I2C_CLOCK * 1000);
-    gpio_set_function(I2C_SDA_PIN, GPIO_FUNC_I2C);
-    gpio_set_function(I2C_SCL_PIN, GPIO_FUNC_I2C);
-    gpio_pull_up(I2C_SDA_PIN);
-    gpio_pull_up(I2C_SCL_PIN);
+	spi_init(SSD1331_SPI, SSD1331_SPEED);
+ 	spi_set_format(spi0, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
+ 	gpio_set_function(SCK, GPIO_FUNC_SPI);
+  	gpio_set_function(MOSI, GPIO_FUNC_SPI);
+
+	gpio_init(20);
+	gpio_set_dir(20, GPIO_IN);
+    gpio_pull_up(20);
+	
+	gpio_set_function(15, GPIO_FUNC_PWM);
+	pwm_set_wrap(pwm_gpio_to_slice_num(15), 48);
+	pwm_set_chan_level(pwm_gpio_to_slice_num(15), pwm_gpio_to_channel(15), 0);
+	pwm_set_enabled(pwm_gpio_to_slice_num(15), true);
 
 	// Page cycle interrupt
 	gpio_init(PAGE_BUTTON);
@@ -1084,9 +1249,120 @@ int main() {
 
 	lastPress = to_ms_since_boot (get_absolute_time());
 
-    SSD1306_initialise();
+    //ClearDisplay();
+	clearSSD1331();
 
-    ClearDisplay();
+	if(!gpio_get(20)){
+		// Stick calibration mode
+
+		setPixel1306(0,0,true);
+		setPixelSSD1331(0,0,color);
+		UpdateDisplay();
+
+		while(!gpio_get(20)){};
+
+		ClearDisplay();
+		setPixel1306(63,31,true);
+		setPixelSSD1331(0,0,color);
+		UpdateDisplay();
+
+		while(gpio_get(20)){};
+		
+		// StickConfig[0] 	// xCenter
+		// StickConfig[1] 	// xMin
+		// StickConfig[2] 	// xMax
+		// StickConfig[3]	// yCenter
+		// StickConfig[4]	// yMin
+		// StickConfig[5]	// yMax
+		// StickConfig[6]	// lMin
+		// StickConfig[7]	// lMax
+		// StickConfig[8]	// rMin
+		// StickConfig[9] 	// rMax
+		
+		adc_select_input(0); // X
+		StickConfig[0] = adc_read() >> 4;
+				
+		adc_select_input(1); // Y
+		StickConfig[3] = adc_read() >> 4;		
+
+		adc_select_input(2); // L
+		StickConfig[6] = adc_read() >> 4;
+		
+		adc_select_input(3); // R
+		StickConfig[8] = adc_read() >> 4;
+
+		ClearDisplay();
+		setPixel1306(127,31,true);
+		UpdateDisplay();
+
+		sleep_ms(500);
+		while(gpio_get(20)){};
+
+		adc_select_input(0); // Xmin
+		StickConfig[1] = adc_read() >> 4;	
+
+		ClearDisplay();
+		setPixel1306(63,63,true);
+		UpdateDisplay();
+
+		sleep_ms(500);
+		while(gpio_get(20)){};
+
+		adc_select_input(1); // Ymin
+		StickConfig[4] = adc_read() >> 4;	
+
+		ClearDisplay();
+		setPixel1306(63,0,true);
+		UpdateDisplay();
+
+		sleep_ms(500);
+		while(gpio_get(20)){};
+
+		adc_select_input(1); // Ymax
+		StickConfig[5] = adc_read() >> 4;	
+
+		ClearDisplay();
+		setPixel1306(0,31,true);
+		UpdateDisplay();
+
+		sleep_ms(500);
+		while(gpio_get(20)){};
+
+		adc_select_input(0); // Xmax
+		StickConfig[2] = adc_read() >> 4;	
+
+		ClearDisplay();
+		setPixel1306(127,63,true);
+		UpdateDisplay();
+
+		sleep_ms(500);
+		while(gpio_get(20)){};
+
+		adc_select_input(2); // Lmax
+		StickConfig[7] = adc_read() >> 4;	
+		
+		ClearDisplay();
+		setPixel1306(0,63,true);
+		UpdateDisplay();
+
+		sleep_ms(500);
+		while(gpio_get(20)){};
+
+		adc_select_input(3); // Rmax
+		StickConfig[9] = adc_read() >> 4;	
+
+		ClearDisplay();
+		
+		// Write config values to flash
+		uint Interrupt = save_and_disable_interrupts();
+		flash_range_erase( (FLASH_OFFSET * 9), FLASH_SECTOR_SIZE);
+		flash_range_program( (FLASH_OFFSET * 9), (uint8_t *)StickConfig, FLASH_PAGE_SIZE);
+		restore_interrupts(Interrupt);
+
+	}
+
+	memset(StickConfig, 0, sizeof(StickConfig));
+	memcpy(StickConfig, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(StickConfig)); // read into variable
 
 	readFlash();
 
@@ -1102,7 +1378,8 @@ int main() {
 	BuildSubPeripheral1InfoPacket();
 	BuildMemoryInfoPacket();
 	BuildLCDInfoPacket();
-	BuildBlockReadResponsePacket();
+	BuildPuruPuruInfoPacket();
+	BuildDataPacket();
 
 	SetupButtons();
 	SetupMapleTX();
@@ -1120,20 +1397,7 @@ int main() {
 		}
 		
 		uint PacketSize = EndOfPacket - StartOfPacket;
-		if (!ConsumePacket(PacketSize))
-		{
-#if SHOULD_PRINT
-			for (uint i = 0; i < (PacketSize & ~3); i += 4)
-			{
-				printf("%02x %02x %02x %02x\n", Packet[i + 0], Packet[i + 1], Packet[i + 2], Packet[i + 3]);
-			}
-			for (uint i = (PacketSize & ~3); i < PacketSize; i += 4)
-			{
-				uint Index = (i & ~3) + 3 - (i & 3);
-				printf("%02x\n", Packet[Index]);
-			}
-#endif
-		}
+		ConsumePacket(PacketSize);
 		StartOfPacket = ((EndOfPacket + 3) & ~3);
 
 		if (NextPacketSend != SEND_NOTHING)
@@ -1191,37 +1455,40 @@ int main() {
 								if(LCD_Width == 48 && LCD_Height == 32)		// Standard LCD
 								{
 									if( ((LCDFramebuffer[fb] >> bb)  & 0x01) ){  // if bit is set...
-										SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, true); // set corresponding OLED pixels! 
-										SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, true); // Each VMU dot corresponds to 4 OLED pixels. 
-										SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, true);
-										SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, true);
+										setPixelSSD1331(((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, color); // set corresponding OLED pixels! 
+										setPixelSSD1331((((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, color); // Each VMU dot corresponds to 4 OLED pixels. 
+										setPixelSSD1331(((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, color);
+										setPixelSSD1331((((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, color);
 									}
 									else {
-										SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, false); // ...otherwise, clear the four OLED pixels.
-										SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, false);  
-										SetPixel( 16 + ((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, false);
-										SetPixel( 16 + (((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, false);
+										setPixelSSD1331(((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, 0); // ...otherwise, clear the four OLED pixels.
+										setPixelSSD1331((((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, 0);  
+										setPixelSSD1331(((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, 0);
+										setPixelSSD1331((((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, 0);
 									}
 								}
 								else	// 128x64 Test Mode
 								{
 									if( ((LCDFramebuffer[fb] >> bb)  & 0x01) )
 									{  
-										SetPixel( ((fb % LCD_NumCols)*8 + (7 - bb)), (fb/LCD_NumCols), true);  
+										setPixel1306( ((fb % LCD_NumCols)*8 + (7 - bb)), (fb/LCD_NumCols), true);  
 									}
 									else 
 									{
-										SetPixel( ((fb % LCD_NumCols)*8 + (7 - bb)), (fb/LCD_NumCols), false); 
+										setPixel1306( ((fb % LCD_NumCols)*8 + (7 - bb)), (fb/LCD_NumCols), false); 
 									}
 								}
 							}    
 						}
-						UpdateDisplay();
+						//UpdateDisplay();
 						LCDUpdated = false;
 					}
 					break;
 				case SEND_MEMORY_CARD_INFO:
 					SendPacket((uint *)&SubPeripheral0InfoPacket, sizeof(SubPeripheral0InfoPacket) / sizeof(uint));
+					break;
+				case SEND_PURUPURU_INFO:
+					SendPacket((uint *)&SubPeripheral1InfoPacket, sizeof(SubPeripheral1InfoPacket) / sizeof(uint));
 					break;
 				case SEND_MEMORY_INFO:
 					SendPacket((uint *)&MemoryInfoPacket, sizeof(MemoryInfoPacket) / sizeof(uint));
@@ -1233,8 +1500,14 @@ int main() {
 					SendPacket((uint *)&ACKPacket, sizeof(ACKPacket) / sizeof(uint));
 					break;
 				case SEND_DATA:
-					SendBlockReadResponsePacket();
+					SendBlockReadResponsePacket(VMU);
 					break;
+				case SEND_PURUPURU_DATA:
+					SendBlockReadResponsePacket(PURUPURU);
+					break;
+				case SEND_CONDITION:
+					SendPacket((uint *)&PuruPuruConditionPacket, sizeof(PuruPuruConditionPacket) / sizeof(uint));
+					break;		
 				}
 			}
 #endif

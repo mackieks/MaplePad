@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include "pico/stdlib.h"
+#include "hardware/i2c.h"
+
 // SSD1306 defines
 static int DEVICE_ADDRESS = 0x3C;
 
