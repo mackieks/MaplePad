@@ -1,4 +1,5 @@
 #include "ssd1306.h"
+#include <string.h>
 
 uint8_t _Framebuffer[SSD1306_FRAMEBUFFER_SIZE + 1] = {0x40};
 uint8_t *Framebuffer = _Framebuffer+1;

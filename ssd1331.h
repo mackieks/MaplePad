@@ -43,3 +43,18 @@
 #define SSD1331_CMD_PRECHARGEC 0x8C //!< Set second pre-charge speed for color C
 #define SSD1331_CMD_PRECHARGELEVEL 0xBB //!< Set pre-charge voltage
 #define SSD1331_CMD_VCOMH 0xBE          //!< Set Vcomh voltge
+
+
+void ssd1331WriteCommand(const uint8_t data);
+
+void ssd1331WriteCommands(const uint8_t* data, uint num);
+
+void ssd1331WriteData(const uint8_t* data, uint numbytes);
+
+void setPixelSSD1331(const uint8_t x, const uint8_t y, const uint16_t color);
+
+void clearSSD1331(void);
+
+void updateSSD1331(void);
+
+void ssd1331_init();

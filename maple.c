@@ -77,7 +77,18 @@
 #define LCDFramebufferSize 192	// (48 * 32) / 8
 #define BPPacket 192			// Bytes Per Packet
 
-uint16_t color = 0xffff;
+const uint16_t color = 0xffff;
+
+volatile uint16_t palette[] = {
+	0xf800,	// red
+	0xfba0,	// orange
+	0xff80,	// yellow
+	0x7f80,	// yellow-green
+	0x0500,	// green
+	0x045f,	// blue
+	0x781f,	// violet
+	0x780d	// magenta
+};
 
 typedef enum ESendState_e
 {
@@ -1232,6 +1243,8 @@ int main() {
  	gpio_set_function(SCK, GPIO_FUNC_SPI);
   	gpio_set_function(MOSI, GPIO_FUNC_SPI);
 
+	ssd1331_init();
+
 	gpio_init(20);
 	gpio_set_dir(20, GPIO_IN);
     gpio_pull_up(20);
@@ -1250,7 +1263,7 @@ int main() {
 	lastPress = to_ms_since_boot (get_absolute_time());
 
     //ClearDisplay();
-	clearSSD1331();
+	//clearSSD1331();
 
 	if(!gpio_get(20)){
 		// Stick calibration mode
@@ -1455,10 +1468,10 @@ int main() {
 								if(LCD_Width == 48 && LCD_Height == 32)		// Standard LCD
 								{
 									if( ((LCDFramebuffer[fb] >> bb)  & 0x01) ){  // if bit is set...
-										setPixelSSD1331(((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, color); // set corresponding OLED pixels! 
-										setPixelSSD1331((((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, color); // Each VMU dot corresponds to 4 OLED pixels. 
-										setPixelSSD1331(((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, color);
-										setPixelSSD1331((((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, color);
+										setPixelSSD1331(((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, palette[CurrentPage -1]); // set corresponding OLED pixels! 
+										setPixelSSD1331((((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, (fb/LCD_NumCols)*2, palette[CurrentPage -1]); // Each VMU dot corresponds to 4 OLED pixels. 
+										setPixelSSD1331(((fb % LCD_NumCols)*8 + (7 - bb))*2, ((fb/LCD_NumCols)*2) + 1, palette[CurrentPage -1]);
+										setPixelSSD1331((((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, palette[CurrentPage -1]);
 									}
 									else {
 										setPixelSSD1331(((fb % LCD_NumCols)*8 + (7 - bb))*2, (fb/LCD_NumCols)*2, 0); // ...otherwise, clear the four OLED pixels.
@@ -1467,20 +1480,21 @@ int main() {
 										setPixelSSD1331((((fb % LCD_NumCols)*8 + (7 - bb))*2) + 1, ((fb/LCD_NumCols)*2) + 1, 0);
 									}
 								}
-								else	// 128x64 Test Mode
-								{
-									if( ((LCDFramebuffer[fb] >> bb)  & 0x01) )
-									{  
-										setPixel1306( ((fb % LCD_NumCols)*8 + (7 - bb)), (fb/LCD_NumCols), true);  
-									}
-									else 
-									{
-										setPixel1306( ((fb % LCD_NumCols)*8 + (7 - bb)), (fb/LCD_NumCols), false); 
-									}
-								}
+								// else	// 128x64 Test Mode
+								// {
+								// 	if( ((LCDFramebuffer[fb] >> bb)  & 0x01) )
+								// 	{  
+								// 		setPixel1306( ((fb % LCD_NumCols)*8 + (7 - bb)), (fb/LCD_NumCols), true);  
+								// 	}
+								// 	else 
+								// 	{
+								// 		setPixel1306( ((fb % LCD_NumCols)*8 + (7 - bb)), (fb/LCD_NumCols), false); 
+								// 	}
+								// }
 							}    
 						}
 						//UpdateDisplay();
+						updateSSD1331();
 						LCDUpdated = false;
 					}
 					break;
