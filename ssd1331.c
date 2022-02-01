@@ -1,5 +1,9 @@
 #include "ssd1331.h"
 #include <string.h>
+#include <math.h>
+#include "font.h"
+
+extern tFont Font;
 
 uint8_t oledFB[96 * 64 * 2] = {0x00};
 
@@ -390,6 +394,102 @@ const uint8_t icon[] ={ // MaplePad splashscreen
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   // 0x1800 (6144)
 };
 
+#define TRUE 1
+#define FALSE 0
+
+// Math constants we'll use
+double const pi=3.1415926535897932384626433;	// pi
+double const twopi=2.0*pi;			// pi times 2
+double const two_over_pi= 2.0/pi;		// 2/pi
+double const halfpi=pi/2.0;			// pi divided by 2
+double const threehalfpi=3.0*pi/2.0;  		// pi times 3/2, used in tan routines
+double const four_over_pi=4.0/pi;		// 4/pi, used in tan routines
+double const qtrpi=pi/4.0;			// pi/4.0, used in tan routines
+double const sixthpi=pi/6.0;			// pi/6.0, used in atan routines
+double const twelfthpi=pi/12.0;			// pi/12.0, used in atan routines
+
+
+float cos_32s(float x)
+{
+const float c1= 0.99940307;
+const float c2=-0.49558072;
+const float c3= 0.03679168;
+
+float x2;							// The input argument squared
+
+x2=x * x;
+return (c1 + x2*(c2 + c3 * x2));
+}
+
+//
+//  This is the main cosine approximation "driver"
+// It reduces the input argument's range to [0, pi/2],
+// and then calls the approximator. 
+// See the notes for an explanation of the range reduction.
+//
+float cos32(float x){
+  int q;						// what quadrant are we in?
+
+	x=fmod(x, twopi);				// Get rid of values > 2* pi
+	if(x<0)x=-x;					// cos(-x) = cos(x)
+	q=(x * two_over_pi);	
+	switch (q){
+	case 0: return  cos_32s(x);
+	case 1: return -cos_32s(pi-x);
+	case 2: return -cos_32s(x-pi);
+	case 3: return  cos_32s(twopi-x);
+	}
+}
+//
+//   The sine is just cosine shifted a half-pi, so
+// we'll adjust the argument and call the cosine approximation.
+//
+float sin32(float x){
+	return cos32(halfpi-x);
+}
+
+double atan_66s(double x)
+{
+const double c1=1.6867629106;
+const double c2=0.4378497304;
+const double c3=1.6867633134;
+
+
+double x2;							// The input argument squared
+
+x2=x * x;
+return (x*(c1 + x2*c2)/(c3 + x2));
+}
+
+double atan66(double x){
+double tansixthpi=tan(sixthpi);		// tan(pi/6), used in atan routines
+double tantwelfthpi=tan(twelfthpi);	// tan(pi/12), used in atan routines
+double y;							// return from atan__s function
+int complement= FALSE;				// true if arg was >1 
+int region= FALSE;					// true depending on region arg is in
+int sign= FALSE;					// true if arg was < 0
+
+if (x <0 ){
+	x=-x;
+	sign=TRUE;						// arctan(-x)=-arctan(x)
+}
+if (x > 1.0){
+	x=1.0/x;						// keep arg between 0 and 1
+	complement=TRUE;
+}
+if (x > tantwelfthpi){
+	x = (x-tansixthpi)/(1+tansixthpi*x);	// reduce arg to under tan(pi/12)
+	region=TRUE;
+}
+
+y=atan_66s(x);						// run the approximation
+if (region) y+=sixthpi;				// correct for region we're in
+if (complement)y=halfpi-y;			// correct for 1/x if we did that
+if (sign)y=-y;						// correct for negative arg
+return (y);
+
+}
+
 void ssd1331WriteCommand(const uint8_t data){
   // gpio_put(DC, 0);
   spi_write_blocking(SSD1331_SPI, &data, 1);
@@ -411,7 +511,7 @@ void setPixelSSD1331(const uint8_t x, const uint8_t y, const uint16_t color){
   // uint8_t g = (color & 0x7E0) >> 5;
   // uint8_t b = (color & 0x1f);
 
-  gpio_put(DC, 0);
+  //gpio_put(DC, 0);
 
   memset(&oledFB[(y*192) + (x*2)], color >> 8, sizeof(uint8_t));
   memset(&oledFB[(y*192) + (x*2) + 1], color & 0xff, sizeof(uint8_t));
@@ -441,22 +541,386 @@ void updateSSD1331(void){
   spi_write_blocking(SSD1331_SPI, oledFB, sizeof(oledFB));
 }
 
+void drawEllipse(int xc, int yc, int xr, int yr, int angle){
+  int step = 120;
+  float theta = 0;
+  float sangle, cangle = 0;
+  float rangle = 0;
+  float kf = 0;
+  float x, y = 0;
+  int xrot, yrot = 0;
+
+  rangle = angle * M_PI / 180.0;
+  kf = (360 * M_PI / 180.0) / step;
+  sangle = sin32(rangle);
+  cangle = cos32(rangle);
+
+  for(int i = 0; i < step; i++){
+    theta = i * kf;
+    x = xc + xr * cos32(theta);
+    y = yc + yr * sin32(theta);
+    xrot = round(xc + (x - xc) * cangle - (y - yc) * sangle);
+    yrot = round(yc + (x - xc) * sangle + (y - yc) * cangle);
+    setPixelSSD1331(xrot, yrot, 0xffff);
+  }
+  //updateSSD1331();
+};
+
+void drawLine(int x0, int y0, int w, uint16_t color){
+  hagl_draw_line(x0, y0, x0 + w, y0, color);
+}
+
+void hagl_draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color)
+{
+
+    int16_t dx;
+    int16_t sx;
+    int16_t dy;
+    int16_t sy;
+    int16_t err;
+    int16_t e2;
+
+    dx = (x1 - x0);
+    sx = x0 < x1 ? 1 : -1;
+    dy = (y1 - y0);
+    sy = y0 < y1 ? 1 : -1;
+    err = (dx > dy ? dx : -dy) / 2;
+
+    while (1) {
+        setPixelSSD1331(x0, y0, color);
+
+        if (x0 == x1 && y0 == y1) {
+            break;
+        };
+
+        e2 = err + err;
+
+        if (e2 > -dx) {
+            err -= dy;
+            x0 += sx;
+        }
+
+        if (e2 < dy) {
+            err += dx;
+            y0 += sy;
+        }
+    }
+}
+
+void fillRect(int x0, int x1, int y0, int y1, uint16_t color){
+  for(int i = y0; i <= y1; i++){
+    hagl_draw_line(x0, i, x1, i, color);
+  }
+}
+
+void fillCircle(int x0, int y0, int r, uint16_t color){
+int f = 1 - r;
+  int ddF_x = 1;
+  int ddF_y = -2 * r;
+  int x = 0;
+  int y = r;
+  
+  fillRect(x0, x0 ,y0 - r,y0 + r, color); 
+  fillRect(x0 - r, x0 + r ,y0,y0, color);  
+  
+  while(x < y)
+  {
+    if(f >= 0) 
+    {
+      y--;
+      ddF_y += 2;
+      f += ddF_y;
+    }
+    x++;
+    ddF_x += 2;
+    f += ddF_x;    
+
+    fillRect(x0-x, x0+x ,y0 +y, y0 + y, color);    
+    fillRect(x0-x, x0+x ,y0 - y, y0 - y, color); 
+    fillRect(x0-y, x0+y ,y0 + x, y0 + x, color);         
+    fillRect(x0-y, x0+y ,y0 - x, y0 - x, color); 
+  }
+}
+
+void drawCursor(int iy, uint16_t color){
+  for(int i = 87; i <= 95; i++){
+    for(int j = 0; j <= 63; j++){
+      setPixelSSD1331(i,j,0x00);
+    }
+  }
+  for(int i = 93; i >= 90; i--){
+    for(int j = 57; j >= 53; j--){
+      if(i > 90)
+        setPixelSSD1331(i, j - (12 * iy), color);
+      else if ((j > 53) && (j < 57))
+        setPixelSSD1331(i, j - (12 * iy), color);
+    }
+  }
+  setPixelSSD1331(89, 55 - (12 * iy), color);
+}
+
+void putLetter(int ix, int iy, int index, uint16_t color){
+  tFont x = Font; 
+  tChar y = Font.chars[index];  // select character from 0 - 54
+  tImage z = *y.image;  // data array from tImage "Font_0x79"
+  uint8_t* a = z.data; // row of character data
+
+  for(int i = 0; i <= 9; i++){
+    for(int j = 2; j <= 7; j++){  // iterate through bits in row of character
+      if( !((1 << j) & a[i]) )
+        setPixelSSD1331((88-(ix*6))-j,(59-(iy*10)-(iy*2))-i,color);
+      else
+        setPixelSSD1331((88-(ix*6))-j,(59-(iy*10)-(iy*2))-i,0x0000);
+    }
+  }
+}
+
+void putString(char* text, int ix, int iy, uint16_t color){
+  for(int i = 0; text[i] != '\0'; i++){
+    switch(text[i]){
+      case ' ':
+        putLetter(ix + i, iy, 0, color);
+        break;
+
+      case '-':
+        putLetter(ix + i, iy, 1, color);
+        break;
+
+      case '.':
+        putLetter(ix + i, iy, 2, color);
+        break;
+
+      case 'A':
+        putLetter(ix + i, iy, 3, color);
+        break;
+
+      case 'B':
+        putLetter(ix + i, iy, 4, color);
+        break;
+
+      case 'C':
+        putLetter(ix + i, iy, 5, color);
+        break;
+
+      case 'D':
+        putLetter(ix + i, iy, 6, color);
+        break;
+
+      case 'E':
+        putLetter(ix + i, iy, 7, color);
+        break;
+
+      case 'F':
+        putLetter(ix + i, iy, 8, color);
+        break;
+
+      case 'G':
+        putLetter(ix + i, iy, 9, color);
+        break;
+
+      case 'H':
+        putLetter(ix + i, iy, 10, color);
+        break;
+
+      case 'I':
+        putLetter(ix + i, iy, 11, color);
+        break;
+
+      case 'J':
+        putLetter(ix + i, iy, 12, color);
+        break;
+
+      case 'K':
+        putLetter(ix + i, iy, 13, color);
+        break;
+
+      case 'L':
+        putLetter(ix + i, iy, 14, color);
+        break;
+
+      case 'M':
+        putLetter(ix + i, iy, 15, color);
+        break;
+
+      case 'N':
+        putLetter(ix + i, iy, 16, color);
+        break;
+
+      case 'O':
+        putLetter(ix + i, iy, 17, color);
+        break;
+
+      case 'P':
+        putLetter(ix + i, iy, 18, color);
+        break;
+
+      case 'Q':
+        putLetter(ix + i, iy, 19, color);
+        break;
+
+      case 'R':
+        putLetter(ix + i, iy, 20, color);
+        break;
+
+      case 'S':
+        putLetter(ix + i, iy, 21, color);
+        break;
+
+      case 'T':
+        putLetter(ix + i, iy, 22, color);
+        break;
+
+      case 'U':
+        putLetter(ix + i, iy, 23, color);
+        break;
+
+      case 'V':
+        putLetter(ix + i, iy, 24, color);
+        break;
+
+      case 'W':
+        putLetter(ix + i, iy, 25, color);
+        break;
+
+      case 'X':
+        putLetter(ix + i, iy, 26, color);
+        break;
+
+      case 'Y':
+        putLetter(ix + i, iy, 27, color);
+        break;
+
+      case 'Z':
+        putLetter(ix + i, iy, 28, color);
+        break;
+
+      case 'a':
+        putLetter(ix + i, iy, 29, color);
+        break;
+
+      case 'b':
+        putLetter(ix + i, iy, 30, color);
+        break;
+
+      case 'c':
+        putLetter(ix + i, iy, 31, color);
+        break;
+
+      case 'd':
+        putLetter(ix + i, iy, 32, color);
+        break;
+
+      case 'e':
+        putLetter(ix + i, iy, 33, color);
+        break;
+
+      case 'f':
+        putLetter(ix + i, iy, 34, color);
+        break;
+
+      case 'g':
+        putLetter(ix + i, iy, 35, color);
+        break;
+
+      case 'h':
+        putLetter(ix + i, iy, 36, color);
+        break;
+
+      case 'i':
+        putLetter(ix + i, iy, 37, color);
+        break;
+
+      case 'j':
+        putLetter(ix + i, iy, 38, color);
+        break;
+
+      case 'k':
+        putLetter(ix + i, iy, 39, color);
+        break;
+
+      case 'l':
+        putLetter(ix + i, iy, 40, color);
+        break;
+
+      case 'm':
+        putLetter(ix + i, iy, 41, color);
+        break;
+
+      case 'n':
+        putLetter(ix + i, iy, 42, color);
+        break;
+
+      case 'o':
+        putLetter(ix + i, iy, 43, color);
+        break;
+
+      case 'p':
+        putLetter(ix + i, iy, 44, color);
+        break;
+
+      case 'q':
+        putLetter(ix + i, iy, 45, color);
+        break;
+
+      case 'r':
+        putLetter(ix + i, iy, 46, color);
+        break;
+
+      case 's':
+        putLetter(ix + i, iy, 47, color);
+        break;
+
+      case 't':
+        putLetter(ix + i, iy, 48, color);
+        break;
+
+      case 'u':
+        putLetter(ix + i, iy, 49, color);
+        break;
+
+      case 'v':
+        putLetter(ix + i, iy, 50, color);
+        break;
+
+      case 'w':
+        putLetter(ix + i, iy, 51, color);
+        break;
+
+      case 'x':
+        putLetter(ix + i, iy, 52, color);
+        break;
+
+      case 'y':
+        putLetter(ix + i, iy, 53, color);
+        break;
+
+      case 'z':
+        putLetter(ix + i, iy, 54, color);
+        break;
+
+      default:
+        break;
+    }  
+  }
+}
+
+
 
 
 void clearSSD1331(void){
-  gpio_put(DC, 0);
+  // gpio_put(DC, 0);
 
-  ssd1331WriteCommand(0x15);
-  ssd1331WriteCommand(0);
-  ssd1331WriteCommand(95);
-  ssd1331WriteCommand(0x75);
-  ssd1331WriteCommand(0);
-  ssd1331WriteCommand(63);
+  // ssd1331WriteCommand(0x15);
+  // ssd1331WriteCommand(0);
+  // ssd1331WriteCommand(95);
+  // ssd1331WriteCommand(0x75);
+  // ssd1331WriteCommand(0);
+  // ssd1331WriteCommand(63);
 
-  gpio_put(DC, 1);
-
-  uint8_t fb[96*64*2] = {0x00};
-  spi_write_blocking(SSD1331_SPI, fb, sizeof(fb));
+  // gpio_put(DC, 1);
+  
+  memset(oledFB, 0, sizeof(oledFB));
+  //spi_write_blocking(SSD1331_SPI, oledFB, sizeof(oledFB));
 }
 
 void ssd1331_init() {

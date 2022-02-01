@@ -5,7 +5,7 @@
 #include "hardware/spi.h"
 
 #define SSD1331_SPI spi0
-#define SSD1331_SPEED  62500000
+#define SSD1331_SPEED  133000000
 #define SCK 2
 #define MOSI 3
 #define DC 14
@@ -44,6 +44,11 @@
 #define SSD1331_CMD_PRECHARGELEVEL 0xBB //!< Set pre-charge voltage
 #define SSD1331_CMD_VCOMH 0xBE          //!< Set Vcomh voltge
 
+float cos_32s(float x);
+float cos32(float x);
+float sin32(float x);
+double atan66(double x);
+double atan_66s(double x);
 
 void ssd1331WriteCommand(const uint8_t data);
 
@@ -52,6 +57,20 @@ void ssd1331WriteCommands(const uint8_t* data, uint num);
 void ssd1331WriteData(const uint8_t* data, uint numbytes);
 
 void setPixelSSD1331(const uint8_t x, const uint8_t y, const uint16_t color);
+
+void drawLine(int x1, int x2, int y, uint16_t color);
+
+void hagl_draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
+
+void fillCircle(int x0, int y0, int r, uint16_t color);
+
+void drawCursor(int iy, uint16_t color);
+
+void putLetter(int ix, int iy, int index, uint16_t color);
+
+void putString(char* text, int ix, int iy, uint16_t color);
+
+void drawEllipse(int xc, int yc, int xr, int yr, int angle);
 
 void clearSSD1331(void);
 

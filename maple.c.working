@@ -17,11 +17,9 @@
  * For maximum speed the RX state machine is implemented in lookup table to process 4 transitions at a time
  */
 
-#include "maple.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
-#include <time.h>
 #include "pico/stdlib.h"
 #include "pico/time.h"
 #include "hardware/adc.h"
@@ -140,6 +138,193 @@ enum EFunction
 	FUNC_VIBRATION = 256	// FT8
 };
 
+typedef struct PacketHeader_s
+{
+	int8_t Command;
+	uint8_t Recipient;
+	uint8_t Sender;
+	uint8_t NumWords;
+} PacketHeader;
+
+typedef struct PacketDeviceInfo_s
+{
+	uint Func;			// Nb. Big endian
+	uint FuncData[3];	// Nb. Big endian
+	int8_t AreaCode;
+	uint8_t ConnectorDirection;
+	char ProductName[30];
+	char ProductLicense[60];
+	uint16_t StandbyPower;
+	uint16_t MaxPower;
+} PacketDeviceInfo;
+
+typedef struct PacketMemoryInfo_s
+{
+	uint Func;			// Nb. Big endian
+	uint16_t TotalSize;
+	uint16_t ParitionNumber;
+	uint16_t SystemArea;
+	uint16_t FATArea;
+	uint16_t NumFATBlocks;
+	uint16_t FileInfoArea;
+	uint16_t NumInfoBlocks;
+	uint8_t VolumeIcon;
+	uint8_t Reserved;
+	uint16_t SaveArea;
+	uint16_t NumSaveBlocks;
+	uint Reserved32;
+} PacketMemoryInfo;
+
+typedef struct PacketLCDInfo_s
+{
+	uint Func;			// Nb. Big endian
+	uint8_t dX;			// Number of X-axis dots
+	uint8_t dY;			// Number of Y-axis dots
+	uint8_t GradContrast; // Upper nybble Gradation (bits/dot), lower nybble contrast (0 to 16 steps)
+	uint8_t Reserved;
+
+} PacketLCDInfo;
+
+typedef struct PacketTimerInfo_s
+{
+	uint Func;			// Nb. Big endian
+	uint8_t dX;			// Number of X-axis dots
+	uint8_t dY;			// Number of Y-axis dots
+	uint8_t GradContrast; // Upper nybble Gradation (bits/dot), lower nybble contrast (0 to 16 steps)
+	uint8_t Reserved;
+
+} PacketTimerInfo;
+
+typedef struct PacketPuruPuruInfo_s
+{
+	uint Func;			// Nb. Big endian
+	uint8_t VSet0;			// Upper nybble is number of vibration sources, lower nybble is vibration source location and vibration source axis
+	uint8_t Vset1;			// b7: Variable vibration intensity flag, b6: Continuous vibration flag, b5: Vibration direction control flag, b4: Arbitrary waveform flag
+							// Lower nybble is Vibration Attribute flag (fixed freq. or ranged freq.)
+	uint8_t FMin;			// Minimum vibration frequency when VA = 0000 (Ffix when VA = 0001, reserved when VA = 1111)
+	uint8_t FMax;			// Maximum vibration frequency when VA = 0000 (reserved when VA= 0001 or 1111)
+
+} PacketPuruPuruInfo;
+
+typedef struct PacketControllerCondition_s
+{
+	uint Condition;		// Nb. Big endian
+	uint16_t Buttons;
+	uint8_t RightTrigger;
+	uint8_t LeftTrigger;
+	uint8_t JoyX;
+	uint8_t JoyY;
+	uint8_t JoyX2;
+	uint8_t JoyY2;
+} PacketControllerCondition;
+
+typedef struct PacketPuruPuruCondition_s
+{
+	uint Func;		// Nb. Big endian
+	uint8_t VSource;	// Vibration control
+	uint8_t Power;		// Vibration intensity
+	uint8_t Freq;		// Vibration frequency
+	uint8_t Inc;		// Vibration inclination
+} PacketPuruPuruCondition;
+
+typedef struct PacketBlockRead_s
+{
+	uint Func;			// Nb. Big endian
+	uint Address;
+	uint8_t Data[BLOCK_SIZE];
+} PacketBlockRead;
+
+typedef struct FPuruPuruBlockReadPacket_s
+{
+	uint Func;			// Nb. Big endian
+	uint Address;
+	uint8_t Data[4];
+} FPuruPuruBlockReadPacket;
+
+typedef struct FACKPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	uint CRC;
+} FACKPacket;
+
+typedef struct FInfoPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketDeviceInfo Info;
+	uint CRC;
+} FInfoPacket;
+
+typedef struct FMemoryInfoPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketMemoryInfo Info;
+	uint CRC;
+} FMemoryInfoPacket;
+
+typedef struct FLCDInfoPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketLCDInfo Info;
+	uint CRC;
+} FLCDInfoPacket;
+
+typedef struct FTimerInfoPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketLCDInfo Info;
+	uint CRC;
+} FTimerInfoPacket;
+
+typedef struct FPuruPuruInfoPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketPuruPuruInfo Info;
+	uint CRC;
+} FPuruPuruInfoPacket;
+
+typedef struct FPuruPuruConditionPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketPuruPuruCondition Condition;
+	uint CRC;
+} FPuruPuruConditionPacket;
+
+typedef struct FControllerPacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketControllerCondition Controller;
+	uint CRC;
+} FControllerPacket;
+
+typedef struct FPuruPuruBlockReadResponsePacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	FPuruPuruBlockReadPacket PuruPuruBlockRead;
+	uint CRC;
+} FPuruPuruBlockReadResponsePacket;
+
+typedef struct FBlockReadResponsePacket_s
+{
+	uint BitPairsMinus1;
+	PacketHeader Header;
+	PacketBlockRead BlockRead;
+	uint CRC;
+} FBlockReadResponsePacket;
+
+typedef struct ButtonInfo_s
+{
+	int InputIO;
+	int DCButtonMask;
+} ButtonInfo;
 
 static ButtonInfo ButtonInfos[NUM_BUTTONS]=
 {
@@ -186,8 +371,7 @@ volatile bool PageCycle = false;
 volatile bool VMUCycle = false;
 int lastPress = 0;
 
-uint rumbleTime = 0;
-uint8_t currentAST = 0;
+int rumbleTime = 0;
 
 uint8_t val_X, val_Y;
 
@@ -400,11 +584,6 @@ void BuildPuruPuruInfoPacket()
 	PuruPuruInfoPacket.Info.Vset1 = 0xE0;
 	PuruPuruInfoPacket.Info.FMin = 0x07;
 	PuruPuruInfoPacket.Info.FMin = 0x3B;
-
-	// PuruPuruInfoPacket.Info.VSet0 = 0x10;
-	// PuruPuruInfoPacket.Info.Vset1 = 0x1f;
-	// PuruPuruInfoPacket.Info.FMin = 0x00;
-	// PuruPuruInfoPacket.Info.FMin = 0x00;
 	
 	PuruPuruInfoPacket.CRC = CalcCRC((uint *)&PuruPuruInfoPacket.Header, sizeof(PuruPuruInfoPacket) / sizeof(uint) - 2);
 }
@@ -844,27 +1023,14 @@ bool ConsumePacket(uint Size)
 						if (Header->NumWords >= 2)
 						{
 							assert(*PacketData == __builtin_bswap32(FUNC_VIBRATION));
-
-							static uint32_t purupuru_cond = 0;
-							static uint8_t ctrl = 0;
-							static uint8_t pow = 0;
-							static uint8_t freq = 0;
-							static uint8_t inc = 0;
-
-							memcpy(&purupuru_cond, PacketData + 1, sizeof(purupuru_cond));
-
-							ctrl = purupuru_cond & 0x000000ff;
-							pow = (purupuru_cond & 0x0000ff00) >> 8;
-							freq = (purupuru_cond & 0x00ff0000) >> 16;
-							inc = (purupuru_cond & 0xff000000) >> 24;
-
-							// if(AST[1] && 0x02)
-							// 	currentAST = AST[2];
-							if( ctrl == 0x10 )
-								pwm_set_gpio_level(15, 150*150);
-							else	
+							if( ( *(PacketData + 1) >> 24 ) && 0x11 ){
+								uint16_t powSetting = ( *(PacketData + 1) >> 16) & 0x07; // ( *(PacketData + 1) >> 20) & 0x07;
+								pwm_set_gpio_level(15, (powSetting * (powSetting >> 1)));
+								//gpio_put(15, 1);
+								//rumbleTime = to_ms_since_boot (get_absolute_time());
+							}
+							else //if ( (to_ms_since_boot(get_absolute_time()) - rumbleTime) > 250)
 								pwm_set_gpio_level(15, 0);
-
 							NextPacketSend = SEND_ACK;
 							return true;
 						}
@@ -1062,43 +1228,9 @@ void pageToggle(uint gpio, uint32_t events) {
 	}				
 }
 
-volatile bool vibe = true;
-
-volatile bool stop = false;
-
-// void on_pwm_wrap(){
-// 	static int fade = 0;
-//     static bool going_up = true;
-//     // Clear the interrupt flag that brought us here
-//     pwm_clear_irq(pwm_gpio_to_slice_num(15));
-
-// 	if(stop){
-// 		pwm_set_gpio_level(15, 50*50);
-// 	}
-
-//     if (going_up) {
-//         ++fade;
-//         if (fade > 255) {
-//             fade = 255;
-// 			going_up = false;
-//             //stop = true;
-//         }
-//     } else {
-//         --fade;
-//         if (fade < 0) {
-//             fade = 0;
-//             stop = true;
-//         }
-//     }
-//     // Square the fade value to make the LED's brightness appear more linear
-//     // Note this range matches with the wrap value
-//     pwm_set_gpio_level(15, fade * fade);
-
-// }
-
 int main() {
 	stdio_init_all();
-	// set_sys_clock_khz(250000, true); // Overclock seems to lead to instability over time
+	//set_sys_clock_khz(250000, true); // Overclock sometimes avoids disconnects, but leads to instability over time as flash wears
 	adc_init();
 	adc_set_clkdiv(0);
 	adc_gpio_init(26); // Stick X
@@ -1116,140 +1248,131 @@ int main() {
 	gpio_init(20);
 	gpio_set_dir(20, GPIO_IN);
     gpio_pull_up(20);
-
-	// PWM setup for rumble
+	
 	gpio_set_function(15, GPIO_FUNC_PWM);
-    uint slice_num = pwm_gpio_to_slice_num(15);
-
-//     pwm_clear_irq(slice_num);
-//     pwm_set_irq_enabled(slice_num, true);
-//     irq_set_exclusive_handler(PWM_IRQ_WRAP, on_pwm_wrap);
-//    irq_set_enabled(PWM_IRQ_WRAP, true);
-
-    pwm_config config = pwm_get_default_config();
-    pwm_config_set_clkdiv(&config, 4.f);
-    pwm_init(slice_num, &config, true);
-	pwm_set_gpio_level(15, 0);
+	pwm_set_wrap(pwm_gpio_to_slice_num(15), 48);
+	pwm_set_chan_level(pwm_gpio_to_slice_num(15), pwm_gpio_to_channel(15), 0);
+	pwm_set_enabled(pwm_gpio_to_slice_num(15), true);
 
 	// Page cycle interrupt
 	gpio_init(PAGE_BUTTON);
 	gpio_set_dir(PAGE_BUTTON, GPIO_IN);
     gpio_pull_up(PAGE_BUTTON);
-	gpio_set_irq_enabled_with_callback(PAGE_BUTTON, GPIO_IRQ_EDGE_FALL, true, &pageToggle);	
+	gpio_set_irq_enabled_with_callback(PAGE_BUTTON, GPIO_IRQ_EDGE_FALL, true, &pageToggle);
 
 	lastPress = to_ms_since_boot (get_absolute_time());
 
     //ClearDisplay();
 	//clearSSD1331();
 
-	// if(!gpio_get(20)){
-	// 	// Stick calibration mode
+	if(!gpio_get(20)){
+		// Stick calibration mode
 
-	// 	setPixel1306(0,0,true);
-	// 	setPixelSSD1331(0,0,color);
-	// 	UpdateDisplay();
+		setPixel1306(0,0,true);
+		setPixelSSD1331(0,0,color);
+		UpdateDisplay();
 
-	// 	while(!gpio_get(20)){};
+		while(!gpio_get(20)){};
 
-	// 	ClearDisplay();
-	// 	setPixel1306(63,31,true);
-	// 	setPixelSSD1331(0,0,color);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(63,31,true);
+		setPixelSSD1331(0,0,color);
+		UpdateDisplay();
 
-	// 	while(gpio_get(20)){};
+		while(gpio_get(20)){};
 		
-	// 	// StickConfig[0] 	// xCenter
-	// 	// StickConfig[1] 	// xMin
-	// 	// StickConfig[2] 	// xMax
-	// 	// StickConfig[3]	// yCenter
-	// 	// StickConfig[4]	// yMin
-	// 	// StickConfig[5]	// yMax
-	// 	// StickConfig[6]	// lMin
-	// 	// StickConfig[7]	// lMax
-	// 	// StickConfig[8]	// rMin
-	// 	// StickConfig[9] 	// rMax
+		// StickConfig[0] 	// xCenter
+		// StickConfig[1] 	// xMin
+		// StickConfig[2] 	// xMax
+		// StickConfig[3]	// yCenter
+		// StickConfig[4]	// yMin
+		// StickConfig[5]	// yMax
+		// StickConfig[6]	// lMin
+		// StickConfig[7]	// lMax
+		// StickConfig[8]	// rMin
+		// StickConfig[9] 	// rMax
 		
-	// 	adc_select_input(0); // X
-	// 	StickConfig[0] = adc_read() >> 4;
+		adc_select_input(0); // X
+		StickConfig[0] = adc_read() >> 4;
 				
-	// 	adc_select_input(1); // Y
-	// 	StickConfig[3] = adc_read() >> 4;		
+		adc_select_input(1); // Y
+		StickConfig[3] = adc_read() >> 4;		
 
-	// 	adc_select_input(2); // L
-	// 	StickConfig[6] = adc_read() >> 4;
+		adc_select_input(2); // L
+		StickConfig[6] = adc_read() >> 4;
 		
-	// 	adc_select_input(3); // R
-	// 	StickConfig[8] = adc_read() >> 4;
+		adc_select_input(3); // R
+		StickConfig[8] = adc_read() >> 4;
 
-	// 	ClearDisplay();
-	// 	setPixel1306(127,31,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(127,31,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(0); // Xmin
-	// 	StickConfig[1] = adc_read() >> 4;	
+		adc_select_input(0); // Xmin
+		StickConfig[1] = adc_read() >> 4;	
 
-	// 	ClearDisplay();
-	// 	setPixel1306(63,63,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(63,63,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(1); // Ymin
-	// 	StickConfig[4] = adc_read() >> 4;	
+		adc_select_input(1); // Ymin
+		StickConfig[4] = adc_read() >> 4;	
 
-	// 	ClearDisplay();
-	// 	setPixel1306(63,0,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(63,0,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(1); // Ymax
-	// 	StickConfig[5] = adc_read() >> 4;	
+		adc_select_input(1); // Ymax
+		StickConfig[5] = adc_read() >> 4;	
 
-	// 	ClearDisplay();
-	// 	setPixel1306(0,31,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(0,31,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(0); // Xmax
-	// 	StickConfig[2] = adc_read() >> 4;	
+		adc_select_input(0); // Xmax
+		StickConfig[2] = adc_read() >> 4;	
 
-	// 	ClearDisplay();
-	// 	setPixel1306(127,63,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(127,63,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(2); // Lmax
-	// 	StickConfig[7] = adc_read() >> 4;	
+		adc_select_input(2); // Lmax
+		StickConfig[7] = adc_read() >> 4;	
 		
-	// 	ClearDisplay();
-	// 	setPixel1306(0,63,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(0,63,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(3); // Rmax
-	// 	StickConfig[9] = adc_read() >> 4;	
+		adc_select_input(3); // Rmax
+		StickConfig[9] = adc_read() >> 4;	
 
-	// 	ClearDisplay();
+		ClearDisplay();
 		
-	// 	// Write config values to flash
-	// 	uint Interrupt = save_and_disable_interrupts();
-	// 	flash_range_erase( (FLASH_OFFSET * 9), FLASH_SECTOR_SIZE);
-	// 	flash_range_program( (FLASH_OFFSET * 9), (uint8_t *)StickConfig, FLASH_PAGE_SIZE);
-	// 	restore_interrupts(Interrupt);
+		// Write config values to flash
+		uint Interrupt = save_and_disable_interrupts();
+		flash_range_erase( (FLASH_OFFSET * 9), FLASH_SECTOR_SIZE);
+		flash_range_program( (FLASH_OFFSET * 9), (uint8_t *)StickConfig, FLASH_PAGE_SIZE);
+		restore_interrupts(Interrupt);
 
-	// }
+	}
 
 	memset(StickConfig, 0, sizeof(StickConfig));
 	memcpy(StickConfig, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(StickConfig)); // read into variable
@@ -1274,109 +1397,8 @@ int main() {
 	SetupButtons();
 	SetupMapleTX();
 	SetupMapleRX();
-
-	//srand(time(0));
-
-	//while(1){
-	// 	adc_select_input(0);
-	// uint8_t xRead = adc_read() >> 4;
-	// if(xRead > (StickConfig[0] - 0x0F) && xRead < (StickConfig[0] + 0x0F))	// deadzone
-	// 	ControllerPacket.Controller.JoyX = 0x80;
-	// else if (xRead < StickConfig[0])
-	// 	ControllerPacket.Controller.JoyX = map(xRead, StickConfig[1] - 0x04, StickConfig[0] - 0x0F, 0x00, 0x7F);
-	// else if (xRead > StickConfig[0])
-	// 	ControllerPacket.Controller.JoyX = map(xRead, StickConfig[0] + 0x0F, StickConfig[2] + 0x04, 0x81, 0xFF);
-
-	// adc_select_input(1);
-	// uint8_t yRead = adc_read() >> 4;
-	// if(yRead > (StickConfig[3] - 0x0F) && yRead < (StickConfig[3] + 0x0F))	// deadzone
-	// 	ControllerPacket.Controller.JoyY = 0x80;
-	// else if (yRead < StickConfig[3])
-	// 	ControllerPacket.Controller.JoyY = map(yRead, StickConfig[4] - 0x04, StickConfig[3] - 0x0F, 0x00, 0x7F);
-	// else if (yRead > StickConfig[3])
-	// 	ControllerPacket.Controller.JoyY = map(yRead, StickConfig[3] + 0x0F, StickConfig[5] + 0x04, 0x81, 0xFF);
-
-	// 	clearSSD1331();
-	// 	//drawEllipse(48, 32, 21, 21, 0);
-	// 	// r = sqrt(x² + y²)
-	// 	// θ = tan⁻¹(y / x)
-
-	// 	uint8_t jX, jY = 0;
-
-	// 	if(ControllerPacket.Controller.JoyX <= 0x80)
-	// 		jX = map(ControllerPacket.Controller.JoyX, 0x00, 0x80, -128, 0);
-	// 	else 
-	// 		jX = map(ControllerPacket.Controller.JoyX, 0x81, 0xFF, 1, 128);
-
-	// 	if(ControllerPacket.Controller.JoyY <= 0x80)
-	// 		jY = map(ControllerPacket.Controller.JoyY, 0x00, 0x80, -128, 0);
-	// 	else 
-	// 		jY = map(ControllerPacket.Controller.JoyY, 0x81, 0xFF, 1, 128);
 	
-	// 	double r = sqrt(pow(jX,2)+pow(jY,2));
-	// 	double div = (double)(jY)/(double)(jX);
-	// 	double theta = atan66(div) * 57.2957795131;
-		
-	// 	// if( (ControllerPacket.Controller.JoyX > 0x80) && (ControllerPacket.Controller.JoyY < 0x80) )
-	// 	// 	drawEllipse(map(ControllerPacket.Controller.JoyX, 0x00, 0xff, 69, 27), map(ControllerPacket.Controller.JoyY, 0x00, 0xff, 53, 10), map(r, 0x00, 0x80, 13, 4), 13, -theta);
-	// 	// else if( (ControllerPacket.Controller.JoyX < 0x80) && (ControllerPacket.Controller.JoyY > 0x80) )
-	// 	// 	drawEllipse(map(ControllerPacket.Controller.JoyX, 0x00, 0xff, 69, 27), map(ControllerPacket.Controller.JoyY, 0x00, 0xff, 53, 10), map(r, 0x00, 0x80, 13, 4), 13, -theta);
-	// 	// else
-	// 	// 	drawEllipse(map(ControllerPacket.Controller.JoyX, 0x00, 0xff, 69, 27), map(ControllerPacket.Controller.JoyY, 0x00, 0xff, 53, 10), map(r, 0x00, 0x80, 13, 4), 13, theta);
-	// 	fillCircle(48, 32, 5, 0xffff);
-	// 	//sleep_ms();
-	// 	updateSSD1331();
-
-	// char* item = "Button Test";
-	// char* item2 = "Stick Config";
-	// char* item3 = "Trigger Config";
-	// char* item4 = "VMU Colors";
-	// char* item5 = "Settings";
-	// putString(item, 0, 0, 0x049f);
-	// putString(item2, 0, 1, 0x049f);
-	// putString(item3, 0, 2, 0x049f);
-	// putString(item4, 0, 3, 0x049f);
-	// putString(item5, 0, 4, 0x049f);
-	// uint8_t pos = 0;
-	// drawCursor(pos, 0x049f);
-	// updateSSD1331();
-
-	// while(1){
-	
-	// while(gpio_get(ButtonInfos[4].InputIO) && gpio_get(ButtonInfos[5].InputIO)){};
-
-	// sleep_ms(100);
-
-	// if(!gpio_get(ButtonInfos[5].InputIO)){ // up
-	// 	if(pos < 4){
-	// 		pos++;
-	// 		drawCursor(pos, 0x049f);
-	// 	}
-	// } 
-	// else if(!gpio_get(ButtonInfos[4].InputIO)){ // down
-	// 	if(pos > 0){
-	// 		pos--;
-	// 		drawCursor(pos, 0x049f);
-	// 	}
-	// } 	
-
-	// updateSSD1331();
-
-	// }
-	
-	// while (1){
-    //     if(stop){
-    //         pwm_set_gpio_level(15, 100*100);
-    //         //pwm_set_irq_enabled(slice_num, false);
-    //         //irq_set_enabled(PWM_IRQ_WRAP, false);
-    //         //while(1);           
-    //     }        
-    // }
-
-// 	// if (!gpio_get(ButtonInfos[1].InputIO) && !gpio_get(ButtonInfos[7].InputIO) && !gpio_get(ButtonInfos[10].InputIO)){}
-
-	
-uint StartOfPacket = 0;
+	uint StartOfPacket = 0;
     while (true)
 	{
 		uint EndOfPacket = multicore_fifo_pop_blocking();
