@@ -30,6 +30,7 @@
 #include "hardware/i2c.h"
 #include "hardware/irq.h"
 #include "hardware/pwm.h"
+#include "hardware/timer.h"
 #include "hardware/flash.h"
 #include "pico/multicore.h"
 #include "maple.pio.h"
@@ -37,6 +38,7 @@
 #include "format.h"
 #include "ssd1306.h"
 #include "ssd1331.h"
+#include "menu.h"
 
 // Maple Bus Defines and Funcs
 
@@ -92,6 +94,8 @@ volatile uint16_t palette[] = {
 	0x780d	// magenta
 };
 
+
+
 typedef enum ESendState_e
 {
 	SEND_NOTHING,
@@ -141,19 +145,7 @@ enum EFunction
 };
 
 
-static ButtonInfo ButtonInfos[NUM_BUTTONS]=
-{
-	{ 0, 0x0004},	// Red centre, A
-	{ 1, 0x0002},	// Green right, B
-	{ 4, 0x0400},	// Blue right, X
-	{ 5, 0x0200},	// Yellow right, Y
-	{ 6, 0x0010},	// Yellow left, UP
-	{ 7, 0x0020},	// Green left, DOWN
-	{ 8, 0x0040},	// White left, LEFT
-	{ 9, 0x0080},	// Blue left, RIGHT
-	{ 10, 0x0008}	// White right, START
-	// { 13, 0x0001}	// White right, C
-};
+
 
 // Buffers
 static uint8_t RecieveBuffer[4096] __attribute__ ((aligned(4))); // Ring buffer for reading packets
@@ -175,7 +167,6 @@ static ESendState NextPacketSend = SEND_NOTHING;
 static uint OriginalControllerCRC = 0;
 static uint OriginalReadBlockResponseCRC = 0;
 static uint TXDMAChannel = 0;
-static uint CurrentPort = 0;
 
 static uint8_t MemoryCard[128 * 1024];
 static uint SectorDirty = 0;
@@ -201,11 +192,26 @@ static const uint8_t NumWrites =  LCDFramebufferSize / BPPacket;
 static uint8_t LCDFramebuffer[LCDFramebufferSize] = {0}; 
 volatile bool LCDUpdated = false;
 
+static bool purupuruUpdated = false;
+static uint32_t prevpurupuru_cond = 0;
+static uint32_t purupuru_cond = 0;
+static uint8_t ctrl = 0;
+static uint8_t power = 0;
+static uint8_t freq = 0;
+static uint8_t inc = 0;
+
+static uint8_t vibeFreqCount = 0;
+
 static uint8_t AST[4] = {0};	// Vibration auto-stop time setting
 
 static uint StickConfig[10] = {0};	// Joystick configuration values
 
 uint8_t map(uint8_t x, uint8_t in_min, uint8_t in_max, uint8_t out_min, uint8_t out_max)
+{
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
+uint32_t map_uint32(uint32_t x, uint32_t in_min, uint32_t in_max, uint32_t out_min, uint32_t out_max)
 {
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
@@ -227,8 +233,8 @@ void BuildACKPacket()
 	ACKPacket.BitPairsMinus1 = (sizeof(ACKPacket) - 7) * 4 - 1;
 
 	ACKPacket.Header.Command = CMD_RESPOND_COMMAND_ACK;
-	ACKPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	ACKPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
+	ACKPacket.Header.Destination = ADDRESS_DREAMCAST;
+	ACKPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
 	ACKPacket.Header.NumWords = 0;
 	
 	ACKPacket.CRC = CalcCRC((uint *)&ACKPacket.Header, sizeof(ACKPacket) / sizeof(uint) - 2);
@@ -239,8 +245,8 @@ void BuildInfoPacket()
 	InfoPacket.BitPairsMinus1 = (sizeof(InfoPacket) - 7) * 4 - 1;
 
 	InfoPacket.Header.Command = CMD_RESPOND_DEVICE_INFO;
-	InfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	InfoPacket.Header.Sender = ADDRESS_CONTROLLER_AND_SUBS;
+	InfoPacket.Header.Destination = ADDRESS_DREAMCAST;
+	InfoPacket.Header.Origin = ADDRESS_CONTROLLER_AND_SUBS;
 	InfoPacket.Header.NumWords = sizeof(InfoPacket.Info) / sizeof(uint);
 
 	InfoPacket.Info.Func = __builtin_bswap32(FUNC_CONTROLLER);
@@ -268,8 +274,8 @@ void BuildSubPeripheral0InfoPacket()							// Visual Memory Unit
 	SubPeripheral0InfoPacket.BitPairsMinus1 = (sizeof(SubPeripheral0InfoPacket) - 7) * 4 - 1;
 
 	SubPeripheral0InfoPacket.Header.Command = CMD_RESPOND_DEVICE_INFO;
-	SubPeripheral0InfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	SubPeripheral0InfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
+	SubPeripheral0InfoPacket.Header.Destination = ADDRESS_DREAMCAST;
+	SubPeripheral0InfoPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
 	SubPeripheral0InfoPacket.Header.NumWords = sizeof(SubPeripheral0InfoPacket.Info) / sizeof(uint);
 
 	SubPeripheral0InfoPacket.Info.Func = __builtin_bswap32(0x0E); // Function Types (up to 3). Note: Higher index in FuncData means higher priority on DC subperipheral
@@ -296,8 +302,8 @@ void BuildSubPeripheral1InfoPacket()							// Puru Puru Pack
 	SubPeripheral1InfoPacket.BitPairsMinus1 = (sizeof(SubPeripheral1InfoPacket) - 7) * 4 - 1;
 
 	SubPeripheral1InfoPacket.Header.Command = CMD_RESPOND_DEVICE_INFO;
-	SubPeripheral1InfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	SubPeripheral1InfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL1;
+	SubPeripheral1InfoPacket.Header.Destination = ADDRESS_DREAMCAST;
+	SubPeripheral1InfoPacket.Header.Origin = ADDRESS_SUBPERIPHERAL1;
 	SubPeripheral1InfoPacket.Header.NumWords = sizeof(SubPeripheral1InfoPacket.Info) / sizeof(uint);
 
 	SubPeripheral1InfoPacket.Info.Func = __builtin_bswap32(0x100); // Function Types (up to 3). Note: Higher index in FuncData means higher priority on DC subperipheral
@@ -324,8 +330,8 @@ void BuildMemoryInfoPacket()
 	MemoryInfoPacket.BitPairsMinus1 = (sizeof(MemoryInfoPacket) - 7) * 4 - 1;
 
 	MemoryInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
-	MemoryInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	MemoryInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
+	MemoryInfoPacket.Header.Destination = ADDRESS_DREAMCAST;
+	MemoryInfoPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
 	MemoryInfoPacket.Header.NumWords = sizeof(MemoryInfoPacket.Info) / sizeof(uint);
 
 	MemoryInfoPacket.Info.Func = __builtin_bswap32(FUNC_MEMORY_CARD);
@@ -352,8 +358,8 @@ void BuildLCDInfoPacket()
 	LCDInfoPacket.BitPairsMinus1 = (sizeof(LCDInfoPacket) - 7) * 4 - 1;
 
 	LCDInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
-	LCDInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	LCDInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
+	LCDInfoPacket.Header.Destination = ADDRESS_DREAMCAST;
+	LCDInfoPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
 	LCDInfoPacket.Header.NumWords = sizeof(LCDInfoPacket.Info) / sizeof(uint);
 
 	LCDInfoPacket.Info.Func = __builtin_bswap32(FUNC_LCD);
@@ -371,8 +377,8 @@ void BuildTimerInfoPacket()
 	LCDInfoPacket.BitPairsMinus1 = (sizeof(LCDInfoPacket) - 7) * 4 - 1;
 
 	LCDInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
-	LCDInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	LCDInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
+	LCDInfoPacket.Header.Destination = ADDRESS_DREAMCAST;
+	LCDInfoPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
 	LCDInfoPacket.Header.NumWords = sizeof(LCDInfoPacket.Info) / sizeof(uint);
 
 	LCDInfoPacket.Info.Func = __builtin_bswap32(FUNC_TIMER);
@@ -390,14 +396,14 @@ void BuildPuruPuruInfoPacket()
 	PuruPuruInfoPacket.BitPairsMinus1 = (sizeof(PuruPuruInfoPacket) - 7) * 4 - 1;
 
 	PuruPuruInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
-	PuruPuruInfoPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	PuruPuruInfoPacket.Header.Sender = ADDRESS_SUBPERIPHERAL1;
+	PuruPuruInfoPacket.Header.Destination = ADDRESS_DREAMCAST;
+	PuruPuruInfoPacket.Header.Origin = ADDRESS_SUBPERIPHERAL1;
 	PuruPuruInfoPacket.Header.NumWords = sizeof(PuruPuruInfoPacket.Info) / sizeof(uint);
 
 	PuruPuruInfoPacket.Info.Func = __builtin_bswap32(FUNC_VIBRATION);
 	
 	PuruPuruInfoPacket.Info.VSet0 = 0x10;
-	PuruPuruInfoPacket.Info.Vset1 = 0xE0;
+	PuruPuruInfoPacket.Info.Vset1 = 0xC0;
 	PuruPuruInfoPacket.Info.FMin = 0x07;
 	PuruPuruInfoPacket.Info.FMin = 0x3B;
 
@@ -414,8 +420,8 @@ void BuildPuruPuruConditionPacket()
 	PuruPuruConditionPacket.BitPairsMinus1 = (sizeof(PuruPuruConditionPacket) - 7) * 4 - 1;
 
 	PuruPuruConditionPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
-	PuruPuruConditionPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	PuruPuruConditionPacket.Header.Sender = ADDRESS_SUBPERIPHERAL1;
+	PuruPuruConditionPacket.Header.Destination = ADDRESS_DREAMCAST;
+	PuruPuruConditionPacket.Header.Origin = ADDRESS_SUBPERIPHERAL1;
 	PuruPuruConditionPacket.Header.NumWords = sizeof(PuruPuruConditionPacket.Condition) / sizeof(uint);
 
 	PuruPuruConditionPacket.Condition.Func = __builtin_bswap32(FUNC_VIBRATION);
@@ -433,8 +439,8 @@ void BuildControllerPacket()
 	ControllerPacket.BitPairsMinus1 = (sizeof(ControllerPacket) - 7) * 4 - 1;
 
 	ControllerPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
-	ControllerPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	ControllerPacket.Header.Sender = ADDRESS_CONTROLLER_AND_SUBS;
+	ControllerPacket.Header.Destination = ADDRESS_DREAMCAST;
+	ControllerPacket.Header.Origin = ADDRESS_CONTROLLER_AND_SUBS;
 	ControllerPacket.Header.NumWords = sizeof(ControllerPacket.Controller) / sizeof(uint);
 
 	ControllerPacket.Controller.Condition = __builtin_bswap32(FUNC_CONTROLLER);
@@ -454,8 +460,8 @@ void BuildDataPacket()
 	DataPacket.BitPairsMinus1 = (sizeof(DataPacket) - 7) * 4 - 1;
 
 	DataPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
-	DataPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	DataPacket.Header.Sender = ADDRESS_SUBPERIPHERAL0;
+	DataPacket.Header.Destination = ADDRESS_DREAMCAST;
+	DataPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
 	DataPacket.Header.NumWords = sizeof(DataPacket.BlockRead) / sizeof(uint);
 
 	DataPacket.BlockRead.Func = __builtin_bswap32(FUNC_MEMORY_CARD);
@@ -470,8 +476,8 @@ void BuildPuruPuruBlockReadPacket()
 	PuruPuruDataPacket.BitPairsMinus1 = (sizeof(PuruPuruDataPacket) - 7) * 4 - 1;
 
 	PuruPuruDataPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
-	PuruPuruDataPacket.Header.Recipient = ADDRESS_DREAMCAST;
-	PuruPuruDataPacket.Header.Sender = ADDRESS_SUBPERIPHERAL1;
+	PuruPuruDataPacket.Header.Destination = ADDRESS_DREAMCAST;
+	PuruPuruDataPacket.Header.Origin = ADDRESS_SUBPERIPHERAL1;
 	PuruPuruDataPacket.Header.NumWords = sizeof(PuruPuruDataPacket.PuruPuruBlockRead) / sizeof(uint);
 
 	PuruPuruDataPacket.PuruPuruBlockRead.Func = __builtin_bswap32(FUNC_VIBRATION);
@@ -483,10 +489,10 @@ void BuildPuruPuruBlockReadPacket()
 
 int SendPacket(const uint* Words, uint NumWords)
 {
-	// Correct the port number. Doesn't change CRC as same on both sender and recipient
+	// Correct the port number. Doesn't change CRC as same on both Origin and Destination
 	PacketHeader *Header = (PacketHeader *)(Words + 1);
-	Header->Sender = (Header->Sender & ADDRESS_PERIPHERAL_MASK) | CurrentPort;
-	Header->Recipient = (Header->Recipient & ADDRESS_PERIPHERAL_MASK) | CurrentPort;
+	Header->Origin = (Header->Origin & ADDRESS_PERIPHERAL_MASK) | (((PacketHeader *)Packet)->Origin & ADDRESS_PORT_MASK);
+	Header->Destination = (Header->Destination & ADDRESS_PERIPHERAL_MASK) | (((PacketHeader *)Packet)->Origin & ADDRESS_PORT_MASK);	
 
 	dma_channel_set_read_addr(TXDMAChannel, Words, false);
 	dma_channel_set_trans_count(TXDMAChannel, NumWords, true);
@@ -661,16 +667,12 @@ bool ConsumePacket(uint Size)
 			uint *PacketData = (uint *)(Header + 1);
 			if (Size == (Header->NumWords + 1) * 4)
 			{
-				// Set the port number then mask it off
-				if ((Header->Sender & ADDRESS_PERIPHERAL_MASK) == ADDRESS_DREAMCAST)
-				{
-					CurrentPort = Header->Sender & ADDRESS_PORT_MASK;
-				}
-				Header->Recipient &= ADDRESS_PERIPHERAL_MASK;
-				Header->Sender &= ADDRESS_PERIPHERAL_MASK;
+				// Mask off port number
+				Header->Destination &= ADDRESS_PERIPHERAL_MASK;
+				Header->Origin &= ADDRESS_PERIPHERAL_MASK;
 
 				// If it's for us or we've sent something and want to check it
-				if (Header->Recipient == ADDRESS_CONTROLLER || (Header->Recipient == ADDRESS_DREAMCAST && Header->Sender == ADDRESS_CONTROLLER_AND_SUBS))
+				if (Header->Destination == ADDRESS_CONTROLLER ) // || (Header->Destination == ADDRESS_DREAMCAST && Header->Origin == ADDRESS_CONTROLLER_AND_SUBS))
 				{
 					switch (Header->Command)
 					{
@@ -717,7 +719,7 @@ bool ConsumePacket(uint Size)
 					}
 				}
 				// Subperipheral 0 (VMU)
-				else if (Header->Recipient == ADDRESS_SUBPERIPHERAL0 || (Header->Recipient == ADDRESS_DREAMCAST && Header->Sender == ADDRESS_SUBPERIPHERAL0))
+				else if (Header->Destination == ADDRESS_SUBPERIPHERAL0 ) //|| (Header->Destination == ADDRESS_DREAMCAST && Header->Origin == ADDRESS_SUBPERIPHERAL0))
 				{
 					switch (Header->Command)
 					{
@@ -808,7 +810,7 @@ bool ConsumePacket(uint Size)
 					}
 				}
 				// Subperipheral 1 (Rumble)
-				else if (Header->Recipient == ADDRESS_SUBPERIPHERAL1 || (Header->Recipient == ADDRESS_DREAMCAST && Header->Sender == ADDRESS_SUBPERIPHERAL1))
+				else if (Header->Destination == ADDRESS_SUBPERIPHERAL1 ) // || (Header->Destination == ADDRESS_DREAMCAST && Header->Origin == ADDRESS_SUBPERIPHERAL1))
 				{
 					switch (Header->Command)
 					{
@@ -845,25 +847,14 @@ bool ConsumePacket(uint Size)
 						{
 							assert(*PacketData == __builtin_bswap32(FUNC_VIBRATION));
 
-							static uint32_t purupuru_cond = 0;
-							static uint8_t ctrl = 0;
-							static uint8_t pow = 0;
-							static uint8_t freq = 0;
-							static uint8_t inc = 0;
-
 							memcpy(&purupuru_cond, PacketData + 1, sizeof(purupuru_cond));
 
 							ctrl = purupuru_cond & 0x000000ff;
-							pow = (purupuru_cond & 0x0000ff00) >> 8;
+							power = (purupuru_cond & 0x0000ff00) >> 8;
 							freq = (purupuru_cond & 0x00ff0000) >> 16;
 							inc = (purupuru_cond & 0xff000000) >> 24;
 
-							// if(AST[1] && 0x02)
-							// 	currentAST = AST[2];
-							if( ctrl == 0x10 )
-								pwm_set_gpio_level(15, 150*150);
-							else	
-								pwm_set_gpio_level(15, 0);
+							purupuruUpdated = true;
 
 							NextPacketSend = SEND_ACK;
 							return true;
@@ -1062,39 +1053,63 @@ void pageToggle(uint gpio, uint32_t events) {
 	}				
 }
 
-volatile bool vibe = true;
+bool vibeHandler(struct repeating_timer *t){
 
-volatile bool stop = false;
+	static uint8_t vibeCtrl = 0;
+	static uint8_t vibePow = 0;
+	static uint8_t vibeFreq = 0;
+	static uint8_t vibeInc = 0;
+	
+	static bool purupuruCommandComplete = true;
+	static bool pulseInProgress = false;
+	static uint8_t vibeFreqCountLimit = 0;
+	static uint32_t vibePower = 0;
 
-// void on_pwm_wrap(){
-// 	static int fade = 0;
-//     static bool going_up = true;
-//     // Clear the interrupt flag that brought us here
-//     pwm_clear_irq(pwm_gpio_to_slice_num(15));
+	static uint8_t inh_pow = 0; // for keeping track of convergent vibration power
+	static uint8_t exh_pow = 0; // for keeping track of divergent vibration power
 
-// 	if(stop){
-// 		pwm_set_gpio_level(15, 50*50);
-// 	}
+	// Check for most recent vibe command at end of each pulse
+	if(vibeFreqCount == vibeFreqCountLimit){
+		if(purupuruUpdated){
+			// Update purupuru flags
+			vibeCtrl = ctrl;
+			vibePow = power;
+			vibeFreq = freq;
+			vibeInc = inc;
+			vibeFreqCountLimit = (int)( 4000 / (vibeFreq + 1) ); // double freq count limit since vibeHandler is called every 500us 
+			if( (vibePow & 0x7) == 0)
+				vibePower = 0;
+			else vibePower = map_uint32(vibePow & 0x7, 1, 7, 0x5FFF, 0xFFFF);
+			vibeFreqCount = 0;
+			purupuruUpdated = false;
+		}
+	}
 
-//     if (going_up) {
-//         ++fade;
-//         if (fade > 255) {
-//             fade = 255;
-// 			going_up = false;
-//             //stop = true;
-//         }
-//     } else {
-//         --fade;
-//         if (fade < 0) {
-//             fade = 0;
-//             stop = true;
-//         }
-//     }
-//     // Square the fade value to make the LED's brightness appear more linear
-//     // Note this range matches with the wrap value
-//     pwm_set_gpio_level(15, fade * fade);
+	// Pulse handling
+	if ( vibeFreqCount < ((vibeFreqCountLimit/2) - 1) ){
+		pwm_set_gpio_level(15, vibePower);
+		pulseInProgress = true;
+		purupuruCommandComplete = false;
+		vibeFreqCount++;
+	} else if (vibeFreqCount == ((vibeFreqCountLimit/2) - 1) ){
+		pwm_set_gpio_level(15, 0);
+		vibeFreqCount++;
+	} else if (vibeFreqCount < (vibeFreqCountLimit - 1) ){
+		pwm_set_gpio_level(15, 0);
+		vibeFreqCount++;
+	} else if (vibeFreqCount == (vibeFreqCountLimit - 1) ){
+		pwm_set_gpio_level(15, 0);
+		pulseInProgress = false;
+		purupuruCommandComplete = true;
+		vibeFreqCount++;
+	} else if( (power & 0x7) == 0){
+		pwm_set_gpio_level(15, 0);
+		pulseInProgress = false;
+		vibeFreqCount = 0;
+	} 
 
-// }
+	return(true);
+}
 
 int main() {
 	stdio_init_all();
@@ -1121,15 +1136,13 @@ int main() {
 	gpio_set_function(15, GPIO_FUNC_PWM);
     uint slice_num = pwm_gpio_to_slice_num(15);
 
-//     pwm_clear_irq(slice_num);
-//     pwm_set_irq_enabled(slice_num, true);
-//     irq_set_exclusive_handler(PWM_IRQ_WRAP, on_pwm_wrap);
-//    irq_set_enabled(PWM_IRQ_WRAP, true);
-
     pwm_config config = pwm_get_default_config();
-    pwm_config_set_clkdiv(&config, 4.f);
+    pwm_config_set_clkdiv(&config, 16.f);
     pwm_init(slice_num, &config, true);
 	pwm_set_gpio_level(15, 0);
+
+	struct repeating_timer timer;
+	add_repeating_timer_us(500, vibeHandler, NULL, &timer);
 
 	// Page cycle interrupt
 	gpio_init(PAGE_BUTTON);
@@ -1140,116 +1153,118 @@ int main() {
 	lastPress = to_ms_since_boot (get_absolute_time());
 
     //ClearDisplay();
-	//clearSSD1331();
+	clearSSD1331();
+	updateSSD1331();
 
-	// if(!gpio_get(20)){
-	// 	// Stick calibration mode
+	if(!gpio_get(20)){
+		// Stick calibration mode
 
-	// 	setPixel1306(0,0,true);
-	// 	setPixelSSD1331(0,0,color);
-	// 	UpdateDisplay();
+		setPixel1306(0,0,true);
+		setPixelSSD1331(0,0,color);
+		UpdateDisplay();
 
-	// 	while(!gpio_get(20)){};
+		while(!gpio_get(20)){};
 
-	// 	ClearDisplay();
-	// 	setPixel1306(63,31,true);
-	// 	setPixelSSD1331(0,0,color);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(63,31,true);
+		setPixelSSD1331(0,0,color);
+		UpdateDisplay();
 
-	// 	while(gpio_get(20)){};
+		while(gpio_get(20)){};
 		
-	// 	// StickConfig[0] 	// xCenter
-	// 	// StickConfig[1] 	// xMin
-	// 	// StickConfig[2] 	// xMax
-	// 	// StickConfig[3]	// yCenter
-	// 	// StickConfig[4]	// yMin
-	// 	// StickConfig[5]	// yMax
-	// 	// StickConfig[6]	// lMin
-	// 	// StickConfig[7]	// lMax
-	// 	// StickConfig[8]	// rMin
-	// 	// StickConfig[9] 	// rMax
+		// StickConfig[0] 	// xCenter
+		// StickConfig[1] 	// xMin
+		// StickConfig[2] 	// xMax
+		// StickConfig[3]	// yCenter
+		// StickConfig[4]	// yMin
+		// StickConfig[5]	// yMax
+		// StickConfig[6]	// lMin
+		// StickConfig[7]	// lMax
+		// StickConfig[8]	// rMin
+		// StickConfig[9] 	// rMax
 		
-	// 	adc_select_input(0); // X
-	// 	StickConfig[0] = adc_read() >> 4;
+		adc_select_input(0); // X
+		StickConfig[0] = adc_read() >> 4;
 				
-	// 	adc_select_input(1); // Y
-	// 	StickConfig[3] = adc_read() >> 4;		
+		adc_select_input(1); // Y
+		StickConfig[3] = adc_read() >> 4;		
 
-	// 	adc_select_input(2); // L
-	// 	StickConfig[6] = adc_read() >> 4;
+		adc_select_input(2); // L
+		StickConfig[6] = adc_read() >> 4;
 		
-	// 	adc_select_input(3); // R
-	// 	StickConfig[8] = adc_read() >> 4;
+		adc_select_input(3); // R
+		StickConfig[8] = adc_read() >> 4;
 
-	// 	ClearDisplay();
-	// 	setPixel1306(127,31,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(127,31,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(0); // Xmin
-	// 	StickConfig[1] = adc_read() >> 4;	
+		adc_select_input(0); // Xmin
+		StickConfig[1] = adc_read() >> 4;	
 
-	// 	ClearDisplay();
-	// 	setPixel1306(63,63,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(63,63,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(1); // Ymin
-	// 	StickConfig[4] = adc_read() >> 4;	
+		adc_select_input(1); // Ymin
+		StickConfig[4] = adc_read() >> 4;	
 
-	// 	ClearDisplay();
-	// 	setPixel1306(63,0,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(63,0,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(1); // Ymax
-	// 	StickConfig[5] = adc_read() >> 4;	
+		adc_select_input(1); // Ymax
+		StickConfig[5] = adc_read() >> 4;	
 
-	// 	ClearDisplay();
-	// 	setPixel1306(0,31,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(0,31,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(0); // Xmax
-	// 	StickConfig[2] = adc_read() >> 4;	
+		adc_select_input(0); // Xmax
+		StickConfig[2] = adc_read() >> 4;	
 
-	// 	ClearDisplay();
-	// 	setPixel1306(127,63,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(127,63,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(2); // Lmax
-	// 	StickConfig[7] = adc_read() >> 4;	
+		adc_select_input(2); // Lmax
+		StickConfig[7] = adc_read() >> 4;	
 		
-	// 	ClearDisplay();
-	// 	setPixel1306(0,63,true);
-	// 	UpdateDisplay();
+		ClearDisplay();
+		setPixel1306(0,63,true);
+		UpdateDisplay();
 
-	// 	sleep_ms(500);
-	// 	while(gpio_get(20)){};
+		sleep_ms(500);
+		while(gpio_get(20)){};
 
-	// 	adc_select_input(3); // Rmax
-	// 	StickConfig[9] = adc_read() >> 4;	
+		adc_select_input(3); // Rmax
+		StickConfig[9] = adc_read() >> 4;	
 
-	// 	ClearDisplay();
+		ClearDisplay();
 		
-	// 	// Write config values to flash
-	// 	uint Interrupt = save_and_disable_interrupts();
-	// 	flash_range_erase( (FLASH_OFFSET * 9), FLASH_SECTOR_SIZE);
-	// 	flash_range_program( (FLASH_OFFSET * 9), (uint8_t *)StickConfig, FLASH_PAGE_SIZE);
-	// 	restore_interrupts(Interrupt);
+		// Write config values to flash
+		uint Interrupt = save_and_disable_interrupts();
+		flash_range_erase( (FLASH_OFFSET * 9), FLASH_SECTOR_SIZE);
+		flash_range_program( (FLASH_OFFSET * 9), (uint8_t *)StickConfig, FLASH_PAGE_SIZE);
+		restore_interrupts(Interrupt);
 
-	// }
+	}
+
 
 	memset(StickConfig, 0, sizeof(StickConfig));
 	memcpy(StickConfig, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(StickConfig)); // read into variable
@@ -1274,6 +1289,9 @@ int main() {
 	SetupButtons();
 	SetupMapleTX();
 	SetupMapleRX();
+
+
+	//menu();
 
 	//srand(time(0));
 
@@ -1374,7 +1392,6 @@ int main() {
     // }
 
 // 	// if (!gpio_get(ButtonInfos[1].InputIO) && !gpio_get(ButtonInfos[7].InputIO) && !gpio_get(ButtonInfos[10].InputIO)){}
-
 	
 uint StartOfPacket = 0;
     while (true)
@@ -1404,12 +1421,12 @@ uint StartOfPacket = 0;
 				case SEND_CONTROLLER_STATUS:
 					if (VMUCycle)
 					{
-						ControllerPacket.Header.Sender = ADDRESS_CONTROLLER;
+						ControllerPacket.Header.Origin = ADDRESS_CONTROLLER;
 						VMUCycle = false;
 					}
 					else
 					{
-						ControllerPacket.Header.Sender = ADDRESS_CONTROLLER_AND_SUBS;
+						ControllerPacket.Header.Origin = ADDRESS_CONTROLLER_AND_SUBS;
 					}
 					SendControllerStatus();
 

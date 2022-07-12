@@ -3,11 +3,13 @@
 #include "maple.pio.h"
 #include "format.h"
 
+#define NUM_BUTTONS	9
+
 typedef struct PacketHeader_s
 {
 	int8_t Command;
-	uint8_t Recipient;
-	uint8_t Sender;
+	uint8_t Destination;
+	uint8_t Origin;
 	uint8_t NumWords;
 } PacketHeader;
 
@@ -190,3 +192,17 @@ typedef struct ButtonInfo_s
 	int InputIO;
 	int DCButtonMask;
 } ButtonInfo;
+
+static ButtonInfo ButtonInfos[NUM_BUTTONS]=
+{
+	{ 0, 0x0004},	// Red centre, A
+	{ 1, 0x0002},	// Green right, B
+	{ 4, 0x0400},	// Blue right, X
+	{ 5, 0x0200},	// Yellow right, Y
+	{ 6, 0x0010},	// Yellow left, UP
+	{ 7, 0x0020},	// Green left, DOWN
+	{ 8, 0x0040},	// White left, LEFT
+	{ 9, 0x0080},	// Blue left, RIGHT
+	{ 10, 0x0008}	// White right, START
+	// { 13, 0x0001}	// White right, C
+};

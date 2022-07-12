@@ -28,6 +28,7 @@ target_link_libraries(maple_pio PRIVATE
         hardware_pio
         hardware_dma
         hardware_pwm
+        hardware_timer
         hardware_i2c
         hardware_spi
         hardware_flash

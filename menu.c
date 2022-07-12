@@ -1,26 +1,11 @@
 /*
     Menu 
 */
-#include "menu.h"
 #include "maple.h"
+#include "menu.h"
 
 extern ButtonInfo ButtonInfos[];
 uint ssd1331present = 1;
-
-typedef struct menuItem_s menuItem;
-
-struct menuItem_s
-{
-	char name[16];
-    int type;   // 0: "folder" with submenus, 1: boolean on/off, 2: active (loads separate window), 3: inert
-	bool visible;
-    bool selected;
-    bool on;
-    bool enabled;   // control for greyed-out menu items
-    int (*run)(menuItem *self);
-};
-
-uint8_t selectedElement = 0;
 
 int paletteVMU(menuItem *self){
     // draw VMU palette selection
@@ -37,107 +22,149 @@ int buttontest(menuItem *self){
     return(1);
 }
 
-int stickcal(menuItem self){
+int stickcal(menuItem *self){
     // draw stick calibration
     return(1);
 }
 
-int trigcal(menuItem self){
+int trigcal(menuItem *self){
     // draw trigger calibration
     return(1);
 }
 
-int deadzone(menuItem self){
+int deadzone(menuItem *self){
     // draw deadzone configuration
     return(1);
 }
 
-int toggleOption(menuItem self){
-    if(self.type == 1)
-        self.on = !self.on;
+int toggleOption(menuItem *self){
+    if(self->type == 1)
+        self->on = !self->on;
     return(1);
 } 
 
-int exitToPad(menuItem self){
+int exitToPad(menuItem *self){
     return(0);
 } 
-
-
-
-menuItem mainMenu[6] = {
-    {"Button Test    ", 2, 1, 1, 1, 1, buttontest},
-    {"Stick Config   ", 0, 1, 0, 1, 1, sconfig},
-    {"Trigger Config ", 0, 1, 0, 1, 1, tconfig},
-    {"Edit VMU Colors", 2, 1, 0, 1, 1, paletteVMU}, // ssd1331 present
-    {"Settings       ", 0, 1, 0, 1, 1, setting},
-    {"Exit           ", 2, 1, 0, 1, 1, exitToPad}
-};
-
-
-static menuItem stickConfig[6] = {
-    {"Back           ", 2, 1, 0, 1, 1, mainmen}, // i.e. setCurrentMenu to mainMenu
-    {"Calibration    ", 2, 1, 1, 1, 1, stickcal},
-    {"Deadzone Adjust", 2, 1, 0, 1, 1, deadzone},
-    {"Invert X       ", 1, 1, 0, 0, 1, toggleOption},
-    {"Invert Y       ", 1, 1, 0, 0, 1, toggleOption},
-    {"Swap X and Y   ", 1, 1, 0, 0, 1, toggleOption}
-};
-
-
-static menuItem triggerConfig[5] = {
-    {"Back           ", 2, 1, 0, 1, 1, mainmen},
-    {"Calibration    ", 2, 1, 1, 1, 1, trigcal},
-    {"Invert X       ", 1, 1, 0, 0, 1, toggleOption},
-    {"Invert Y       ", 1, 1, 0, 0, 1, toggleOption},
-    {"Swap X and Y   ", 1, 1, 0, 0, 1, toggleOption}
-};
-
-
-static menuItem settings[7] = {
-    {"Back           ", 2, 1, 0, 1, 1, mainmen},
-    {"Splashscreen   ", 1, 1, 1, 1, 1, toggleOption},
-    {"Boot Video     ", 1, 1, 0, 0, 0, toggleOption},
-    {"Rumble         ", 1, 1, 0, 1, 1, toggleOption},
-    {"UI Color       ", 2, 1, 0, 1, 1, paletteUI}, // ssd1331 present
-    {"OLED Model     ", 3, 1, 0, 1, 0, toggleOption},
-    {"Firmware Ver.  ", 3, 1, 0, 1, 0, toggleOption}
-};
-
-menuItem* currentMenu = &mainMenu;
-
-int mainmen(menuItem* self){
-    currentMenu = mainMenu;
-    return(1);
-}
-
-int sconfig(menuItem* self){
-    currentMenu = stickConfig;
-    return(1);
-}
-
-int tconfig(menuItem* self){
-    currentMenu = triggerConfig;
-    return(1);
-}
-
-int setting(menuItem* self){
-    currentMenu = settings;
-    return(1);
-}
 
 int dummy(menuItem* self){
 	return(1);
 }
 
+menuItem mainMenu[6] = {
+    {"Button Test   ", 2, 1, 1, 1, 1, buttontest},
+	{"Stick Config  ", 0, 1, 0, 1, 1, dummy},
+	{"Trigger Config", 0, 1, 0, 1, 1, dummy},
+    {"Edit VMU Color", 2, 1, 0, 1, 1, paletteVMU}, // ssd1331 present
+	{"Settings      ", 0, 1, 0, 1, 1, dummy},
+    {"Exit          ", 2, 0, 0, 1, 1, exitToPad}
+};
 
+menuItem* currentMenu = mainMenu;
+uint8_t currentNumEntries = sizeof(mainMenu)/sizeof(menuItem);
+uint8_t currentEntry = 0;
+uint8_t selectedEntry = 0;
+uint8_t firstVisibleEntry = 0;
+uint8_t lastVisibleEntry = 4;
+uint8_t prevEntryModifier = 0;
+uint8_t entryModifier = 0;
 
-void getSelectedElement(){
-    for(int i = 0; i < (sizeof(currentMenu)/sizeof(currentMenu[0])); i++){
+int mainmen(menuItem* self){
+    currentMenu = mainMenu;
+	currentNumEntries = sizeof(mainMenu)/sizeof(menuItem);
+	entryModifier = prevEntryModifier;
+    return(1);
+}
+
+static menuItem stickConfig[6] = {
+    {"Back          ", 2, 1, 0, 1, 1, mainmen}, // i.e. setCurrentMenu to mainMenu
+    {"Calibration   ", 2, 1, 1, 1, 1, stickcal},
+    {"Deadzone Edit ", 2, 1, 0, 1, 1, deadzone},
+    {"Invert X      ", 1, 1, 0, 0, 1, toggleOption},
+    {"Invert Y      ", 1, 1, 0, 0, 1, toggleOption},
+    {"Swap X Y      ", 1, 0, 0, 0, 1, toggleOption}
+};
+
+int sconfig(menuItem* self){
+    currentMenu = stickConfig;
+    currentNumEntries = sizeof(stickConfig)/sizeof(menuItem);
+	prevEntryModifier = entryModifier;
+	entryModifier = 0;
+    return(1);
+}
+
+static menuItem triggerConfig[5] = {
+    {"Back          ", 2, 1, 0, 1, 1, mainmen},
+    {"Calibration   ", 2, 1, 1, 1, 1, trigcal},
+    {"Invert L      ", 1, 1, 0, 0, 1, toggleOption},
+    {"Invert R      ", 1, 1, 0, 0, 1, toggleOption},
+    {"Swap L R      ", 1, 1, 0, 0, 1, toggleOption}
+};
+
+int tconfig(menuItem* self){
+    currentMenu = triggerConfig;
+    currentNumEntries = sizeof(triggerConfig)/sizeof(menuItem);
+	prevEntryModifier = entryModifier;
+	entryModifier = 0;
+    return(1);
+}
+
+static menuItem settings[7] = {
+    {"Back          ", 2, 1, 0, 1, 1, mainmen},
+    {"Splashscreen  ", 1, 1, 1, 1, 1, toggleOption},
+    {"Boot Video    ", 1, 1, 0, 0, 0, toggleOption},
+    {"Rumble        ", 1, 1, 0, 1, 1, toggleOption},
+    {"UI Color      ", 2, 1, 0, 1, 1, paletteUI}, // ssd1331 present
+    {"OLED   SSD1331", 3, 0, 0, 1, 0, toggleOption},
+    {"Firmware   1.2", 3, 0, 0, 1, 0, dummy}
+};
+
+int setting(menuItem* self){
+    currentMenu = settings;
+    currentNumEntries = sizeof(settings)/sizeof(menuItem);
+	prevEntryModifier = entryModifier;
+	entryModifier = 0;
+    return(1);
+}
+
+void getSelectedEntry(){
+    for(int i = 0; i < currentNumEntries; i++){
         if(currentMenu[i].selected){
-            selectedElement = i;
+            selectedEntry = i;
             break;
         }
     }
+}
+
+void getFirstVisibleEntry(){
+	for(int i = 0; i < currentNumEntries; i++){
+		if(currentMenu[i].visible){
+			firstVisibleEntry = i;
+			break;
+		}
+	}
+}
+
+void getLastVisibleEntry(){
+	for(int i = currentNumEntries - 1; i >= 0; i--){
+		if(currentMenu[i].visible){
+			lastVisibleEntry = i;
+			break;
+		}
+	}
+}
+
+void redrawMenu(){
+    clearSSD1331();
+
+    for(uint8_t n = 0; n < currentNumEntries; n++){
+        if(currentMenu[n].visible)
+            putString(currentMenu[n].name, 0, n + entryModifier, 0x049f);
+        
+        drawCursor(selectedEntry + entryModifier, 0x049f);
+    }
+
+    updateSSD1331();
 }
 
 void menu(){
@@ -194,14 +221,16 @@ void menu(){
 		
 		// enter main menu
 		 // needs to be declared globally
-		//selectedElement = ? getSelectedElement should update this global variable ✓
+		//selectedEntry = ? getSelectedEntry should update this global variable ✓
 
 
-		uint e = sizeof(currentMenu);
+		mainMenu[1].run = sconfig;
+		mainMenu[2].run = tconfig;
+		mainMenu[4].run = setting;
 	
 		while(1){
-			getSelectedElement(); // where to draw cursor
-			redrawMenu(); // should include redrawing cursor based on getSelectedElement()!
+			getSelectedEntry(); // where to draw cursor
+			redrawMenu(); // should include redrawing cursor based on getSelectedEntry()!
 
 			// Wait for button release
 			uint8_t pressed = 0;
@@ -209,7 +238,7 @@ void menu(){
 				for (int i = 0; i < 9; i++){
 					pressed |= (!gpio_get(ButtonInfos[i].InputIO));
 				}
-			} while(pressed);
+			} while(!pressed);
 
 			sleep_ms(75); // Wait out switch bounce + rate-limiting
 
@@ -217,29 +246,47 @@ void menu(){
 				// check currently selected element
 				// if element is not the top one, deselect current element 
 				// and select element above it
-				if(selectedElement){ 
-					currentMenu[selectedElement].selected = 0;
-					currentMenu[selectedElement - 1].selected = 1;
+				if(selectedEntry){  // i.e. not 0
+					currentMenu[selectedEntry].selected = 0;
+					currentMenu[selectedEntry - 1].selected = 1;
+				
+
+				getFirstVisibleEntry();
+				if((selectedEntry == firstVisibleEntry) && (firstVisibleEntry)){
+					currentMenu[firstVisibleEntry + 4].visible = 0;
+					currentMenu[firstVisibleEntry - 1].visible = 1;
+					entryModifier++;
 				}
+
+				}
+
 			}
 
 			else if(!gpio_get(ButtonInfos[5].InputIO)){
 				// check currently selected element
 				// if element is not the bottom one, deselect current element
 				// and select element below it
-				if(selectedElement < (sizeof(currentMenu)/sizeof(currentMenu[0])))
+				if(selectedEntry < currentNumEntries - 1)
 				{
-					currentMenu[selectedElement].selected = 0;
-					currentMenu[selectedElement + 1].selected = 1;
+					currentMenu[selectedEntry].selected = 0;
+					currentMenu[selectedEntry + 1].selected = 1;
+
+				getLastVisibleEntry();
+				if((selectedEntry == lastVisibleEntry) && (lastVisibleEntry < currentNumEntries)){
+					currentMenu[lastVisibleEntry - 4].visible = 0;
+					currentMenu[lastVisibleEntry + 1].visible = 1;
+					entryModifier--;
 				}
+
+				} 
 			}
 
 			else if(!gpio_get(ButtonInfos[0].InputIO)){
 				// check currently selected element
 				// if element is enabled, run element's function
 				// element functions should set currentMenu if they enter a submenu.
-				if(currentMenu[selectedElement].enabled)
-					if(!currentMenu[selectedElement].run(*currentMenu)) break;
+				if(currentMenu[selectedEntry].enabled)
+					if(!currentMenu[selectedEntry].run(currentMenu)) break;
 			}
 			// The elements' functions should all return 1 except for mainMenu.exitToPad,  
 			// which should return 0 and result in a break from this while loop.
