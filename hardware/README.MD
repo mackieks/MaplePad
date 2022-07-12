@@ -1,6 +1,6 @@
 # MaplePad 
 
-Replacement Dreamcast controller PCB using RP2040. EAGLE source, Gerbers, BOM and assembly drawing available in this directory. Photo below is of the previous revision which lacked 
+Replacement Dreamcast controller PCB using RP2040. EAGLE source, Gerbers, BOM and assembly drawing available in this directory. Photo below is of the previous revision which lacked the BOOTSEL button.
 
 <img src="maplepad_pcb.jpg" width="500">
 
@@ -15,7 +15,7 @@ JLCPCB may grow the drills under the flash to meet their spec-- this is OK. Also
 
 Features:
 - [x] 18.5 x 22.4mm 2-layer PCB
-- [x] USB-C and PROG button for programming
+- [x] USB-C and BOOTSEL button for programming
 - [x] Full Dreamcast controller compatibility
 - [x] Analog joystick and triggers
 - [x] VMU emulation (8-page VMU, 1600 blocks total)
