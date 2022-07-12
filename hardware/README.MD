@@ -11,7 +11,7 @@ Recommended board fabrication specs:
 
 JLCPCB may grow the drills under the flash to meet their spec-- this is OK. Also please note that the extremely small castellations often result in many 'crushed barrels' that require manual cleanup.
 
-<img src="maplepad_pro.png" width="350">
+<img src="maplepad_pro.png" width="500">
 
 Features:
 - [x] 18.5 x 22.4mm 2-layer PCB
