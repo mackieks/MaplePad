@@ -14,7 +14,7 @@ Note that the extremely small castellations often result in many 'crushed barrel
 Features:
 - [x] 18.5 x 22.4mm
 - [x] Analog joystick and triggers
-- [x] VMU emulation (8-page VMU, 1200 blocks total)
+- [x] VMU emulation (8-page VMU, 1600 blocks total)
 - [x] SPI/I2C OLED for VMU screen
 - [x] Rumble (Purupuru) support (WIP)
 - [x] Power from 1.8V - 5.5V
