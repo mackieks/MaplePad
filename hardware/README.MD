@@ -7,7 +7,7 @@ Recommended board fabrication specs:
 - ENIG (for chipscale BGAs)
 - Red soldermask - optional, but in keeping with the Japanese maple theme :) 
 
-Note that the extremely small castellations often result in many 'crushed barrels' that require manual cleanup.
+JLCPCB may grow the drills under the flash to meet their spec-- this is OK. Also please note that the extremely small castellations often result in many 'crushed barrels' that require manual cleanup.
 
 <img src="maplepad_pro.png" width="350">
 
