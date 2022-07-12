@@ -1,6 +1,6 @@
 # MaplePad<br/>
 
-Fork of charcole's Dreamcast controller emulator for RP2040 (Raspberry Pi Pico). Works on my snazzy custom MaplePad PCB (see hardware folder) as well as on the Pico (some modification required.)
+Fork of charcole's Dreamcast controller emulator for RP2040 (Raspberry Pi Pico). Works on my custom MaplePad PCB (see hardware folder) as well as on the Pico (some modification required.) Note: the development SW is currently targeting the stock Pico.
 
 This project is still very much a WIP, and is not recommended for general use at this time.
 
