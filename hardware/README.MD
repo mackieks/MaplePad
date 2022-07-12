@@ -2,7 +2,7 @@
 
 Replacement Dreamcast controller PCB using RP2040. EAGLE source, Gerbers, BOM and assembly drawing available in this directory. Photo below is of the previous revision which lacked 
 
-<img src="maplepad_pcb.png" width="500">
+<img src="maplepad_pcb.jpg" width="500">
 
 Recommended board fabrication specs: 
 - 0.8mm 2-layer PCB
