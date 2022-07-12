@@ -1,3 +1,7 @@
+#include <stdio.h>
+#include "pico/stdlib.h"
+#include "hardware/i2c.h"
+
 // SSD1306 defines
 static int DEVICE_ADDRESS = 0x3C;
 
@@ -47,3 +51,15 @@ static int DEVICE_ADDRESS = 0x3C;
 #define SSD1306_SETPRECHARGE        0xD9
 #define SSD1306_SETCOMPINS          0xDA
 #define SSD1306_SETVCOMDETECT       0xDB
+
+void SendCommand(uint8_t cmd);
+
+void SendCommandBuffer(uint8_t *inbuf, int len);
+
+void SSD1306_initialise();
+
+void UpdateDisplay();
+
+void ClearDisplay();
+
+void setPixel1306(int x,int y, bool on);
