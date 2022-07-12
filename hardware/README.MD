@@ -1,6 +1,6 @@
 # MaplePad 
 
-Replacement Dreamcast controller PCB using RP2040. EAGLE source, Gerbers, BOM and assembly drawing available in this directory. Photo below is of the previous revision which lacked the BOOTSEL button.
+Replacement Dreamcast controller PCB for portablizing, using RP2040. EAGLE source, Gerbers, BOM and assembly drawing are available in this directory. (Photo below is of the previous revision which lacked the BOOTSEL button.)
 
 <img src="maplepad_pcb.jpg" width="500">
 
