@@ -459,6 +459,8 @@ void SendControllerStatus() {
     }
   }
 
+  ControllerPacket.Controller.Buttons = Buttons;
+
   // StickConfig[0] 	// xCenter
   // StickConfig[1] 	// xMin
   // StickConfig[2] 	// xMax
@@ -506,8 +508,6 @@ void SendControllerStatus() {
 
 #endif
 
-  ControllerPacket.Controller.Buttons = Buttons;
-
   ControllerPacket.CRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
 
   SendPacket((uint *)&ControllerPacket, sizeof(ControllerPacket) / sizeof(uint));
@@ -531,7 +531,7 @@ void SendBlockReadResponsePacket(uint PuruPuru) {
     SendBlockAddress = ~0u;
 
     SendPacket((uint *)&PuruPuruDataPacket, sizeof(PuruPuruDataPacket) / sizeof(uint));
-  } else { //
+  } else { // Memory Card Block Read
     DataPacket.BlockRead.Address = SendBlockAddress;
     memcpy(DataPacket.BlockRead.Data, &MemoryCard[MemoryOffset], sizeof(DataPacket.BlockRead.Data));
     uint CRC = CalcCRC(&DataPacket.BlockRead.Address, 1 + (sizeof(DataPacket.BlockRead.Data) / sizeof(uint)));
@@ -543,9 +543,8 @@ void SendBlockReadResponsePacket(uint PuruPuru) {
   }
 }
 
-void BlockRead(uint Address,
-               uint PuruPuru) // ### Figure out how to tell SendBlockReadResponse to send
-                              // PuruPuru. (Separate function and NextPacketSend code...?)
+void BlockRead(uint Address, uint PuruPuru) // ### Figure out how to tell SendBlockReadResponse to send
+                                            // PuruPuru. (Separate function and NextPacketSend code...?)
 {
   assert(SendBlockAddress == ~0u); // No send pending
   SendBlockAddress = Address;
@@ -1160,8 +1159,7 @@ int main() {
   }
 
   memset(StickConfig, 0, sizeof(StickConfig));
-  memcpy(StickConfig, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9),
-         sizeof(StickConfig)); // read into variable
+  memcpy(StickConfig, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(StickConfig)); // read into variable
 
   readFlash();
 
