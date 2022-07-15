@@ -53,12 +53,15 @@
 #define PICO 1
 #define MAPLEPAD 0
 
-// HKT-7700 (Original Controller) or HKT-7300 (Arcade Stick)
+// HKT-7700 (Standard Controller) or HKT-7300 (Arcade Stick) (see maple.h)
 #if HKT7700
 #define NUM_BUTTONS 9
 #elif HKT7300
 #define NUM_BUTTONS 11
 #endif
+
+// Purupuru Enable
+#define ENABLE_RUMBLE 1
 
 #define VMU 0
 #define PURUPURU 1
@@ -67,9 +70,15 @@
 #define FLASH_WRITE_DELAY 8       // About quarter of a second if polling once a frame
 #define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 16Kb of code so assuming this will be fine
 
+// ### TO-DO: Check for button combo in SendControllerStatus to page cycle on MaplePad
 #if PICO
 #define PAGE_BUTTON 21 // Pull GP21 low for Page Cycle. Avoid page cycling for ~10s after saving or copying VMU data to avoid data corruption
+#elif MAPLEPAD
+#define PAGE_BUTTON 20 // Dummy pin (interrupt will be forced when button combo detected)
 #endif
+
+#define CAL_MODE 20
+#define OLED_PIN 18
 
 #define MAPLE_A 11
 #define MAPLE_B 12
@@ -80,7 +89,13 @@
 #define ADDRESS_CONTROLLER 0x20
 #define ADDRESS_SUBPERIPHERAL0 0x01
 #define ADDRESS_SUBPERIPHERAL1 0x02
+
+#if ENABLE_RUMBLE
 #define ADDRESS_CONTROLLER_AND_SUBS (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 | ADDRESS_SUBPERIPHERAL1) // Determines which peripherals MaplePad reports
+#else
+#define ADDRESS_CONTROLLER_AND_SUBS (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0)
+#endif
+
 #define ADDRESS_PORT_MASK 0xC0
 #define ADDRESS_PERIPHERAL_MASK (~ADDRESS_PORT_MASK)
 
@@ -111,9 +126,42 @@ volatile uint16_t palette[] = {
     0x780d  // magenta
 };
 
-typedef enum ESendState_e { SEND_NOTHING, SEND_CONTROLLER_INFO, SEND_CONTROLLER_STATUS, SEND_MEMORY_CARD_INFO, SEND_MEMORY_INFO, SEND_LCD_INFO, SEND_TIMER_INFO, SEND_PURUPURU_INFO, SEND_ACK, SEND_DATA, SEND_PURUPURU_DATA, SEND_CONDITION } ESendState;
+typedef enum ESendState_e {
+  SEND_NOTHING,
+  SEND_CONTROLLER_INFO,
+  SEND_CONTROLLER_STATUS,
+  SEND_MEMORY_CARD_INFO,
+  SEND_MEMORY_INFO,
+  SEND_LCD_INFO,
+  SEND_TIMER_INFO,
+  SEND_PURUPURU_INFO,
+  SEND_ACK,
+  SEND_DATA,
+  SEND_PURUPURU_DATA,
+  SEND_CONDITION //
+} ESendState;
 
-enum ECommands { CMD_RESPOND_FILE_ERROR = -5, CMD_RESPOND_SEND_AGAIN = -4, CMD_RESPOND_UNKNOWN_COMMAND = -3, CMD_RESPOND_FUNC_CODE_UNSUPPORTED = -2, CMD_NO_RESPONSE = -1, CMD_REQUEST_DEVICE_INFO = 1, CMD_REQUEST_EXTENDED_DEVICE_INFO, CMD_RESET_DEVICE, CMD_SHUTDOWN_DEVICE, CMD_RESPOND_DEVICE_INFO, CMD_RESPOND_EXTENDED_DEVICE_INFO, CMD_RESPOND_COMMAND_ACK, CMD_RESPOND_DATA_TRANSFER, CMD_GET_CONDITION, CMD_GET_MEDIA_INFO, CMD_BLOCK_READ, CMD_BLOCK_WRITE, CMD_BLOCK_COMPLETE_WRITE, CMD_SET_CONDITION };
+enum ECommands {
+  CMD_RESPOND_FILE_ERROR = -5,
+  CMD_RESPOND_SEND_AGAIN = -4,
+  CMD_RESPOND_UNKNOWN_COMMAND = -3,
+  CMD_RESPOND_FUNC_CODE_UNSUPPORTED = -2,
+  CMD_NO_RESPONSE = -1,
+  CMD_REQUEST_DEVICE_INFO = 1,
+  CMD_REQUEST_EXTENDED_DEVICE_INFO,
+  CMD_RESET_DEVICE,
+  CMD_SHUTDOWN_DEVICE,
+  CMD_RESPOND_DEVICE_INFO,
+  CMD_RESPOND_EXTENDED_DEVICE_INFO,
+  CMD_RESPOND_COMMAND_ACK,
+  CMD_RESPOND_DATA_TRANSFER,
+  CMD_GET_CONDITION,
+  CMD_GET_MEDIA_INFO,
+  CMD_BLOCK_READ,
+  CMD_BLOCK_WRITE,
+  CMD_BLOCK_COMPLETE_WRITE,
+  CMD_SET_CONDITION //
+};
 
 enum EFunction {
   FUNC_CONTROLLER = 1,  // FT0
@@ -159,6 +207,7 @@ int lastPress = 0;
 static const uint8_t NumWrites = LCDFramebufferSize / BPPacket;
 static uint8_t LCDFramebuffer[LCDFramebufferSize] = {0};
 volatile bool LCDUpdated = false;
+volatile bool colorOLED = true; // True = SSD1331, false = SSD1306
 
 // Purupuru
 static bool purupuruUpdated = false;
@@ -215,19 +264,35 @@ void BuildInfoPacket() {
   InfoPacket.Header.Origin = ADDRESS_CONTROLLER_AND_SUBS;
   InfoPacket.Header.NumWords = sizeof(InfoPacket.Info) / sizeof(uint);
 
+#if HKT7700
   InfoPacket.Info.Func = __builtin_bswap32(FUNC_CONTROLLER);
   InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000f06fe); // What buttons it supports
   InfoPacket.Info.FuncData[1] = 0;
   InfoPacket.Info.FuncData[2] = 0;
   InfoPacket.Info.AreaCode = -1;
   InfoPacket.Info.ConnectorDirection = 0;
-  strncpy(InfoPacket.Info.ProductName, "Dreamcast Controller          ", sizeof(InfoPacket.Info.ProductName));
+  strncpy(InfoPacket.Info.ProductName, "Dreamcast Controller         ", sizeof(InfoPacket.Info.ProductName));
 
   strncpy(InfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
-          "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(InfoPacket.Info.ProductLicense));
+          "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(InfoPacket.Info.ProductLicense));
   InfoPacket.Info.StandbyPower = 430;
   InfoPacket.Info.MaxPower = 500;
+#elif HKT7300
+  InfoPacket.Info.Func = __builtin_bswap32(FUNC_CONTROLLER);
+  InfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000007FF); // What buttons it supports
+  InfoPacket.Info.FuncData[1] = 0;
+  InfoPacket.Info.FuncData[2] = 0;
+  InfoPacket.Info.AreaCode = -1;
+  InfoPacket.Info.ConnectorDirection = 0;
+  strncpy(InfoPacket.Info.ProductName, "Arcade Stick                 ", sizeof(InfoPacket.Info.ProductName));
+
+  strncpy(InfoPacket.Info.ProductLicense,
+          // NOT REALLY! Don't sue me Sega!
+          "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(InfoPacket.Info.ProductLicense));
+  InfoPacket.Info.StandbyPower = 30;
+  InfoPacket.Info.MaxPower = 40;
+#endif
 
   InfoPacket.CRC = CalcCRC((uint *)&InfoPacket.Header, sizeof(InfoPacket) / sizeof(uint) - 2);
 }
@@ -248,17 +313,17 @@ void BuildSubPeripheral0InfoPacket() // Visual Memory Unit
   SubPeripheral0InfoPacket.Info.FuncData[2] = __builtin_bswap32(0x000f4100); // Function Definition Block for Function Type 1 (Storage)
   SubPeripheral0InfoPacket.Info.AreaCode = -1;
   SubPeripheral0InfoPacket.Info.ConnectorDirection = 0;
-  strncpy(SubPeripheral0InfoPacket.Info.ProductName, "Visual Memory                 ", sizeof(SubPeripheral0InfoPacket.Info.ProductName));
+  strncpy(SubPeripheral0InfoPacket.Info.ProductName, "Visual Memory                ", sizeof(SubPeripheral0InfoPacket.Info.ProductName));
   strncpy(SubPeripheral0InfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
-          "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(SubPeripheral0InfoPacket.Info.ProductLicense));
+          "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(SubPeripheral0InfoPacket.Info.ProductLicense));
   SubPeripheral0InfoPacket.Info.StandbyPower = 100;
   SubPeripheral0InfoPacket.Info.MaxPower = 130;
 
   SubPeripheral0InfoPacket.CRC = CalcCRC((uint *)&SubPeripheral0InfoPacket.Header, sizeof(SubPeripheral0InfoPacket) / sizeof(uint) - 2);
 }
 
-void BuildSubPeripheral1InfoPacket() // Puru Puru Pack
+void BuildSubPeripheral1InfoPacket() // PuruPuru Pack
 {
   SubPeripheral1InfoPacket.BitPairsMinus1 = (sizeof(SubPeripheral1InfoPacket) - 7) * 4 - 1;
 
@@ -274,10 +339,10 @@ void BuildSubPeripheral1InfoPacket() // Puru Puru Pack
   SubPeripheral1InfoPacket.Info.FuncData[2] = 0;
   SubPeripheral1InfoPacket.Info.AreaCode = -1;
   SubPeripheral1InfoPacket.Info.ConnectorDirection = 0;
-  strncpy(SubPeripheral1InfoPacket.Info.ProductName, "Puru Puru Pack                ", sizeof(SubPeripheral1InfoPacket.Info.ProductName));
+  strncpy(SubPeripheral1InfoPacket.Info.ProductName, "Puru Puru Pack               ", sizeof(SubPeripheral1InfoPacket.Info.ProductName));
   strncpy(SubPeripheral1InfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
-          "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(SubPeripheral1InfoPacket.Info.ProductLicense));
+          "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(SubPeripheral1InfoPacket.Info.ProductLicense));
   SubPeripheral1InfoPacket.Info.StandbyPower = 200;
   SubPeripheral1InfoPacket.Info.MaxPower = 1600;
 
@@ -440,8 +505,7 @@ void BuildPuruPuruBlockReadPacket() {
 }
 
 int SendPacket(const uint *Words, uint NumWords) {
-  // Correct the port number. Doesn't change CRC as same on both Origin and
-  // Destination
+  // Correct the port number. Doesn't change CRC as same on both Origin and Destination
   PacketHeader *Header = (PacketHeader *)(Words + 1);
   Header->Origin = (Header->Origin & ADDRESS_PERIPHERAL_MASK) | (((PacketHeader *)Packet)->Origin & ADDRESS_PORT_MASK);
   Header->Destination = (Header->Destination & ADDRESS_PERIPHERAL_MASK) | (((PacketHeader *)Packet)->Origin & ADDRESS_PORT_MASK);
@@ -459,20 +523,24 @@ void SendControllerStatus() {
     }
   }
 
+#if MAPLEPAD
+
+#endif
+
   ControllerPacket.Controller.Buttons = Buttons;
 
   // StickConfig[0] 	// xCenter
   // StickConfig[1] 	// xMin
   // StickConfig[2] 	// xMax
-  // StickConfig[3]	// yCenter
-  // StickConfig[4]	// yMin
-  // StickConfig[5]	// yMax
-  // StickConfig[6]	// lMax
-  // StickConfig[7]	// lMin
-  // StickConfig[8]	// rMax
+  // StickConfig[3]	  // yCenter
+  // StickConfig[4]	  // yMin
+  // StickConfig[5]	  // yMax
+  // StickConfig[6]	  // lMax
+  // StickConfig[7]	  // lMin
+  // StickConfig[8]	  // rMax
   // StickConfig[9] 	// rMin
 
-#if HKT7700 // HKT-7300 does not have analog stick or triggers
+#if HKT7700 // Only HKT-7700 has analog stick and triggers
 
   adc_select_input(0);
   uint8_t xRead = adc_read() >> 4;
@@ -518,8 +586,7 @@ void SendBlockReadResponsePacket(uint PuruPuru) {
   uint Phase = (SendBlockAddress >> 16) & 0xFF;
   uint Block = SendBlockAddress & 0xFF; // Emulators also seem to ignore top bits for a read
 
-  assert(Phase == 0); // Note: Phase is analogous to the VN parameter in a
-                      // vibration AST block R/W.
+  assert(Phase == 0); // Note: Phase is analogous to the VN parameter in a vibration AST block R/W.
   uint MemoryOffset = Block * BLOCK_SIZE + Phase * PHASE_SIZE;
 
   if (PuruPuru) { // PuruPuru AST Block Read
@@ -543,9 +610,7 @@ void SendBlockReadResponsePacket(uint PuruPuru) {
   }
 }
 
-void BlockRead(uint Address, uint PuruPuru) // ### Figure out how to tell SendBlockReadResponse to send
-                                            // PuruPuru. (Separate function and NextPacketSend code...?)
-{
+void BlockRead(uint Address, uint PuruPuru) {
   assert(SendBlockAddress == ~0u); // No send pending
   SendBlockAddress = Address;
   if (PuruPuru)
@@ -575,7 +640,7 @@ void LCDWrite(uint Address, uint *Data, uint NumWords, uint BlockNum) {
   if (BlockNum == 0x10) // 128x64 Test Mode
   {
     memcpy(&LCDFramebuffer[512], Data, NumWords * sizeof(uint));
-  } else if (BlockNum == 0x00) {
+  } else if (BlockNum == 0x00) { // Normal mode
     memcpy(LCDFramebuffer, Data, NumWords * sizeof(uint));
   }
 
@@ -853,8 +918,7 @@ static void __not_in_flash_func(core1_entry)(void) {
     if (M.End) {
       if (XOR == 0) {
         if (multicore_fifo_wready()) {
-          // multicore_fifo_push_blocking(Offset);  //Don't call as needs all be
-          // in RAM. Inlined below
+          // multicore_fifo_push_blocking(Offset);  //Don't call as needs all be in RAM. Inlined below
           sio_hw->fifo_wr = Offset;
           __sev();
           StartOfPacket = ((Offset + 3) & ~3); // Align up for easier swizzling
@@ -866,9 +930,9 @@ static void __not_in_flash_func(core1_entry)(void) {
       }
     }
     if ((RXPIO->fstat & (1u << (PIO_FSTAT_RXFULL_LSB))) != 0) {
-      // Should be a panic but the inlining of multicore_fifo_push_blocking
-      // caused it to fire Weirdly after changing this to a printf it never gets
-      // called :/ Something to work out...
+      // Should be a panic but the inlining of multicore_fifo_push_blocking caused it to fire
+      // Weirdly after changing this to a printf it never gets called :/
+      // Something to work out...
       printf("Probably overflowed. This code isn't fast enough :(\n");
     }
   }
@@ -937,6 +1001,13 @@ void pageToggle(uint gpio, uint32_t events) {
   }
 }
 
+void setPixel(uint8_t x, uint8_t y, uint16_t color) {
+  if (colorOLED)
+    setPixelSSD1331(x, y, color);
+  else
+    setPixel1306(x + 16, y, color);
+}
+
 bool vibeHandler(struct repeating_timer *t) {
   static uint8_t vibeCtrl = 0;
   static uint8_t vibePow = 0;
@@ -999,7 +1070,6 @@ bool vibeHandler(struct repeating_timer *t) {
 int main() {
   stdio_init_all();
   // set_sys_clock_khz(250000, true); // Overclock seems to lead to instability
-  // over time
   adc_init();
   adc_set_clkdiv(0);
   adc_gpio_init(26); // Stick X
@@ -1014,9 +1084,18 @@ int main() {
 
   ssd1331_init();
 
-  gpio_init(20);
-  gpio_set_dir(20, GPIO_IN);
-  gpio_pull_up(20);
+#if PICO // Calibration mode button (dev/debug only)
+  gpio_init(CAL_MODE);
+  gpio_set_dir(CAL_MODE, GPIO_IN);
+  gpio_pull_up(CAL_MODE);
+#endif
+
+  // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
+  gpio_init(OLED_PIN);
+  gpio_set_dir(OLED_PIN, GPIO_IN);
+  gpio_pull_up(OLED_PIN);
+
+  colorOLED = gpio_get(OLED_PIN);
 
   // PWM setup for rumble
   gpio_set_function(15, GPIO_FUNC_PWM);
@@ -1042,14 +1121,14 @@ int main() {
   clearSSD1331();
   updateSSD1331();
 
-  if (!gpio_get(20)) {
+  if (!gpio_get(CAL_MODE)) {
     // Stick calibration mode
 
     setPixel1306(0, 0, true);
     setPixelSSD1331(0, 0, color);
     UpdateDisplay();
 
-    while (!gpio_get(20)) {
+    while (!gpio_get(CAL_MODE)) {
     };
 
     ClearDisplay();
@@ -1057,7 +1136,7 @@ int main() {
     setPixelSSD1331(0, 0, color);
     UpdateDisplay();
 
-    while (gpio_get(20)) {
+    while (gpio_get(CAL_MODE)) {
     };
 
     // StickConfig[0] 	// xCenter
@@ -1088,7 +1167,7 @@ int main() {
     UpdateDisplay();
 
     sleep_ms(500);
-    while (gpio_get(20)) {
+    while (gpio_get(CAL_MODE)) {
     };
 
     adc_select_input(0); // Xmin
@@ -1099,7 +1178,7 @@ int main() {
     UpdateDisplay();
 
     sleep_ms(500);
-    while (gpio_get(20)) {
+    while (gpio_get(CAL_MODE)) {
     };
 
     adc_select_input(1); // Ymin
@@ -1110,7 +1189,7 @@ int main() {
     UpdateDisplay();
 
     sleep_ms(500);
-    while (gpio_get(20)) {
+    while (gpio_get(CAL_MODE)) {
     };
 
     adc_select_input(1); // Ymax
@@ -1121,7 +1200,7 @@ int main() {
     UpdateDisplay();
 
     sleep_ms(500);
-    while (gpio_get(20)) {
+    while (gpio_get(CAL_MODE)) {
     };
 
     adc_select_input(0); // Xmax
@@ -1132,7 +1211,7 @@ int main() {
     UpdateDisplay();
 
     sleep_ms(500);
-    while (gpio_get(20)) {
+    while (gpio_get(CAL_MODE)) {
     };
 
     adc_select_input(2); // Lmax
@@ -1143,7 +1222,7 @@ int main() {
     UpdateDisplay();
 
     sleep_ms(500);
-    while (gpio_get(20)) {
+    while (gpio_get(CAL_MODE)) {
     };
 
     adc_select_input(3); // Rmax
@@ -1350,34 +1429,24 @@ int main() {
               for (int bb = 0; bb <= 7; bb++) {               // iterate through bits of each LCD data byte
                 if (LCD_Width == 48 && LCD_Height == 32)      // Standard LCD
                 {
-                  if (((LCDFramebuffer[fb] >> bb) & 0x01)) { // if bit is set...
-                    setPixelSSD1331(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2,
-                                    palette[CurrentPage - 1]); // set corresponding OLED pixels!
-                    setPixelSSD1331((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2,
-                                    palette[CurrentPage - 1]); // Each VMU dot corresponds
-                                                               // to 4 OLED pixels.
-                    setPixelSSD1331(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[CurrentPage - 1]);
-                    setPixelSSD1331((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, palette[CurrentPage - 1]);
+                  if (((LCDFramebuffer[fb] >> bb) & 0x01)) {                                                                   // if bit is set...
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, palette[CurrentPage - 1]);       // set corresponding OLED pixels!
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, palette[CurrentPage - 1]); // Each VMU dot corresponds to 4 OLED pixels.
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[CurrentPage - 1]);
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, palette[CurrentPage - 1]);
                   } else {
-                    setPixelSSD1331(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2,
-                                    0); // ...otherwise, clear the four OLED pixels.
-                    setPixelSSD1331((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, 0);
-                    setPixelSSD1331(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, 0);
-                    setPixelSSD1331((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, 0);
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, 0); // ...otherwise, clear the four OLED pixels.
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, 0);
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, 0);
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, 0);
                   }
-                }
-                // else	// 128x64 Test Mode
+                } // else // 128x64 Test Mode
                 // {
-                // 	if( ((LCDFramebuffer[fb] >> bb)  & 0x01) )
-                // 	{
-                // 		setPixel1306( ((fb % LCD_NumCols)*8 + (7 - bb)),
-                // (fb/LCD_NumCols), true);
-                // 	}
-                // 	else
-                // 	{
-                // 		setPixel1306( ((fb % LCD_NumCols)*8 + (7 - bb)),
-                // (fb/LCD_NumCols), false);
-                // 	}
+                //   if (((LCDFramebuffer[fb] >> bb) & 0x01)) {
+                //     setPixel1306(((fb % LCD_NumCols) * 8 + (7 - bb)), (fb / LCD_NumCols), true);
+                //   } else {
+                //     setPixel1306(((fb % LCD_NumCols) * 8 + (7 - bb)), (fb / LCD_NumCols), false);
+                //   }
                 // }
               }
             }

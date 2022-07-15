@@ -3,7 +3,7 @@
 #include "maple.pio.h"
 #include "pico/stdlib.h"
 
-#define HKT7700 1 // Standard controller
+#define HKT7700 1 // "Seed" (standard controller)
 #define HKT7300 0 // Arcade stick
 
 #if HKT7700
