@@ -1,0 +1,3 @@
+C:/Users/Mackie/Pico/MaplePad/build/pioasm/CMakeFiles/pioasm.dir
+C:/Users/Mackie/Pico/MaplePad/build/pioasm/CMakeFiles/edit_cache.dir
+C:/Users/Mackie/Pico/MaplePad/build/pioasm/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,13 @@
+# Target labels
+ PioasmBuild
+# Source files and their labels
+C:/Users/Mackie/Pico/MaplePad/build/CMakeFiles/PioasmBuild
+C:/Users/Mackie/Pico/MaplePad/build/CMakeFiles/PioasmBuild.rule
+C:/Users/Mackie/Pico/MaplePad/build/CMakeFiles/PioasmBuild-complete.rule
+C:/Users/Mackie/Pico/MaplePad/build/pioasm/src/PioasmBuild-stamp/PioasmBuild-build.rule
+C:/Users/Mackie/Pico/MaplePad/build/pioasm/src/PioasmBuild-stamp/PioasmBuild-configure.rule
+C:/Users/Mackie/Pico/MaplePad/build/pioasm/src/PioasmBuild-stamp/PioasmBuild-download.rule
+C:/Users/Mackie/Pico/MaplePad/build/pioasm/src/PioasmBuild-stamp/PioasmBuild-install.rule
+C:/Users/Mackie/Pico/MaplePad/build/pioasm/src/PioasmBuild-stamp/PioasmBuild-mkdir.rule
+C:/Users/Mackie/Pico/MaplePad/build/pioasm/src/PioasmBuild-stamp/PioasmBuild-patch.rule
+C:/Users/Mackie/Pico/MaplePad/build/pioasm/src/PioasmBuild-stamp/PioasmBuild-update.rule

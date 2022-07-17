@@ -1069,7 +1069,7 @@ bool vibeHandler(struct repeating_timer *t) {
 
 int main() {
   stdio_init_all();
-  // set_sys_clock_khz(250000, true); // Overclock seems to lead to instability
+  // set_sys_clock_khz(180000, true); // Overclock seems to lead to instability
   adc_init();
   adc_set_clkdiv(0);
   adc_gpio_init(26); // Stick X
@@ -1095,8 +1095,9 @@ int main() {
   gpio_set_dir(OLED_PIN, GPIO_IN);
   gpio_pull_up(OLED_PIN);
 
-  colorOLED = gpio_get(OLED_PIN);
+  colorOLED = true;
 
+#if ENABLE_RUMBLE
   // PWM setup for rumble
   gpio_set_function(15, GPIO_FUNC_PWM);
   uint slice_num = pwm_gpio_to_slice_num(15);
@@ -1108,6 +1109,7 @@ int main() {
 
   struct repeating_timer timer;
   add_repeating_timer_us(500, vibeHandler, NULL, &timer);
+#endif
 
   // Page cycle interrupt
   gpio_init(PAGE_BUTTON);
@@ -1117,9 +1119,9 @@ int main() {
 
   lastPress = to_ms_since_boot(get_absolute_time());
 
-  // ClearDisplay();
-  clearSSD1331();
-  updateSSD1331();
+  //ClearDisplay();
+  //clearSSD1331();
+  //updateSSD1331();
 
   if (!gpio_get(CAL_MODE)) {
     // Stick calibration mode
@@ -1128,16 +1130,14 @@ int main() {
     setPixelSSD1331(0, 0, color);
     UpdateDisplay();
 
-    while (!gpio_get(CAL_MODE)) {
-    };
+    while (!gpio_get(CAL_MODE)) {};
 
     ClearDisplay();
     setPixel1306(63, 31, true);
     setPixelSSD1331(0, 0, color);
     UpdateDisplay();
 
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     // StickConfig[0] 	// xCenter
     // StickConfig[1] 	// xMin
@@ -1167,8 +1167,7 @@ int main() {
     UpdateDisplay();
 
     sleep_ms(500);
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     adc_select_input(0); // Xmin
     StickConfig[1] = adc_read() >> 4;
@@ -1178,8 +1177,7 @@ int main() {
     UpdateDisplay();
 
     sleep_ms(500);
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     adc_select_input(1); // Ymin
     StickConfig[4] = adc_read() >> 4;
@@ -1189,8 +1187,7 @@ int main() {
     UpdateDisplay();
 
     sleep_ms(500);
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     adc_select_input(1); // Ymax
     StickConfig[5] = adc_read() >> 4;
@@ -1211,8 +1208,7 @@ int main() {
     UpdateDisplay();
 
     sleep_ms(500);
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     adc_select_input(2); // Lmax
     StickConfig[7] = adc_read() >> 4;
@@ -1222,8 +1218,7 @@ int main() {
     UpdateDisplay();
 
     sleep_ms(500);
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     adc_select_input(3); // Rmax
     StickConfig[9] = adc_read() >> 4;
