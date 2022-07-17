@@ -36,6 +36,7 @@
         "ssd1331.h": "c",
         "spi.h": "c",
         "maple.h": "c",
-        "adc.h": "c"
+        "adc.h": "c",
+        "maple.pio.h": "c"
     }
 }
