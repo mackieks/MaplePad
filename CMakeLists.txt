@@ -13,12 +13,11 @@ add_executable(maple_pio)
 
 target_compile_definitions(maple_pio PRIVATE PICO_HW)
 
-
 pico_add_extra_outputs(maple_pio)
 
-pico_generate_pio_header(maple_pio ${CMAKE_CURRENT_LIST_DIR}/maple.pio)
+pico_generate_pio_header(maple_pio ${CMAKE_CURRENT_LIST_DIR}/src/maple.pio)
 
-target_sources(maple_pio PRIVATE maple.c state_machine.c format.c ssd1331.c ssd1306.c font.c)
+target_sources(maple_pio PRIVATE src/maple.c src/state_machine.c src/format.c src/ssd1331.c src/ssd1306.c src/font.c)
 
 target_link_libraries(maple_pio PRIVATE
         pico_stdlib
