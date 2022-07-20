@@ -524,6 +524,9 @@ void SendControllerStatus() {
   }
 
 #if MAPLEPAD
+  if (Buttons &= ~0x0088) { // Start and D-Pad Right
+    // force PAGE_BUTTON interrupt
+  }
 
 #endif
 
@@ -1034,7 +1037,7 @@ bool vibeHandler(struct repeating_timer *t) {
       vibePow = power;
       vibeFreq = freq;
       vibeInc = inc;
-      
+
       // (vibeFreq + 1)/2 gives us frequency of vibe pulses. How many 500us vibeHandler cycles fit in one vibe period?
       frequency = (vibeFreq + 1) / 2.0;
       period = 1.0 / frequency;
