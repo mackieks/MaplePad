@@ -218,7 +218,7 @@ static uint8_t power = 0;
 static uint8_t freq = 0;
 static uint8_t inc = 0;
 
-static uint8_t vibeFreqCount = 0;
+static uint32_t vibeFreqCount = 0;
 
 static uint8_t AST[4] = {0}; // Vibration auto-stop time setting
 
@@ -1005,10 +1005,13 @@ void setPixel(uint8_t x, uint8_t y, uint16_t color) {
   if (colorOLED)
     setPixelSSD1331(x, y, color);
   else
-    setPixel1306(x + 16, y, color);
+    setPixel1306(x + 16, y, color ? 1 : 0);
 }
 
 bool vibeHandler(struct repeating_timer *t) {
+  static float frequency = 0;
+  static float period = 0;
+
   static uint8_t vibeCtrl = 0;
   static uint8_t vibePow = 0;
   static uint8_t vibeFreq = 0;
@@ -1016,7 +1019,8 @@ bool vibeHandler(struct repeating_timer *t) {
 
   static bool purupuruCommandComplete = true;
   static bool pulseInProgress = false;
-  static uint8_t vibeFreqCountLimit = 0;
+  static uint32_t vibeFreqCountLimit = 0;
+  static uint32_t halfVibeFreqCountLimit = 0;
   static uint32_t vibePower = 0;
 
   static uint8_t inh_pow = 0; // for keeping track of convergent vibration power
@@ -1030,8 +1034,13 @@ bool vibeHandler(struct repeating_timer *t) {
       vibePow = power;
       vibeFreq = freq;
       vibeInc = inc;
-      vibeFreqCountLimit = (int)(4000 / (vibeFreq + 1)); // double freq count limit since
-                                                         // vibeHandler is called every 500us
+      
+      // (vibeFreq + 1)/2 gives us frequency of vibe pulses. How many 500us vibeHandler cycles fit in one vibe period?
+      frequency = (vibeFreq + 1) / 2.0;
+      period = 1.0 / frequency;
+      vibeFreqCountLimit = period * 2000;
+      halfVibeFreqCountLimit = period * 1000;
+
       if ((vibePow & 0x7) == 0)
         vibePower = 0;
       else
@@ -1042,18 +1051,18 @@ bool vibeHandler(struct repeating_timer *t) {
   }
 
   // Pulse handling
-  if (vibeFreqCount < ((vibeFreqCountLimit / 2) - 1)) {
+  if (vibeFreqCount < (halfVibeFreqCountLimit)) {
     pwm_set_gpio_level(15, vibePower);
     pulseInProgress = true;
     purupuruCommandComplete = false;
     vibeFreqCount++;
-  } else if (vibeFreqCount == ((vibeFreqCountLimit / 2) - 1)) {
+  } else if (vibeFreqCount == halfVibeFreqCountLimit) {
     pwm_set_gpio_level(15, 0);
     vibeFreqCount++;
-  } else if (vibeFreqCount < (vibeFreqCountLimit - 1)) {
+  } else if (vibeFreqCount < halfVibeFreqCountLimit) {
     pwm_set_gpio_level(15, 0);
     vibeFreqCount++;
-  } else if (vibeFreqCount == (vibeFreqCountLimit - 1)) {
+  } else if (vibeFreqCount == vibeFreqCountLimit) {
     pwm_set_gpio_level(15, 0);
     pulseInProgress = false;
     purupuruCommandComplete = true;
@@ -1077,12 +1086,29 @@ int main() {
   adc_gpio_init(28); // Left Trigger
   adc_gpio_init(29); // Right Trigger
 
-  spi_init(SSD1331_SPI, SSD1331_SPEED);
-  spi_set_format(spi0, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
-  gpio_set_function(SCK, GPIO_FUNC_SPI);
-  gpio_set_function(MOSI, GPIO_FUNC_SPI);
+  // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
+  gpio_init(OLED_PIN);
+  gpio_set_dir(OLED_PIN, GPIO_IN);
+  gpio_pull_up(OLED_PIN);
 
-  ssd1331_init();
+  colorOLED = gpio_get(OLED_PIN);
+
+  if (colorOLED) { // set up SPI for SSD1331 OLED
+    spi_init(SSD1331_SPI, SSD1331_SPEED);
+    spi_set_format(spi0, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
+    gpio_set_function(SCK, GPIO_FUNC_SPI);
+    gpio_set_function(MOSI, GPIO_FUNC_SPI);
+
+    ssd1331_init();
+  } else { // set up I2C for SSD1306 OLED
+    i2c_init(SSD1306_I2C, I2C_CLOCK * 1000);
+    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
+    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_SDA);
+    gpio_pull_up(I2C_SCL);
+
+    ssd1306_init();
+  }
 
 #if PICO // Calibration mode button (dev/debug only)
   gpio_init(CAL_MODE);
@@ -1118,8 +1144,8 @@ int main() {
   lastPress = to_ms_since_boot(get_absolute_time());
 
   // ClearDisplay();
-  clearSSD1331();
-  updateSSD1331();
+  // clearSSD1331();
+  // updateSSD1331();
 
   if (!gpio_get(CAL_MODE)) {
     // Stick calibration mode

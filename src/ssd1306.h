@@ -5,13 +5,13 @@
 // SSD1306 defines
 static int DEVICE_ADDRESS = 0x3C;
 
-#define I2C_PORT i2c1
-#define I2C_SDA_PIN 2
-#define I2C_SCL_PIN 3
+#define SSD1306_I2C i2c1
+#define I2C_SDA 2
+#define I2C_SCL 3
 
  // This can be overclocked, 2000 seems to work on the device being tested
  // Spec says 400 is the maximum. Try faster clocks until it stops working!
- // KHz.
+ // Value in KHz.
 #define I2C_CLOCK  3000
 
 #define SSD1306_LCDWIDTH            128
@@ -56,7 +56,7 @@ void SendCommand(uint8_t cmd);
 
 void SendCommandBuffer(uint8_t *inbuf, int len);
 
-void SSD1306_initialise();
+void ssd1306_init();
 
 void UpdateDisplay();
 

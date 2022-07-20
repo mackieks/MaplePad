@@ -6,14 +6,14 @@ uint8_t *Framebuffer = _Framebuffer+1;
 
 void SendCommand(uint8_t cmd) {
     uint8_t buf[] = {0x00, cmd};
-    i2c_write_blocking(I2C_PORT, DEVICE_ADDRESS, buf, 2, false);
+    i2c_write_blocking(SSD1306_I2C, DEVICE_ADDRESS, buf, 2, false);
 }
 
 void SendCommandBuffer(uint8_t *inbuf, int len) {
-    i2c_write_blocking(I2C_PORT, DEVICE_ADDRESS, inbuf, len, false);
+    i2c_write_blocking(SSD1306_I2C, DEVICE_ADDRESS, inbuf, len, false);
 }
 
-void SSD1306_initialise() {
+void ssd1306_init() {
 
 uint8_t init_cmds[]=
     {0x00,
@@ -39,7 +39,7 @@ uint8_t init_cmds[]=
 
 // This copies the entire framebuffer to the display.
 void UpdateDisplay() {
-    i2c_write_blocking(I2C_PORT, DEVICE_ADDRESS, _Framebuffer, sizeof(_Framebuffer), false);
+    i2c_write_blocking(SSD1306_I2C, DEVICE_ADDRESS, _Framebuffer, sizeof(_Framebuffer), false);
 }
 
 void ClearDisplay() {
