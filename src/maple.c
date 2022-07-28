@@ -78,7 +78,7 @@
 #endif
 
 #define CAL_MODE 20
-#define OLED_PIN 18
+#define OLED_PIN 22
 
 #define MAPLE_A 11
 #define MAPLE_B 12
@@ -207,7 +207,7 @@ int lastPress = 0;
 static const uint8_t NumWrites = LCDFramebufferSize / BPPacket;
 static uint8_t LCDFramebuffer[LCDFramebufferSize] = {0};
 volatile bool LCDUpdated = false;
-volatile bool colorOLED = true; // True = SSD1331, false = SSD1306
+static volatile bool colorOLED = true; // True = SSD1331, false = SSD1306
 
 // Purupuru
 static bool purupuruUpdated = false;
@@ -830,7 +830,8 @@ bool ConsumePacket(uint Size) {
               freq = (purupuru_cond & 0x00ff0000) >> 16;
               inc = (purupuru_cond & 0xff000000) >> 24;
 
-              purupuruUpdated = true;
+              if( (freq >= 0x07) && (freq <= 0x3B)) // check if frequency is in supported range
+                purupuruUpdated = true;
 
               NextPacketSend = SEND_ACK;
               return true;
@@ -1005,16 +1006,13 @@ void pageToggle(uint gpio, uint32_t events) {
 }
 
 void setPixel(uint8_t x, uint8_t y, uint16_t color) {
-  if (colorOLED)
+  if (gpio_get(OLED_PIN))
     setPixelSSD1331(x, y, color);
   else
     setPixel1306(x + 16, y, color ? 1 : 0);
 }
 
 bool vibeHandler(struct repeating_timer *t) {
-  static float frequency = 0;
-  static float period = 0;
-
   static uint8_t vibeCtrl = 0;
   static uint8_t vibePow = 0;
   static uint8_t vibeFreq = 0;
@@ -1029,8 +1027,10 @@ bool vibeHandler(struct repeating_timer *t) {
   static uint8_t inh_pow = 0; // for keeping track of convergent vibration power
   static uint8_t exh_pow = 0; // for keeping track of divergent vibration power
 
+  static uint8_t inc_count = 0;
+
   // Check for most recent vibe command at end of each pulse
-  if (vibeFreqCount == vibeFreqCountLimit) {
+  if (!pulseInProgress) {
     if (purupuruUpdated) {
       // Update purupuru flags
       vibeCtrl = ctrl;
@@ -1039,41 +1039,40 @@ bool vibeHandler(struct repeating_timer *t) {
       vibeInc = inc;
 
       // (vibeFreq + 1)/2 gives us frequency of vibe pulses. How many 500us vibeHandler cycles fit in one vibe period?
-      frequency = (vibeFreq + 1) / 2.0;
-      period = 1.0 / frequency;
-      vibeFreqCountLimit = period * 2000;
-      halfVibeFreqCountLimit = period * 1000;
+      vibeFreqCountLimit = 4000 / (vibeFreq + 1);
+      halfVibeFreqCountLimit = vibeFreqCountLimit >> 1;
 
       if ((vibePow & 0x7) == 0)
         vibePower = 0;
       else
-        vibePower = map_uint32(vibePow & 0x7, 1, 7, 0x5FFF, 0xFFFF);
+        vibePower = map_uint32(vibePow & 0x7, 1, 7, 0x9FFF, 0xFFFF);
+
+      if (inc == 0)
+        inc = 1;
+
       vibeFreqCount = 0;
+      pulseInProgress = true;
       purupuruUpdated = false;
     }
   }
 
   // Pulse handling
-  if (vibeFreqCount < (halfVibeFreqCountLimit)) {
-    pwm_set_gpio_level(15, vibePower);
-    pulseInProgress = true;
-    purupuruCommandComplete = false;
-    vibeFreqCount++;
-  } else if (vibeFreqCount == halfVibeFreqCountLimit) {
-    pwm_set_gpio_level(15, 0);
-    vibeFreqCount++;
-  } else if (vibeFreqCount < halfVibeFreqCountLimit) {
-    pwm_set_gpio_level(15, 0);
-    vibeFreqCount++;
-  } else if (vibeFreqCount == vibeFreqCountLimit) {
-    pwm_set_gpio_level(15, 0);
-    pulseInProgress = false;
-    purupuruCommandComplete = true;
-    vibeFreqCount++;
-  } else if ((power & 0x7) == 0) {
-    pwm_set_gpio_level(15, 0);
-    pulseInProgress = false;
-    vibeFreqCount = 0;
+  if(pulseInProgress){
+    if (vibeFreqCount <= halfVibeFreqCountLimit) {
+      pwm_set_gpio_level(15, vibePower);
+      vibeFreqCount++;
+    } else if (vibeFreqCount < vibeFreqCountLimit) {
+      pwm_set_gpio_level(15, 0);
+      vibeFreqCount++;
+    } else {
+      //pwm_set_gpio_level(15, 0);
+      vibeFreqCount = 0;
+      inc_count++;
+      if (inc_count == inc){
+        pulseInProgress = false;
+        inc_count = 0;
+      }
+    }
   }
 
   return (true);
@@ -1096,7 +1095,7 @@ int main() {
 
   colorOLED = gpio_get(OLED_PIN);
 
-  if (colorOLED) { // set up SPI for SSD1331 OLED
+  if (gpio_get(OLED_PIN)) { // set up SPI for SSD1331 OLED
     spi_init(SSD1331_SPI, SSD1331_SPEED);
     spi_set_format(spi0, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
     gpio_set_function(SCK, GPIO_FUNC_SPI);
@@ -1119,19 +1118,12 @@ int main() {
   gpio_pull_up(CAL_MODE);
 #endif
 
-  // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
-  gpio_init(OLED_PIN);
-  gpio_set_dir(OLED_PIN, GPIO_IN);
-  gpio_pull_up(OLED_PIN);
-
-  colorOLED = gpio_get(OLED_PIN);
-
   // PWM setup for rumble
   gpio_set_function(15, GPIO_FUNC_PWM);
   uint slice_num = pwm_gpio_to_slice_num(15);
 
   pwm_config config = pwm_get_default_config();
-  pwm_config_set_clkdiv(&config, 16.f);
+  pwm_config_set_clkdiv(&config, 48.f);
   pwm_init(slice_num, &config, true);
   pwm_set_gpio_level(15, 0);
 
