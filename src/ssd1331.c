@@ -1119,7 +1119,7 @@ void ssd1331_init() {
   ssd1331WriteCommand(SSD1331_CMD_CONTRASTC); // 0x83
   ssd1331WriteCommand(0xFF);
   ssd1331WriteCommand(SSD1331_CMD_DISPLAYALLOFF);
-  ssd1331WriteCommand(SSD1331_CMD_INVERTDISPLAY); // 0xA4
+  ssd1331WriteCommand(SSD1331_CMD_NORMALDISPLAY); // 0xA4
   ssd1331WriteCommand(SSD1331_CMD_DISPLAYON); //--turn on oled panel
 
   gpio_put(DC, 0);
