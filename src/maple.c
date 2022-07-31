@@ -1191,6 +1191,7 @@ bool vibeHandler(struct repeating_timer *t) {
 int main() {
   stdio_init_all();
   //set_sys_clock_khz(175000, false); // Overclock seems to lead to instability
+
   adc_init();
   adc_set_clkdiv(0);
   adc_gpio_init(26); // Stick X
@@ -1228,6 +1229,7 @@ int main() {
   gpio_pull_up(CAL_MODE);
 #endif
 
+#if ENABLE_RUMBLE
   // PWM setup for rumble
   gpio_set_function(15, GPIO_FUNC_PWM);
   gpio_disable_pulls(15);
@@ -1242,6 +1244,7 @@ int main() {
 
   struct repeating_timer timer;
   add_repeating_timer_us(500, vibeHandler, NULL, &timer);
+#endif
 
   // Page cycle interrupt
   gpio_init(PAGE_BUTTON);
@@ -1251,9 +1254,10 @@ int main() {
 
   lastPress = to_ms_since_boot(get_absolute_time());
 
-  // ClearDisplay();
-  // clearSSD1331();
-  // updateSSD1331();
+
+  //ClearDisplay();
+  //clearSSD1331();
+  //updateSSD1331();
 
   if (!gpio_get(CAL_MODE)) {
     // Stick calibration mode
@@ -1261,15 +1265,13 @@ int main() {
     setPixel(0, 0, color);
     updateSSD1331();
 
-    while (!gpio_get(CAL_MODE)) {
-    };
+    while (!gpio_get(CAL_MODE)) {};
 
     clearSSD1331();
     setPixel(0, 0, color);
     updateSSD1331();
 
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     // StickConfig[0] 	// xCenter
     // StickConfig[1] 	// xMin
@@ -1299,8 +1301,7 @@ int main() {
     updateSSD1331();
 
     sleep_ms(500);
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     adc_select_input(0); // Xmin
     StickConfig[1] = adc_read() >> 4;
@@ -1310,8 +1311,7 @@ int main() {
     updateSSD1331();
 
     sleep_ms(500);
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     adc_select_input(1); // Ymin
     StickConfig[4] = adc_read() >> 4;
@@ -1321,8 +1321,7 @@ int main() {
     updateSSD1331();
 
     sleep_ms(500);
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     adc_select_input(1); // Ymax
     StickConfig[5] = adc_read() >> 4;
@@ -1345,8 +1344,7 @@ int main() {
 
 
     sleep_ms(500);
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     adc_select_input(2); // Lmax
     StickConfig[7] = adc_read() >> 4;
@@ -1356,8 +1354,7 @@ int main() {
     updateSSD1331();
 
     sleep_ms(500);
-    while (gpio_get(CAL_MODE)) {
-    };
+    while (gpio_get(CAL_MODE)) {};
 
     adc_select_input(3); // Rmax
     StickConfig[9] = adc_read() >> 4;

@@ -1,7 +1,3 @@
 .DS_Store
 .vscode/*
 build/*
-
-maple*.txt
-*-bak
-fp-info-cache
