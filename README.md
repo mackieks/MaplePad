@@ -4,7 +4,7 @@
 
 Fork of charcole's Dreamcast controller emulator for RP2040 (Raspberry Pi Pico). Works on my custom MaplePad PCB (see hardware folder) as well as on the Pico (some modification required.) Note: the development SW is currently targeting the stock Pico.
 
-This project is still very much a WIP, and is not recommended for general use at this time.
+This project is still a WIP, and is not recommended for general use at this time.
 
 Feature List:
 - [x] Full FT<sub>0</sub> (controller) support including analog joystick and triggers
@@ -12,7 +12,7 @@ Feature List:
 - [x] Multipaging for memory card (8 separate 200-block memory cards)
 - [x] Full FT<sub>2</sub> (LCD) support with SSD1331 96\*64 color SPI OLED for VMU display (SSD1306 128\*64 I2C OLED also supported)
 - [x] Customizable color palettes for all 8 internal memory cards
-- [x] Basic FT<sub>8</sub> (vibration) functionality (WIP)
+- [x] Robust FT<sub>8</sub> (vibration) functionality (WIP)
 - [x] Basic FT<sub>3</sub> (timer/RTC) reporting for compatibility purposes
 
 To-do: (highest priority to lowest)
