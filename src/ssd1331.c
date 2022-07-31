@@ -7,6 +7,9 @@ extern tFont Font;
 
 uint8_t oledFB[96 * 64 * 2] = {0x00};
 
+static volatile uint dma_tx;
+static dma_channel_config c;
+
 const uint8_t icon[] ={ // MaplePad splashscreen
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   // 0x0010 (16)
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,   // 0x0020 (32)
@@ -671,7 +674,14 @@ void updateSSD1331(void){
 
   gpio_put(DC, 1);
 
-  spi_write_blocking(SSD1331_SPI, oledFB, sizeof(oledFB));
+  if(!(dma_channel_is_busy(dma_tx)))
+    dma_channel_configure(dma_tx, &c,
+                          &spi_get_hw(SSD1331_SPI)->dr, // write address
+                          oledFB, // read address
+                          sizeof(oledFB), // element count (each element is of size transfer_data_size)
+                          true); // start
+
+  //spi_write_blocking(SSD1331_SPI, oledFB, sizeof(oledFB));
 }
 
 void drawEllipse(int xc, int yc, int xr, int yr, int angle){
@@ -1103,13 +1113,13 @@ void ssd1331_init() {
   ssd1331WriteCommand(SSD1331_CMD_MASTERCURRENT); // 0x87
   ssd1331WriteCommand(0x06);
   ssd1331WriteCommand(SSD1331_CMD_CONTRASTA); // 0x81
-  ssd1331WriteCommand(0xff);
+  ssd1331WriteCommand(0xFF);
   ssd1331WriteCommand(SSD1331_CMD_CONTRASTB); // 0x82
-  ssd1331WriteCommand(0xff);
+  ssd1331WriteCommand(0xFF);
   ssd1331WriteCommand(SSD1331_CMD_CONTRASTC); // 0x83
-  ssd1331WriteCommand(0xff);
+  ssd1331WriteCommand(0xFF);
   ssd1331WriteCommand(SSD1331_CMD_DISPLAYALLOFF);
-  ssd1331WriteCommand(SSD1331_CMD_NORMALDISPLAY); // 0xA4
+  ssd1331WriteCommand(SSD1331_CMD_INVERTDISPLAY); // 0xA4
   ssd1331WriteCommand(SSD1331_CMD_DISPLAYON); //--turn on oled panel
 
   gpio_put(DC, 0);
@@ -1122,7 +1132,19 @@ void ssd1331_init() {
   ssd1331WriteCommand(63);
 
   gpio_put(DC, 1);
-  spi_write_blocking(SSD1331_SPI, image_data_maplepad_logo_9664, sizeof(image_data_maplepad_logo_9664));
+
+
+  dma_tx = dma_claim_unused_channel(true);
+  c = dma_channel_get_default_config(dma_tx);
+  channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
+  channel_config_set_dreq(&c, spi_get_index(SSD1331_SPI) ? DREQ_SPI1_TX : DREQ_SPI0_TX);
+  dma_channel_configure(dma_tx, &c,
+                          &spi_get_hw(SSD1331_SPI)->dr, // write address
+                          image_data_maplepad_logo_9664, // read address
+                          sizeof(image_data_maplepad_logo_9664), // element count (each element is of size transfer_data_size)
+                          true); // start
+
+  //spi_write_blocking(SSD1331_SPI, image_data_maplepad_logo_9664, sizeof(image_data_maplepad_logo_9664));
 
   // while(1){
   //   spi_write_blocking(SSD1331_SPI, image_data_2, sizeof(icon));

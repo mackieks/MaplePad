@@ -3,6 +3,7 @@
 #include "pico/stdlib.h"
 #include "pico/binary_info.h"
 #include "hardware/spi.h"
+#include "hardware/dma.h"
 
 #define SSD1331_SPI spi0
 #define SSD1331_SPEED  133000000
