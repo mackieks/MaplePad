@@ -1011,7 +1011,8 @@ void pageToggle(uint gpio, uint32_t events) {
       CurrentPage = 1;
     else
       CurrentPage++;
-    PageCycle = true;
+    if (!PageCycle && !SectorDirty)
+      PageCycle = true;
     lastPress = pressTime;
   }
 }
