@@ -68,16 +68,16 @@
 
 #define PHASE_SIZE (BLOCK_SIZE / 4)
 #define FLASH_WRITE_DELAY 8       // About quarter of a second if polling once a frame
-#define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 16Kb of code so assuming this will be fine
+#define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 75kB of code so assuming this will be fine
 
 // ### TO-DO: Check for button combo in SendControllerStatus to page cycle on MaplePad
 #if PICO
 #define PAGE_BUTTON 21 // Pull GP21 low for Page Cycle. Avoid page cycling for ~10s after saving or copying VMU data to avoid data corruption
 #elif MAPLEPAD
-#define PAGE_BUTTON 20 // Dummy pin (interrupt will be forced when button combo detected)
+#define PAGE_BUTTON 20 // Dummy pin 
 #endif
 
-#define PAGE_BUTTON_MASK 0x0608
+#define PAGE_BUTTON_MASK 0x0608 // X, Y, and Start
 
 #define CAL_MODE 20
 #define OLED_PIN 22
@@ -1095,7 +1095,7 @@ bool vibeHandler(struct repeating_timer *t) {
 
   // Pulse handling
   if(commandInProgress){
-    // first, enforce auto-stop
+    // first, enforce auto-stop (only in continuous mode)
     pulseTimestamp = to_ms_since_boot(get_absolute_time());
 
     // if ( (pulseTimestamp - AST_timestamp) > (AST[2] * 250) ){
