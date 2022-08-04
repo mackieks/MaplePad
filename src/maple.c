@@ -274,7 +274,7 @@ void BuildInfoPacket() {
   InfoPacket.Info.FuncData[2] = 0;
   InfoPacket.Info.AreaCode = -1;
   InfoPacket.Info.ConnectorDirection = 0;
-  strncpy(InfoPacket.Info.ProductName, "Dreamcast Controller         ", sizeof(InfoPacket.Info.ProductName));
+  strncpy(InfoPacket.Info.ProductName, "MaplePad                     ", sizeof(InfoPacket.Info.ProductName));
 
   strncpy(InfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
@@ -427,7 +427,8 @@ void BuildPuruPuruInfoPacket() {
   PuruPuruInfoPacket.Info.Func = __builtin_bswap32(FUNC_VIBRATION);
 
   PuruPuruInfoPacket.Info.VSet0 = 0x10;
-  PuruPuruInfoPacket.Info.Vset1 = 0xC0;
+  //PuruPuruInfoPacket.Info.Vset1 = 0xC0;
+  PuruPuruInfoPacket.Info.Vset1 = 0x80; // disable continuous vibration for now
   PuruPuruInfoPacket.Info.FMin = 0x07;
   PuruPuruInfoPacket.Info.FMin = 0x3B;
 
@@ -841,8 +842,8 @@ bool ConsumePacket(uint Size) {
               freq = (purupuru_cond & 0x00ff0000) >> 16;
               inc = (purupuru_cond & 0xff000000) >> 24;
 
-              if( (freq >= 0x07) && (freq <= 0x3B)) // check if frequency is in supported range
-                purupuruUpdated = true;
+              if( (freq >= 0x07) && (freq <= 0x3B) && (ctrl & 0x10)) // check if frequency is in supported range
+              purupuruUpdated = true;
 
               NextPacketSend = SEND_ACK;
               return true;
@@ -1024,7 +1025,7 @@ void setPixel(uint8_t x, uint8_t y, uint16_t color) {
     setPixel1306(x + 16, y, color ? 1 : 0);
 }
 
-bool vibeHandler(struct repeating_timer *t) {
+bool __no_inline_not_in_flash_func(vibeHandler)(struct repeating_timer *t) {
   static uint32_t pulseTimestamp = 0;
 
   static uint8_t vibeCtrl = 0;
@@ -1066,9 +1067,9 @@ bool vibeHandler(struct repeating_timer *t) {
       if ((divergePow == 0) && (convergePow == 0))
         vibePower = 0;
       else if (divergePow >= convergePow)
-        vibePower = map_uint32(divergePow, 1, 7, 0x7FFF, 0xFFFF);
+        vibePower = map_uint32(divergePow, 1, 7, 0x9FFF, 0xFFFF);
       else if (divergePow < convergePow)
-        vibePower = map_uint32(convergePow, 1, 7, 0x7FFF, 0xFFFF);
+        vibePower = map_uint32(convergePow, 1, 7, 0x9FFF, 0xFFFF);
 
       converge = (vibePow & 0x80 && convergePow) ? true : false; // is INH set and is convergePow nonzero?
       diverge = (vibePow & 0x8 && divergePow) ? true : false; // is EXH set and is divergePow nonzero ?
@@ -1109,7 +1110,7 @@ bool vibeHandler(struct repeating_timer *t) {
     if (converge){
       if(convergePow > 0){ // inc must be non-zero
         // First remap vibePower with decremented convergePow
-        vibePower = map_uint32(convergePow, 1, 7, 0x7FFF, 0xFFFF);
+        vibePower = map_uint32(convergePow, 1, 7, 0x9FFF, 0xFFFF);
 
         // If inc is zero, we can't converge. Bit hacky...
         if (inc == 0)
@@ -1140,7 +1141,7 @@ bool vibeHandler(struct repeating_timer *t) {
     else if (diverge){
       if(divergePow < 8){ // inc must be non-zero
         // First remap non-zero vibePower with incremented divergePow
-        vibePower = map_uint32(divergePow, 1, 7, 0x7FFF, 0xFFFF);
+        vibePower = map_uint32(divergePow, 1, 7, 0x9FFF, 0xFFFF);
 
         // If inc is zero, we can't diverge. Bit hacky...
         if (inc == 0)
@@ -1200,6 +1201,28 @@ int main() {
   adc_gpio_init(28); // Left Trigger
   adc_gpio_init(29); // Right Trigger
 
+  // Pre-format VMU pages since rumble timer interrupt interferes with on-the-fly formatting
+  uint Interrupts = save_and_disable_interrupts();
+
+  for(int page = 1; page <= 8; page++){
+    CurrentPage = page;
+
+    readFlash();
+
+    while(SectorDirty){
+      uint Sector = 31 - __builtin_clz(SectorDirty);
+      SectorDirty &= ~(1 << Sector);
+      uint SectorOffset = Sector * FLASH_SECTOR_SIZE;
+              
+      flash_range_erase((FLASH_OFFSET * CurrentPage) + SectorOffset, FLASH_SECTOR_SIZE);
+      flash_range_program((FLASH_OFFSET * CurrentPage) + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
+    }          
+  }
+
+  restore_interrupts(Interrupts);
+
+  CurrentPage = 1;  
+
   // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
   gpio_init(OLED_PIN);
   gpio_set_dir(OLED_PIN, GPIO_IN);
@@ -1239,12 +1262,13 @@ int main() {
   uint slice_num = pwm_gpio_to_slice_num(15);
 
   pwm_config config = pwm_get_default_config();
-  pwm_config_set_clkdiv(&config, 48.f);
+  pwm_config_set_clkdiv(&config, 16.f);
   pwm_init(slice_num, &config, true);
   pwm_set_gpio_level(15, 0);
 
   struct repeating_timer timer;
-  add_repeating_timer_us(500, vibeHandler, NULL, &timer);
+  // negative interval means the callback fcn is called every 500us regardless of how long callback takes to execute
+  add_repeating_timer_us(-500, vibeHandler, NULL, &timer); 
 #endif
 
   // Page cycle interrupt
