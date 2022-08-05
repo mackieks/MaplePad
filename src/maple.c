@@ -61,7 +61,7 @@
 #endif
 
 // Purupuru Enable
-#define ENABLE_RUMBLE 1
+#define ENABLE_RUMBLE 0
 
 #define VMU 0
 #define PURUPURU 1
@@ -1370,6 +1370,32 @@ int main() {
 
   memset(StickConfig, 0, sizeof(StickConfig));
   memcpy(StickConfig, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(StickConfig)); // read into variable
+
+// StickConfig[0] 	// xCenter
+    // StickConfig[1] 	// xMin
+    // StickConfig[2] 	// xMax
+    // StickConfig[3]	// yCenter
+    // StickConfig[4]	// yMin
+    // StickConfig[5]	// yMax
+    // StickConfig[6]	// lMin
+    // StickConfig[7]	// lMax
+    // StickConfig[8]	// rMin
+    // StickConfig[9] 	// rMax
+
+  while(1){
+    printf("xCenter: %02x\n", StickConfig[0]);
+    printf("xMin: %02x\n", StickConfig[1]);
+    printf("xMax: %02x\n", StickConfig[2]);
+    printf("yCenter: %02x\n", StickConfig[3]);
+    printf("yMin: %02x\n", StickConfig[4]);
+    printf("yMax: %02x\n", StickConfig[5]);
+    printf("lMin: %02x\n", StickConfig[6]);
+    printf("lMax: %02x\n", StickConfig[7]);
+    printf("rMin: %02x\n", StickConfig[8]);
+    printf("rMax: %02x\n", StickConfig[9]);
+
+    sleep_ms(1500);
+  }
 
   readFlash();
 
