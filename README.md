@@ -2,9 +2,19 @@
 
 <img src="maplepad_logo.png" width="500">
 
-Fork of charcole's Dreamcast controller emulator for RP2040 (Raspberry Pi Pico). Works on my custom MaplePad PCB (see hardware folder) as well as on the Pico (some modification required.) Note: the development SW is currently targeting the stock Pico.
+MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) emulator that is intended for use in Dreamcast portables and custom Dreamcast controllers. It can be used with either the Raspberry Pi Pico or a custom MaplePad PCB (see hardware folder.) 
 
-This project is still a WIP, and is not recommended for general use at this time.
+Note: MaplePad is still a WIP, and is not recommended for general use at this time.
+
+With MaplePad you can: cycle through 8 238-block internal VMUs with custom icons and colors at your leisure...
+
+<img src="vmu.png" width="750">
+
+...use an I2C or SPI OLED display to see the VMU screen in color and at 2x integer scale...
+
+<img src="purupuru.png" width="750">
+
+...and enjoy rumble that is 1:1 with the Performance TremorPak in most retail software (still some minor bugs!)
 
 Feature List:
 - [x] Full FT<sub>0</sub> (controller) support including analog joystick and triggers
@@ -22,3 +32,7 @@ To-do: (highest priority to lowest)
 - [ ] Implement DC boot animation on OLED
 - [ ] Finish FT<sub>3</sub> (timer/RTC) support with either dummy time values or external RTC
 - [ ] Implement FT<sub>4</sub> (microphone) support
+
+MaplePad is forked from [Charlie Cole's Pop'n Music Controller.](https://github.com/charcole/Dreamcast-PopnMusic)
+
+Special thanks: [Charlie Cole](https://github.com/charcole), [Colton Pawielski](https://github.com/cepawiel) and Wesk.
