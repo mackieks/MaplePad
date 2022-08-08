@@ -9,12 +9,12 @@ extern "C"
 #define NUM_FAT_BLOCKS 1
 #define DIRECTORY_BLOCK 253
 #define NUM_DIRECTORY_BLOCKS 13
-#define SAVE_BLOCK 200
-#define NUM_SAVE_BLOCKS 31 // Not sure what this means
+#define SAVE_BLOCK 240
+#define NUM_SAVE_BLOCKS 2 // Not sure what this means
 
 #define BLOCK_SIZE 512
 
-uint32_t CheckFormatted(uint8_t* MemoryCard);
+uint32_t CheckFormatted(uint8_t* MemoryCard, uint32_t CurrentPage);
 
 #ifdef __cplusplus
 }

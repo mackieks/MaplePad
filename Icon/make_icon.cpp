@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include "Icon.c"
 #include "IconMono.c"
-#include "../format.h"
+#include "../src/format.h"
 
 struct IconData
 {
@@ -45,7 +45,7 @@ int main()
 	{
 		for (int x = 0; x < 32; x++)
 		{
-			uint32_t Pixel = *(uint32_t *)&IconMono.pixel_data[4 * (y * 32 + x)];
+			uint32_t Pixel = *(uint32_t *)&Icon.pixel_data[4 * (y * 32 + x)];
 			int Index;
 			for (Index = 0; Index < NumEntries; Index++)
 			{
