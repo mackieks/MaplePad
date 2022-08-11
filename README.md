@@ -1,6 +1,6 @@
 # MaplePad<br/>
 
-![MaplePad Logo](https://github.com/mackieks/MaplePad/blob/main/maplepad_logo.png#gh-dark-mode-only)
+![MaplePad Logo](https://github.com/mackieks/MaplePad/blob/main/maplepad_logo_shadow.png#gh-dark-mode-only)
 ![MaplePad Logo](https://github.com/mackieks/MaplePad/blob/main/maplepad_logo_shadow.png#gh-light-mode-only)
 
 MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) emulator that is intended for use in Dreamcast portables and custom Dreamcast controllers. It can be used with either the Raspberry Pi Pico or a custom MaplePad PCB (see hardware folder.) 
