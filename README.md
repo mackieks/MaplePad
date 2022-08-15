@@ -6,7 +6,7 @@ MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) 
 
 Note: MaplePad is still a WIP, and is not recommended for general use at this time.
 
-With MaplePad you can: cycle through 8 238-block internal VMUs with custom icons and colors at your leisure...
+With MaplePad you can: cycle through 8 200-block internal VMUs with custom icons and colors at your leisure...
 
 <img src="vmu.png" width="750">
 
@@ -18,8 +18,8 @@ With MaplePad you can: cycle through 8 238-block internal VMUs with custom icons
 
 Feature List:
 - [x] Full FT<sub>0</sub> (controller) support including analog joystick and triggers
-- [x] Full FT<sub>1</sub> (storage) support for savegames with 1900 blocks of space
-- [x] Multipaging for memory card (8 separate 238-block memory cards)
+- [x] Full FT<sub>1</sub> (storage) support for savegames with 1600 blocks of space
+- [x] Multipaging for memory card (8 separate 200-block memory cards)
 - [x] Full FT<sub>2</sub> (LCD) support with SSD1331 96\*64 color SPI OLED for VMU display (SSD1306 128\*64 I2C OLED also supported)
 - [x] Customizable color palettes for all 8 internal memory cards
 - [x] Robust FT<sub>8</sub> (vibration) functionality (WIP)
