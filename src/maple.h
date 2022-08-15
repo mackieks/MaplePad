@@ -30,6 +30,18 @@ typedef struct PacketDeviceInfo_s {
   uint16_t MaxPower;
 } PacketDeviceInfo;
 
+typedef struct PacketAllDeviceInfo_s {
+  uint Func;        // Nb. Big endian
+  uint FuncData[3]; // Nb. Big endian
+  int8_t AreaCode;
+  uint8_t ConnectorDirection;
+  char ProductName[30];
+  char ProductLicense[60];
+  uint16_t StandbyPower;
+  uint16_t MaxPower;
+  char FreeDeviceStatus[80];
+} PacketAllDeviceInfo;
+
 typedef struct PacketMemoryInfo_s {
   uint Func; // Nb. Big endian
   uint16_t TotalSize;
@@ -44,6 +56,7 @@ typedef struct PacketMemoryInfo_s {
   uint16_t SaveArea;
   uint16_t NumSaveBlocks;
   uint Reserved32;
+  uint16_t Reserved16;
 } PacketMemoryInfo;
 
 typedef struct PacketLCDInfo_s {
@@ -87,7 +100,7 @@ typedef struct PacketControllerCondition_s {
 
 typedef struct PacketPuruPuruCondition_s {
   uint Func;       // Nb. Big endian
-  uint8_t VSource; // Vibration control
+  uint8_t Ctrl; // Vibration control
   uint8_t Power;   // Vibration intensity
   uint8_t Freq;    // Vibration frequency
   uint8_t Inc;     // Vibration inclination
@@ -117,6 +130,13 @@ typedef struct FInfoPacket_s {
   PacketDeviceInfo Info;
   uint CRC;
 } FInfoPacket;
+
+typedef struct FAllInfoPacket_s {
+  uint BitPairsMinus1;
+  PacketHeader Header;
+  PacketAllDeviceInfo Info;
+  uint CRC;
+} FAllInfoPacket;
 
 typedef struct FMemoryInfoPacket_s {
   uint BitPairsMinus1;
