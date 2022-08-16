@@ -19,7 +19,7 @@
  * machine is implemented in lookup table to process 4 transitions at a time
  * 
  * 
- * !!!!!TO-DO: Move ACK Packet address amending to actual ACK packet functions
+ * !!!!!TO-DO: 
  */
 
 #include "maple.h"
@@ -83,6 +83,9 @@
 #endif
 
 #define PAGE_BUTTON_MASK 0x0608 // X, Y, and Start
+#define PAGE_BACKWARD_MASK 0x0048
+#define PAGE_FORWARD_MASK 0x0088
+#define CurrentPage flashData[15]
 
 #define CAL_MODE 20
 #define OLED_PIN 22
@@ -217,9 +220,9 @@ static uint8_t MemoryCard[128 * 1024];
 static uint SectorDirty = 0;
 static uint SendBlockAddress = ~0u;
 static uint MessagesSinceWrite = FLASH_WRITE_DELAY;
-static uint32_t CurrentPage = 1;
 volatile bool PageCycle = false;
 volatile bool VMUCycle = false;
+static uint8_t VMUCycleCount = 0;
 uint32_t lastPress = 0;
 
 // LCD
@@ -265,7 +268,40 @@ uint8_t min(uint8_t x, uint8_t y) { return x <= y ? x : y; }
 
 uint8_t max(uint8_t x, uint8_t y) { return x >= y ? x : y; }
 
-static uint StickConfig[14] = {0}; // Joystick configuration values
+static uint flashData[15] = {0}; // Persistent data (stick/trigger calibration, flags, etc.)
+
+  // flashData[0] 	// xCenter
+  // flashData[1] 	// xMin
+  // flashData[2] 	// xMax
+  // flashData[3]	// yCenter
+  // flashData[4]	// yMin
+  // flashData[5]	// yMax
+  // flashData[6]	// lMin
+  // flashData[7]	// lMax
+  // flashData[8]	// rMin
+  // flashData[9] 	// rMax
+  // flashData[10] 	// invertX
+  // flashData[11] 	// invertY
+  // flashData[12] 	// invertL
+  // flashData[13] 	// invertR
+  // flashData[14]  // First boot flag
+  // flashData[15]  // Current page
+
+void readFlash()
+{
+  memset(MemoryCard, 0, sizeof(MemoryCard));
+  memcpy(MemoryCard, (uint8_t *)XIP_BASE + (FLASH_OFFSET * CurrentPage),
+         sizeof(MemoryCard)); // read into variable
+  SectorDirty = CheckFormatted(MemoryCard, CurrentPage);
+}
+
+void updateFlashData() // Update calibration data and flags
+{
+  uint Interrupt = save_and_disable_interrupts();
+  flash_range_erase((FLASH_OFFSET * 9), FLASH_SECTOR_SIZE);
+  flash_range_program((FLASH_OFFSET * 9), (uint8_t *)flashData, FLASH_PAGE_SIZE);
+  restore_interrupts(Interrupt);
+}
 
 uint CalcCRC(const uint *Words, uint NumWords)
 {
@@ -677,85 +713,105 @@ void SendControllerStatus()
   // placeholder
 #endif
 
-  if ((Buttons & PAGE_BUTTON_MASK) == 0 && !PageCycle)
+  if ((Buttons & PAGE_FORWARD_MASK) == 0 && !PageCycle)
   {
     uint32_t pressTime = to_ms_since_boot(get_absolute_time());
     if ((pressTime - lastPress) >= 500)
-      {
+    {
+      if (!PageCycle && !SectorDirty){
         if (CurrentPage == 8)
           CurrentPage = 1;
         else
           CurrentPage++;
         PageCycle = true;
         lastPress = pressTime;
+        updateFlashData();
       }
+    }
+  }
+
+  else if ((Buttons & PAGE_BACKWARD_MASK) == 0 && !PageCycle)
+  {
+    uint32_t pressTime = to_ms_since_boot(get_absolute_time());
+    if ((pressTime - lastPress) >= 500)
+    {
+      if (!PageCycle && !SectorDirty){
+        if (CurrentPage == 1)
+          CurrentPage = 8;
+        else
+          CurrentPage--;
+        PageCycle = true;
+        lastPress = pressTime;
+        updateFlashData();
+      }
+    }
   }
 
   ControllerPacket.Controller.Buttons = Buttons;
 
-  // StickConfig[0] 	// xCenter
-  // StickConfig[1] 	// xMin
-  // StickConfig[2] 	// xMax
-  // StickConfig[3]	  // yCenter
-  // StickConfig[4]	  // yMin
-  // StickConfig[5]	  // yMax
-  // StickConfig[6]	  // lMax
-  // StickConfig[7]	  // lMin
-  // StickConfig[8]	  // rMax
-  // StickConfig[9] 	// rMin
+  // flashData[0] 	// xCenter
+  // flashData[1] 	// xMin
+  // flashData[2] 	// xMax
+  // flashData[3]	  // yCenter
+  // flashData[4]	  // yMin
+  // flashData[5]	  // yMax
+  // flashData[6]	  // lMax
+  // flashData[7]	  // lMin
+  // flashData[8]	  // rMax
+  // flashData[9] 	// rMin
 
 #if HKT7700 // Only HKT-7700 has analog stick and triggers
 
   adc_select_input(0);
   uint8_t xRead = adc_read() >> 4;
-  if (xRead > (StickConfig[0] - 0x0F) && xRead < (StickConfig[0] + 0x0F)) // deadzone
+  if (xRead > (flashData[0] - 0x0F) && xRead < (flashData[0] + 0x0F)) // deadzone
     ControllerPacket.Controller.JoyX = 0x80;
-  else if (xRead < StickConfig[0])
-    ControllerPacket.Controller.JoyX = map(xRead, StickConfig[1] - 0x04, StickConfig[0] - 0x0F, 0x00, 0x7F);
-  else if (xRead > StickConfig[0])
-    ControllerPacket.Controller.JoyX = map(xRead, StickConfig[0] + 0x0F, StickConfig[2] + 0x04, 0x81, 0xFF);
+  else if (xRead < flashData[0])
+    ControllerPacket.Controller.JoyX = map(xRead, flashData[1] - 0x04, flashData[0] - 0x0F, 0x00, 0x7F);
+  else if (xRead > flashData[0])
+    ControllerPacket.Controller.JoyX = map(xRead, flashData[0] + 0x0F, flashData[2] + 0x04, 0x81, 0xFF);
 
   adc_select_input(1);
   uint8_t yRead = adc_read() >> 4;
-  if (yRead > (StickConfig[3] - 0x0F) && yRead < (StickConfig[3] + 0x0F)) // deadzone
+  if (yRead > (flashData[3] - 0x0F) && yRead < (flashData[3] + 0x0F)) // deadzone
     ControllerPacket.Controller.JoyY = 0x80;
-  else if (yRead < StickConfig[3])
-    ControllerPacket.Controller.JoyY = map(yRead, StickConfig[4] - 0x04, StickConfig[3] - 0x0F, 0x00, 0x7F);
-  else if (yRead > StickConfig[3])
-    ControllerPacket.Controller.JoyY = map(yRead, StickConfig[3] + 0x0F, StickConfig[5] + 0x04, 0x81, 0xFF);
+  else if (yRead < flashData[3])
+    ControllerPacket.Controller.JoyY = map(yRead, flashData[4] - 0x04, flashData[3] - 0x0F, 0x00, 0x7F);
+  else if (yRead > flashData[3])
+    ControllerPacket.Controller.JoyY = map(yRead, flashData[3] + 0x0F, flashData[5] + 0x04, 0x81, 0xFF);
 
   adc_select_input(2);
   uint8_t lRead = adc_read() >> 4;
-  if (StickConfig[12]) // invertL
+  if (flashData[12]) // invertL
   {                                      
-    if (lRead > (StickConfig[7] - 0x08)) // deadzone
+    if (lRead > (flashData[7] - 0x08)) // deadzone
       ControllerPacket.Controller.LeftTrigger = 0x00;
-    else if (lRead >= (StickConfig[6] - 0x0F) > StickConfig[6] ? 0x00 : (StickConfig[6] - 0x0F))
-      ControllerPacket.Controller.LeftTrigger = map(lRead, (StickConfig[6] - 0x04) > StickConfig[6] ? 0x00 : (StickConfig[6] - 0x04), (StickConfig[7] + 0x04) < StickConfig[7] ? 0xFF : (StickConfig[7] + 0x04), 0xFF, 0x01);
+    else if (lRead >= (flashData[6] - 0x0F) > flashData[6] ? 0x00 : (flashData[6] - 0x0F))
+      ControllerPacket.Controller.LeftTrigger = map(lRead, (flashData[6] - 0x04) > flashData[6] ? 0x00 : (flashData[6] - 0x04), (flashData[7] + 0x04) < flashData[7] ? 0xFF : (flashData[7] + 0x04), 0xFF, 0x01);
   }
   else
   {
-    if (lRead < (StickConfig[6] + 0x08)) // deadzone
+    if (lRead < (flashData[6] + 0x08)) // deadzone
       ControllerPacket.Controller.LeftTrigger = 0x00;
-    else if (lRead <= (StickConfig[7] + 0x0F) < StickConfig[7] ? 0xFF : (StickConfig[7] + 0x0F))
-      ControllerPacket.Controller.LeftTrigger = map(lRead, (StickConfig[6] - 0x04) > StickConfig[6] ? 0x00 : (StickConfig[6] - 0x04), (StickConfig[7] + 0x04) < StickConfig[7] ? 0xFF : (StickConfig[7] + 0x04), 0x01, 0xFF);
+    else if (lRead <= (flashData[7] + 0x0F) < flashData[7] ? 0xFF : (flashData[7] + 0x0F))
+      ControllerPacket.Controller.LeftTrigger = map(lRead, (flashData[6] - 0x04) > flashData[6] ? 0x00 : (flashData[6] - 0x04), (flashData[7] + 0x04) < flashData[7] ? 0xFF : (flashData[7] + 0x04), 0x01, 0xFF);
   }
 
   adc_select_input(3);
   uint8_t rRead = adc_read() >> 4;
-  if (StickConfig[13]) // invertR
+  if (flashData[13]) // invertR
   {                                      
-    if (rRead > (StickConfig[9] - 0x08)) // deadzone
+    if (rRead > (flashData[9] - 0x08)) // deadzone
       ControllerPacket.Controller.RightTrigger = 0x00;
-    else if (rRead >= (StickConfig[8] - 0x0F) > StickConfig[8] ? 0x00 : (StickConfig[8] - 0x0F))
-      ControllerPacket.Controller.RightTrigger = map(rRead, (StickConfig[8] - 0x04) > StickConfig[8] ? 0x00 : (StickConfig[8] - 0x04), (StickConfig[9] + 0x04) < StickConfig[9] ? 0xFF : (StickConfig[9] + 0x04), 0xFF, 0x01);
+    else if (rRead >= (flashData[8] - 0x0F) > flashData[8] ? 0x00 : (flashData[8] - 0x0F))
+      ControllerPacket.Controller.RightTrigger = map(rRead, (flashData[8] - 0x04) > flashData[8] ? 0x00 : (flashData[8] - 0x04), (flashData[9] + 0x04) < flashData[9] ? 0xFF : (flashData[9] + 0x04), 0xFF, 0x01);
   }
   else
   {
-    if (rRead < (StickConfig[8] + 0x08)) // deadzone
+    if (rRead < (flashData[8] + 0x08)) // deadzone
       ControllerPacket.Controller.RightTrigger = 0x00;
-    else if (rRead <= (StickConfig[9] + 0x0F) < StickConfig[9] ? 0xFF : (StickConfig[9] + 0x0F))
-      ControllerPacket.Controller.RightTrigger = map(rRead, (StickConfig[8] - 0x04) > StickConfig[8] ? 0x00 : (StickConfig[8] - 0x04), (StickConfig[9] + 0x04) < StickConfig[9] ? 0xFF : (StickConfig[9] + 0x04), 0x01, 0xFF);
+    else if (rRead <= (flashData[9] + 0x0F) < flashData[9] ? 0xFF : (flashData[9] + 0x0F))
+      ControllerPacket.Controller.RightTrigger = map(rRead, (flashData[8] - 0x04) > flashData[8] ? 0x00 : (flashData[8] - 0x04), (flashData[9] + 0x04) < flashData[9] ? 0xFF : (flashData[9] + 0x04), 0x01, 0xFF);
   }
 
 #endif
@@ -1376,27 +1432,21 @@ void SetupMapleRX()
   pio_sm_set_enabled(RXPIO, 0, true);
 }
 
-void readFlash()
-{
-  memset(MemoryCard, 0, sizeof(MemoryCard));
-  memcpy(MemoryCard, (uint8_t *)XIP_BASE + (FLASH_OFFSET * CurrentPage),
-         sizeof(MemoryCard)); // read into variable
-  SectorDirty = CheckFormatted(MemoryCard, CurrentPage);
-}
-
 void pageToggle(uint gpio, uint32_t events)
 {
   gpio_acknowledge_irq(gpio, events);
   uint32_t pressTime = to_ms_since_boot(get_absolute_time());
   if ((pressTime - lastPress) >= 500)
   {
-    if (CurrentPage == 8)
-      CurrentPage = 1;
-    else
-      CurrentPage++;
-    if (!PageCycle && !SectorDirty)
+    if (!PageCycle && !SectorDirty){
+      if (CurrentPage == 8)
+        CurrentPage = 1;
+      else
+        CurrentPage++;
       PageCycle = true;
-    lastPress = pressTime;
+      lastPress = pressTime;
+      updateFlashData();
+    }
   }
 }
 
@@ -1627,29 +1677,7 @@ int main()
   adc_gpio_init(28); // Left Trigger
   adc_gpio_init(29); // Right Trigger
 
-  // Pre-format VMU pages since rumble timer interrupt interferes with on-the-fly formatting
-  uint Interrupts = save_and_disable_interrupts();
-
-  for (int page = 1; page <= 8; page++)
-  {
-    CurrentPage = page;
-
-    readFlash();
-
-    while (SectorDirty)
-    {
-      uint Sector = 31 - __builtin_clz(SectorDirty);
-      SectorDirty &= ~(1 << Sector);
-      uint SectorOffset = Sector * FLASH_SECTOR_SIZE;
-
-      flash_range_erase((FLASH_OFFSET * CurrentPage) + SectorOffset, FLASH_SECTOR_SIZE);
-      flash_range_program((FLASH_OFFSET * CurrentPage) + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
-    }
-  }
-
-  restore_interrupts(Interrupts);
-
-  CurrentPage = 1;
+  sleep_ms(150); // wait for power to stabilize
 
   // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
   gpio_init(OLED_PIN);
@@ -1735,32 +1763,32 @@ int main()
     {
     };
 
-    // StickConfig[0] 	// xCenter
-    // StickConfig[1] 	// xMin
-    // StickConfig[2] 	// xMax
-    // StickConfig[3]	// yCenter
-    // StickConfig[4]	// yMin
-    // StickConfig[5]	// yMax
-    // StickConfig[6]	// lMin
-    // StickConfig[7]	// lMax
-    // StickConfig[8]	// rMin
-    // StickConfig[9] 	// rMax
-    // StickConfig[10] 	// invertX
-    // StickConfig[11] 	// invertY
-    // StickConfig[12] 	// invertL
-    // StickConfig[13] 	// invertR
+    // flashData[0] 	// xCenter
+    // flashData[1] 	// xMin
+    // flashData[2] 	// xMax
+    // flashData[3]	// yCenter
+    // flashData[4]	// yMin
+    // flashData[5]	// yMax
+    // flashData[6]	// lMin
+    // flashData[7]	// lMax
+    // flashData[8]	// rMin
+    // flashData[9] 	// rMax
+    // flashData[10] 	// invertX
+    // flashData[11] 	// invertY
+    // flashData[12] 	// invertL
+    // flashData[13] 	// invertR
 
     adc_select_input(0); // X
-    StickConfig[0] = adc_read() >> 4;
+    flashData[0] = adc_read() >> 4;
 
     adc_select_input(1); // Y
-    StickConfig[3] = adc_read() >> 4;
+    flashData[3] = adc_read() >> 4;
 
     adc_select_input(2); // L
-    StickConfig[6] = adc_read() >> 4;
+    flashData[6] = adc_read() >> 4;
 
     adc_select_input(3); // R
-    StickConfig[8] = adc_read() >> 4;
+    flashData[8] = adc_read() >> 4;
 
     clearSSD1331();
     cal_string = "xMin left";
@@ -1773,7 +1801,7 @@ int main()
     };
 
     adc_select_input(0); // Xmin
-    StickConfig[1] = adc_read() >> 4;
+    flashData[1] = adc_read() >> 4;
 
     clearSSD1331();
     cal_string = "yMin up";
@@ -1786,7 +1814,7 @@ int main()
     };
 
     adc_select_input(1); // Ymin
-    StickConfig[4] = adc_read() >> 4;
+    flashData[4] = adc_read() >> 4;
 
     clearSSD1331();
     cal_string = "yMax down";
@@ -1799,15 +1827,15 @@ int main()
     };
 
     adc_select_input(1); // Ymax
-    StickConfig[5] = adc_read() >> 4;
+    flashData[5] = adc_read() >> 4;
 
     clearSSD1331();
     cal_string = "xMax right";
     putString(cal_string, 0, 0, 0x049f);
     updateSSD1331();
 
-    if (StickConfig[4] > StickConfig[5]) // if yMin > yMax
-      StickConfig[11] = true;            // invertY
+    if (flashData[4] > flashData[5]) // if yMin > yMax
+      flashData[11] = true;            // invertY
 
     sleep_ms(500);
     while (gpio_get(CAL_MODE))
@@ -1815,15 +1843,15 @@ int main()
     };
 
     adc_select_input(0); // Xmax
-    StickConfig[2] = adc_read() >> 4;
+    flashData[2] = adc_read() >> 4;
 
     clearSSD1331();
     cal_string = "lMax held";
     putString(cal_string, 0, 0, 0x049f);
     updateSSD1331();
 
-    if (StickConfig[1] > StickConfig[2]) // if xMin > xMax
-      StickConfig[10] = true;            // invertX
+    if (flashData[1] > flashData[2]) // if xMin > xMax
+      flashData[10] = true;            // invertX
 
     sleep_ms(500);
     while (gpio_get(CAL_MODE))
@@ -1831,19 +1859,19 @@ int main()
     };
 
     adc_select_input(2); // Lmax
-    StickConfig[7] = adc_read() >> 4;
+    flashData[7] = adc_read() >> 4;
 
     clearSSD1331();
     cal_string = "rMax held";
     putString(cal_string, 0, 0, 0x049f);
     updateSSD1331();
 
-    if (StickConfig[6] > StickConfig[7])
+    if (flashData[6] > flashData[7])
     {                         // if lMin > lMax
-      StickConfig[12] = true; // invertL
-      uint8_t temp = StickConfig[6];
-      StickConfig[6] = StickConfig[7];
-      StickConfig[7] = temp;
+      flashData[12] = true; // invertL
+      uint8_t temp = flashData[6];
+      flashData[6] = flashData[7];
+      flashData[7] = temp;
     }
 
     sleep_ms(500);
@@ -1852,83 +1880,108 @@ int main()
     };
 
     adc_select_input(3); // Rmax
-    StickConfig[9] = adc_read() >> 4;
+    flashData[9] = adc_read() >> 4;
 
-    if (StickConfig[8] > StickConfig[9])
+    if (flashData[8] > flashData[9])
     {                         // if rMin > rMax
-      StickConfig[13] = true; // invertR
-      uint8_t temp = StickConfig[8];
-      StickConfig[8] = StickConfig[9];
-      StickConfig[9] = temp;
+      flashData[13] = true; // invertR
+      uint8_t temp = flashData[8];
+      flashData[8] = flashData[9];
+      flashData[9] = temp;
     }
 
     // Write config values to flash
-    uint Interrupt = save_and_disable_interrupts();
-    flash_range_erase((FLASH_OFFSET * 9), FLASH_SECTOR_SIZE);
-    flash_range_program((FLASH_OFFSET * 9), (uint8_t *)StickConfig, FLASH_PAGE_SIZE);
-    restore_interrupts(Interrupt);
+    updateFlashData();
 
     clearSSD1331();
     updateSSD1331();
   }
 
-  memset(StickConfig, 0, sizeof(StickConfig));
-  memcpy(StickConfig, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(StickConfig)); // read into variable
+  memset(flashData, 0, sizeof(flashData));
+  memcpy(flashData, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(flashData)); // read into variable
 
+  sleep_ms(150); // to be safe, wait a bit after reading in boot flags / stick config data
+
+  // Pre-format VMU pages since rumble timer interrupt interferes with on-the-fly formatting
+  if(!flashData[14]){ // if first boot (flashData[14] initialized to zero)
+    uint Interrupts = save_and_disable_interrupts();
+
+    for (int page = 1; page <= 8; page++)
+    {
+      CurrentPage = page;
+
+      readFlash();
+
+      while (SectorDirty)
+      {
+        uint Sector = 31 - __builtin_clz(SectorDirty);
+        SectorDirty &= ~(1 << Sector);
+        uint SectorOffset = Sector * FLASH_SECTOR_SIZE;
+
+        flash_range_erase((FLASH_OFFSET * CurrentPage) + SectorOffset, FLASH_SECTOR_SIZE);
+        flash_range_program((FLASH_OFFSET * CurrentPage) + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
+      }
+    }
+    restore_interrupts(Interrupts);
+    flashData[14] = 1; // first boot format done
+    updateFlashData();
+  }
+
+  // Read current VMU into memory
   readFlash();
 
   // while (1)
   // {
   // adc_select_input(0);
   // uint8_t xRead = adc_read() >> 4;
-  // if (xRead > (StickConfig[0] - 0x0F) && xRead < (StickConfig[0] + 0x0F)) // deadzone
+  // if (xRead > (flashData[0] - 0x0F) && xRead < (flashData[0] + 0x0F)) // deadzone
   //   ControllerPacket.Controller.JoyX = 0x80;
-  // else if (xRead < StickConfig[0])
-  //   ControllerPacket.Controller.JoyX = map(xRead, StickConfig[1] - 0x04, StickConfig[0] - 0x0F, 0x00, 0x7F);
-  // else if (xRead > StickConfig[0])
-  //   ControllerPacket.Controller.JoyX = map(xRead, StickConfig[0] + 0x0F, StickConfig[2] + 0x04, 0x81, 0xFF);
+  // else if (xRead < flashData[0])
+  //   ControllerPacket.Controller.JoyX = map(xRead, flashData[1] - 0x04, flashData[0] - 0x0F, 0x00, 0x7F);
+  // else if (xRead > flashData[0])
+  //   ControllerPacket.Controller.JoyX = map(xRead, flashData[0] + 0x0F, flashData[2] + 0x04, 0x81, 0xFF);
 
   // adc_select_input(1);
   // uint8_t yRead = adc_read() >> 4;
-  // if (yRead > (StickConfig[3] - 0x0F) && yRead < (StickConfig[3] + 0x0F)) // deadzone
+  // if (yRead > (flashData[3] - 0x0F) && yRead < (flashData[3] + 0x0F)) // deadzone
   //   ControllerPacket.Controller.JoyY = 0x80;
-  // else if (yRead < StickConfig[3])
-  //   ControllerPacket.Controller.JoyY = map(yRead, StickConfig[4] - 0x04, StickConfig[3] - 0x0F, 0x00, 0x7F);
-  // else if (yRead > StickConfig[3])
-  //   ControllerPacket.Controller.JoyY = map(yRead, StickConfig[3] + 0x0F, StickConfig[5] + 0x04, 0x81, 0xFF);
+  // else if (yRead < flashData[3])
+  //   ControllerPacket.Controller.JoyY = map(yRead, flashData[4] - 0x04, flashData[3] - 0x0F, 0x00, 0x7F);
+  // else if (yRead > flashData[3])
+  //   ControllerPacket.Controller.JoyY = map(yRead, flashData[3] + 0x0F, flashData[5] + 0x04, 0x81, 0xFF);
 
   // adc_select_input(2);
   // uint8_t lRead = adc_read() >> 4;
-  // if (StickConfig[12]) // invertL
+  // if (flashData[12]) // invertL
   // {                                      
-  //   if (lRead > (StickConfig[7] - 0x08)) // deadzone
+  //   if (lRead > (flashData[7] - 0x08)) // deadzone
   //     ControllerPacket.Controller.LeftTrigger = 0x00;
-  //   else if (lRead >= (StickConfig[6] - 0x0F) > StickConfig[6] ? 0x00 : (StickConfig[6] - 0x0F))
-  //     ControllerPacket.Controller.LeftTrigger = map(lRead, (StickConfig[6] - 0x04) > StickConfig[6] ? 0x00 : (StickConfig[6] - 0x04), (StickConfig[7] + 0x04) < StickConfig[7] ? 0xFF : (StickConfig[7] + 0x04), 0xFF, 0x01);
+  //   else if (lRead >= (flashData[6] - 0x0F) > flashData[6] ? 0x00 : (flashData[6] - 0x0F))
+  //     ControllerPacket.Controller.LeftTrigger = map(lRead, (flashData[6] - 0x04) > flashData[6] ? 0x00 : (flashData[6] - 0x04), (flashData[7] + 0x04) < flashData[7] ? 0xFF : (flashData[7] + 0x04), 0xFF, 0x01);
   // }
   // else
   // {
-  //   if (lRead < (StickConfig[6] + 0x08)) // deadzone
+  //   if (lRead < (flashData[6] + 0x08)) // deadzone
   //     ControllerPacket.Controller.LeftTrigger = 0x00;
-  //   else if (lRead <= (StickConfig[7] + 0x0F) < StickConfig[7] ? 0xFF : (StickConfig[7] + 0x0F))
-  //     ControllerPacket.Controller.LeftTrigger = map(lRead, (StickConfig[6] - 0x04) > StickConfig[6] ? 0x00 : (StickConfig[6] - 0x04), (StickConfig[7] + 0x04) < StickConfig[7] ? 0xFF : (StickConfig[7] + 0x04), 0x01, 0xFF);
+  //   else if (lRead <= (flashData[7] + 0x0F) < flashData[7] ? 0xFF : (flashData[7] + 0x0F))
+  //     ControllerPacket.Controller.LeftTrigger = map(lRead, (flashData[6] - 0x04) > flashData[6] ? 0x00 : (flashData[6] - 0x04), (flashData[7] + 0x04) < flashData[7] ? 0xFF : (flashData[7] + 0x04), 0x01, 0xFF);
   // }
 
   // adc_select_input(3);
   // uint8_t rRead = adc_read() >> 4;
-  // if (StickConfig[13]) // invertR
+  // if (flashData[13]) // invertR
   // {                                      
-  //   if (rRead > (StickConfig[9] - 0x08)) // deadzone
+  //   if (rRead > (flashData[9] - 0x08)) // deadzone
   //     ControllerPacket.Controller.RightTrigger = 0x00;
-  //   else if (rRead >= (StickConfig[8] - 0x0F) > StickConfig[8] ? 0x00 : (StickConfig[8] - 0x0F))
-  //     ControllerPacket.Controller.RightTrigger = map(rRead, (StickConfig[8] - 0x04) > StickConfig[8] ? 0x00 : (StickConfig[8] - 0x04), (StickConfig[9] + 0x04) < StickConfig[9] ? 0xFF : (StickConfig[9] + 0x04), 0xFF, 0x01);
+  //   else if (rRead >= (flashData[8] - 0x0F) > flashData[8] ? 0x00 : (flashData[8] - 0x0F))
+  //     ControllerPacket.Controller.RightTrigger = map(rRead, (flashData[8] - 0x04) > flashData[8] ? 0x00 : (flashData[8] - 0x04), (flashData[9] + 0x04) < flashData[9] ? 0xFF : (flashData[9] + 0x04), 0xFF, 0x01);
   // }
   // else
   // {
-  //   if (rRead < (StickConfig[8] + 0x08)) // deadzone
+  //   if (rRead < (flashData[8] + 0x08)) // deadzone
   //     ControllerPacket.Controller.RightTrigger = 0x00;
-  //   else if (rRead <= (StickConfig[9] + 0x0F) < StickConfig[9] ? 0xFF : (StickConfig[9] + 0x0F))
-  //     ControllerPacket.Controller.RightTrigger = map(rRead, (StickConfig[8] - 0x04) > StickConfig[8] ? 0x00 : (StickConfig[8] - 0x04), (StickConfig[9] + 0x04) < StickConfig[9] ? 0xFF : (StickConfig[9] + 0x04), 0x01, 0xFF);
+  //   else if (rRead <= (flashData[9] + 0x0F) < flashData[9] ? 0xFF : (flashData[9] + 0x0F))
+  //     ControllerPacket.Controller.RightTrigger = map(rRead, (flashData[8] - 0x04) > flashData[8] ? 0x00 : (flashData[8] - 0x04), (flashData[9] + 0x04) < flashData[9] ? 0xFF : (flashData[9] + 0x04), 0x01, 0xFF);
   // }
 
   //   printf("\033[H\033[2J");
@@ -1967,21 +2020,21 @@ int main()
   // while(1){
   //  	adc_select_input(0);
   //  uint8_t xRead = adc_read() >> 4;
-  //  if(xRead > (StickConfig[0] - 0x0F) && xRead < (StickConfig[0] + 0x0F))
+  //  if(xRead > (flashData[0] - 0x0F) && xRead < (flashData[0] + 0x0F))
   //  // deadzone 	ControllerPacket.Controller.JoyX = 0x80; else if (xRead
-  //  < StickConfig[0]) 	ControllerPacket.Controller.JoyX = map(xRead,
-  //  StickConfig[1] - 0x04, StickConfig[0] - 0x0F, 0x00, 0x7F); else if (xRead
-  //  > StickConfig[0]) 	ControllerPacket.Controller.JoyX = map(xRead,
-  //  StickConfig[0] + 0x0F, StickConfig[2] + 0x04, 0x81, 0xFF);
+  //  < flashData[0]) 	ControllerPacket.Controller.JoyX = map(xRead,
+  //  flashData[1] - 0x04, flashData[0] - 0x0F, 0x00, 0x7F); else if (xRead
+  //  > flashData[0]) 	ControllerPacket.Controller.JoyX = map(xRead,
+  //  flashData[0] + 0x0F, flashData[2] + 0x04, 0x81, 0xFF);
 
   // adc_select_input(1);
   // uint8_t yRead = adc_read() >> 4;
-  // if(yRead > (StickConfig[3] - 0x0F) && yRead < (StickConfig[3] + 0x0F))
+  // if(yRead > (flashData[3] - 0x0F) && yRead < (flashData[3] + 0x0F))
   // // deadzone 	ControllerPacket.Controller.JoyY = 0x80; else if (yRead
-  // < StickConfig[3]) 	ControllerPacket.Controller.JoyY = map(yRead,
-  // StickConfig[4] - 0x04, StickConfig[3] - 0x0F, 0x00, 0x7F); else if (yRead >
-  // StickConfig[3]) 	ControllerPacket.Controller.JoyY = map(yRead,
-  // StickConfig[3] + 0x0F, StickConfig[5] + 0x04, 0x81, 0xFF);
+  // < flashData[3]) 	ControllerPacket.Controller.JoyY = map(yRead,
+  // flashData[4] - 0x04, flashData[3] - 0x0F, 0x00, 0x7F); else if (yRead >
+  // flashData[3]) 	ControllerPacket.Controller.JoyY = map(yRead,
+  // flashData[3] + 0x0F, flashData[5] + 0x04, 0x81, 0xFF);
 
   // 	clearSSD1331();
   // 	//drawEllipse(48, 32, 21, 21, 0);
@@ -2109,8 +2162,13 @@ int main()
         case SEND_CONTROLLER_STATUS:
           if (VMUCycle)
           {
-            ControllerPacket.Header.Origin = ADDRESS_CONTROLLER;
-            VMUCycle = false;
+            if(VMUCycleCount < 5){
+              ControllerPacket.Header.Origin = ADDRESS_CONTROLLER;
+              VMUCycleCount++;
+            } else {
+              VMUCycleCount = 0;
+              VMUCycle = false;
+            }
           }
           else
           {

@@ -1144,7 +1144,7 @@ void ssd1331_init() {
                           sizeof(image_data_maplepad_logo_9664), // element count (each element is of size transfer_data_size)
                           true); // start
 
-  //spi_write_blocking(SSD1331_SPI, image_data_maplepad_logo_9664, sizeof(image_data_maplepad_logo_9664));
+  // spi_write_blocking(SSD1331_SPI, image_data_maplepad_logo_9664, sizeof(image_data_maplepad_logo_9664));
 
   // while(1){
   //   spi_write_blocking(SSD1331_SPI, image_data_2, sizeof(icon));

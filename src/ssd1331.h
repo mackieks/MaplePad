@@ -6,7 +6,7 @@
 #include "hardware/dma.h"
 
 #define SSD1331_SPI spi0
-#define SSD1331_SPEED  133000000
+#define SSD1331_SPEED  62500000  // 62.5MHz
 #define SCK 2
 #define MOSI 3
 #define DC 14
