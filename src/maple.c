@@ -2038,8 +2038,6 @@ int main()
   SetupMapleTX();
   SetupMapleRX();
 
-  
-
   // srand(time(0));
 
   // while(1){
