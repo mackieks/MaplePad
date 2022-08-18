@@ -119,7 +119,6 @@ typedef struct PuruPuruBlockReadPacket_s {
 
 typedef struct TimerBlockReadPacket_s {
   uint Func; // Nb. Big endian
-  uint Address;
   uint8_t Date[8];
 } TimerBlockReadPacket;
 

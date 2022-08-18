@@ -70,7 +70,7 @@
 
 #define PHASE_SIZE (BLOCK_SIZE / 4)
 #define FLASH_WRITE_DELAY 16       // About quarter of a second if polling once a frame
-#define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 75kB of code so assuming this will be fine
+#define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 100kB of code so assuming this will be fine
 
 // ### TO-DO: Check for button combo in SendControllerStatus to page cycle on MaplePad
 #if PICO
@@ -97,10 +97,11 @@
 #define ADDRESS_SUBPERIPHERAL0 0x01
 #define ADDRESS_SUBPERIPHERAL1 0x02
 
+// Checks flags and enables/disables subperipherals appropriately
 #if ENABLE_RUMBLE
 #define ADDRESS_CONTROLLER_AND_SUBS flashData[16] ? flashData[17] ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 | ADDRESS_SUBPERIPHERAL1) : (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL1) : flashData[17] ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 ) : (ADDRESS_CONTROLLER) // Determines which peripherals MaplePad reports
 #else
-#define ADDRESS_CONTROLLER_AND_SUBS (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0)
+#define ADDRESS_CONTROLLER_AND_SUBS flashData[17] ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 ) : (ADDRESS_CONTROLLER)
 #endif
 
 #define ADDRESS_PORT_MASK 0xC0
