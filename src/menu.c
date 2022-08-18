@@ -7,6 +7,8 @@
 extern ButtonInfo ButtonInfos[];
 uint ssd1331present = 1;
 
+static uint16_t color = 0x0000;
+
 int paletteVMU(menuItem *self){
     // draw VMU palette selection
     return(1);
@@ -39,11 +41,13 @@ int deadzone(menuItem *self){
 
 int toggleOption(menuItem *self){
     if(self->type == 1)
-        self->on = !self->on;
+    	self->on = !(self->on);
     return(1);
 } 
 
 int exitToPad(menuItem *self){
+	// gather up flags and update them
+	updateFlags();
     return(0);
 } 
 
@@ -109,14 +113,15 @@ int tconfig(menuItem* self){
     return(1);
 }
 
-static menuItem settings[7] = {
+static menuItem settings[8] = {
     {"Back          ", 2, 1, 0, 1, 1, mainmen},
-    {"Splashscreen  ", 1, 1, 1, 1, 1, toggleOption},
-    {"Boot Video    ", 1, 1, 0, 0, 0, toggleOption},
+    {"Boot Video    ", 3, 1, 1, 0, 0, toggleOption},
     {"Rumble        ", 1, 1, 0, 1, 1, toggleOption},
+	{"VMU           ", 1, 1, 0, 1, 1, toggleOption},
     {"UI Color      ", 2, 1, 0, 1, 1, paletteUI}, // ssd1331 present
-    {"OLED   SSD1331", 3, 0, 0, 1, 0, toggleOption},
-    {"Firmware   1.2", 3, 0, 0, 1, 0, dummy}
+    {"OLED:  SSD1331", 3, 0, 0, 1, 0, toggleOption},
+	{"OLED Flip     ", 1, 0, 0, 0, 1, toggleOption},
+    {"Firmware   1.5", 3, 0, 0, 1, 0, dummy}
 };
 
 int setting(menuItem* self){
@@ -125,6 +130,18 @@ int setting(menuItem* self){
 	prevEntryModifier = entryModifier;
 	entryModifier = 0;
     return(1);
+}
+
+void loadFlags(){
+	settings[2].on = flashData[16];
+	settings[3].on = flashData[17];
+	settings[6].on = flashData[18];
+}
+
+void updateFlags(){
+	flashData[16] = settings[2].on;
+	flashData[17] = settings[3].on;
+	flashData[18] = settings[6].on;
 }
 
 void getSelectedEntry(){
@@ -155,16 +172,111 @@ void getLastVisibleEntry(){
 }
 
 void redrawMenu(){
-    clearSSD1331();
+	clearSSD1331();
 
-    for(uint8_t n = 0; n < currentNumEntries; n++){
-        if(currentMenu[n].visible)
-            putString(currentMenu[n].name, 0, n + entryModifier, 0x049f);
-        
-        drawCursor(selectedEntry + entryModifier, 0x049f);
-    }
+	for(uint8_t n = 0; n < currentNumEntries; n++){
+		if(currentMenu[n].visible){
+			putString(currentMenu[n].name, 0, n + entryModifier, color);
+			if(currentMenu[n].type == 1) // boolean type menuItem
+				drawToggle(n + entryModifier, color, currentMenu[n].on);
+		}
+		drawCursor(selectedEntry + entryModifier, color);
+	}
+	updateSSD1331();
+}
 
-    updateSSD1331();
+static uint16_t hue = 0;
+
+bool rainbowCycle(struct repeating_timer *t){
+	static uint8_t r = 0x00;
+	static uint8_t g = 0x00;
+	static uint8_t b = 0x00;
+
+	fast_hsv2rgb_32bit(hue, 255, 255, &r, &g, &b);
+
+	color = ((r & 0b11111000) << 8) | ((g & 0b11111100) << 3) | (b >> 3);
+
+	if(hue == 1535)
+		hue = 0;
+	else hue++;
+
+	redrawMenu();
+
+	return(true);
+}
+
+#define HSV_HUE_SEXTANT		256
+#define HSV_HUE_STEPS		(6 * HSV_HUE_SEXTANT)
+
+#define HSV_HUE_MIN		0
+#define HSV_HUE_MAX		(HSV_HUE_STEPS - 1)
+
+#define HSV_SWAPPTR(a,b)	do { uint8_t *tmp = (a); (a) = (b); (b) = tmp; } while(0)
+#define HSV_POINTER_SWAP(sextant,r,g,b) \
+	do { \
+		if((sextant) & 2) { \
+			HSV_SWAPPTR((r), (b)); \
+		} \
+		if((sextant) & 4) { \
+			HSV_SWAPPTR((g), (b)); \
+		} \
+		if(!((sextant) & 6)) { \
+			if(!((sextant) & 1)) { \
+				HSV_SWAPPTR((r), (g)); \
+			} \
+		} else { \
+			if((sextant) & 1) { \
+				HSV_SWAPPTR((r), (g)); \
+			} \
+		} \
+	} while(0)
+
+#define HSV_SEXTANT_TEST(sextant) \
+	do { \
+		if((sextant) > 5) { \
+			(sextant) = 5; \
+		} \
+	} while(0)
+
+void fast_hsv2rgb_32bit(uint16_t h, uint8_t s, uint8_t v, uint8_t *r, uint8_t *g , uint8_t *b)
+{
+
+	uint8_t sextant = h >> 8;
+
+	HSV_SEXTANT_TEST(sextant);	
+
+	HSV_POINTER_SWAP(sextant, r, g, b);	// Swap pointers depending which sextant we are in 
+
+	*g = v;		// Top level
+
+	// Perform actual calculations
+
+	/*
+	 * Bottom level: v * (1.0 - s)
+	 * --> (v * (255 - s) + error_corr + 1) / 256
+	 */
+	uint16_t ww;		// Intermediate result
+	ww = v * (255 - s);	// We don't use ~s to prevent size-promotion side effects
+	ww += 1;		// Error correction
+	ww += ww >> 8;		// Error correction
+	*b = ww >> 8;
+
+	uint8_t h_fraction = h & 0xff;	// 0...255
+	uint32_t d;			// Intermediate result
+
+	if(!(sextant & 1)) {
+		// *r = ...slope_up...;
+		d = v * (uint32_t)((255 << 8) - (uint16_t)(s * (256 - h_fraction)));
+		d += d >> 8;	// Error correction
+		d += v;		// Error correction
+		*r = d >> 16;
+	} else {
+		// *r = ...slope_down...;
+		d = v * (uint32_t)((255 << 8) - (uint16_t)(s * h_fraction));
+		d += d >> 8;	// Error correction
+		d += v;		// Error correction
+		*r = d >> 16;
+	}
 }
 
 void menu(){
@@ -227,10 +339,16 @@ void menu(){
 		mainMenu[1].run = sconfig;
 		mainMenu[2].run = tconfig;
 		mainMenu[4].run = setting;
+
+		loadFlags();
+
+		struct repeating_timer timer2;
+		// negative interval means the callback fcn is called every 500us regardless of how long callback takes to execute
+		add_repeating_timer_ms(10, rainbowCycle, NULL, &timer2);
 	
 		while(1){
 			getSelectedEntry(); // where to draw cursor
-			redrawMenu(); // should include redrawing cursor based on getSelectedEntry()!
+			//redrawMenu(); // should include redrawing cursor based on getSelectedEntry()!
 
 			// Wait for button release
 			uint8_t pressed = 0;
@@ -286,10 +404,10 @@ void menu(){
 				// if element is enabled, run element's function
 				// element functions should set currentMenu if they enter a submenu.
 				if(currentMenu[selectedEntry].enabled)
-					if(!currentMenu[selectedEntry].run(currentMenu)) break;
+					if(!currentMenu[selectedEntry].run(&currentMenu[selectedEntry])) break;
 			}
 			// The elements' functions should all return 1 except for mainMenu.exitToPad,  
 			// which should return 0 and result in a break from this while loop.
 		}
-
+	cancel_repeating_timer(&timer2);
 }

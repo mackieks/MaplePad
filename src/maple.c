@@ -23,6 +23,7 @@
  */
 
 #include "maple.h"
+#include "menu.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -39,7 +40,6 @@
 #include "hardware/pwm.h"
 #include "hardware/timer.h"
 #include "maple.pio.h"
-#include "menu.h"
 #include "pico/multicore.h"
 #include "pico/stdlib.h"
 #include "pico/time.h"
@@ -101,7 +101,7 @@
 #define ADDRESS_SUBPERIPHERAL1 0x02
 
 #if ENABLE_RUMBLE
-#define ADDRESS_CONTROLLER_AND_SUBS (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 | ADDRESS_SUBPERIPHERAL1) // Determines which peripherals MaplePad reports
+#define ADDRESS_CONTROLLER_AND_SUBS flashData[16] ? flashData[17] ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 | ADDRESS_SUBPERIPHERAL1) : (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL1) : flashData[17] ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 ) : (ADDRESS_CONTROLLER) // Determines which peripherals MaplePad reports
 #else
 #define ADDRESS_CONTROLLER_AND_SUBS (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0)
 #endif
@@ -268,7 +268,7 @@ uint8_t min(uint8_t x, uint8_t y) { return x <= y ? x : y; }
 
 uint8_t max(uint8_t x, uint8_t y) { return x >= y ? x : y; }
 
-static uint flashData[15] = {0}; // Persistent data (stick/trigger calibration, flags, etc.)
+uint flashData[19] = {0}; // Persistent data (stick/trigger calibration, flags, etc.)
 
   // flashData[0] 	// xCenter
   // flashData[1] 	// xMin
@@ -286,6 +286,9 @@ static uint flashData[15] = {0}; // Persistent data (stick/trigger calibration, 
   // flashData[13] 	// invertR
   // flashData[14]  // First boot flag
   // flashData[15]  // Current page
+  // flashData[16]  // Rumble enable
+  // flashData[17]  // VMU enable
+  // flashData[18]  // oledFlip
 
 void readFlash()
 {
@@ -1662,7 +1665,11 @@ bool __no_inline_not_in_flash_func(vibeHandler)(struct repeating_timer *t)
       }
     }
   }
-  return (true);
+  if(flashData[16])
+    return (true);
+  else
+    return (false);
+    
 }
 
 int main()
@@ -1678,6 +1685,9 @@ int main()
   adc_gpio_init(29); // Right Trigger
 
   sleep_ms(150); // wait for power to stabilize
+
+  memset(flashData, 0, sizeof(flashData));
+  memcpy(flashData, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(flashData)); // read into variable
 
   // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
   gpio_init(OLED_PIN);
@@ -1928,69 +1938,17 @@ int main()
   }
 
   // Read current VMU into memory
+  CurrentPage = 1;
   readFlash();
 
-  // while (1)
-  // {
-  // adc_select_input(0);
-  // uint8_t xRead = adc_read() >> 4;
-  // if (xRead > (flashData[0] - 0x0F) && xRead < (flashData[0] + 0x0F)) // deadzone
-  //   ControllerPacket.Controller.JoyX = 0x80;
-  // else if (xRead < flashData[0])
-  //   ControllerPacket.Controller.JoyX = map(xRead, flashData[1] - 0x04, flashData[0] - 0x0F, 0x00, 0x7F);
-  // else if (xRead > flashData[0])
-  //   ControllerPacket.Controller.JoyX = map(xRead, flashData[0] + 0x0F, flashData[2] + 0x04, 0x81, 0xFF);
+  SetupButtons();
 
-  // adc_select_input(1);
-  // uint8_t yRead = adc_read() >> 4;
-  // if (yRead > (flashData[3] - 0x0F) && yRead < (flashData[3] + 0x0F)) // deadzone
-  //   ControllerPacket.Controller.JoyY = 0x80;
-  // else if (yRead < flashData[3])
-  //   ControllerPacket.Controller.JoyY = map(yRead, flashData[4] - 0x04, flashData[3] - 0x0F, 0x00, 0x7F);
-  // else if (yRead > flashData[3])
-  //   ControllerPacket.Controller.JoyY = map(yRead, flashData[3] + 0x0F, flashData[5] + 0x04, 0x81, 0xFF);
+  if(!gpio_get(ButtonInfos[3].InputIO) && !gpio_get(ButtonInfos[8].InputIO)){ // Y + Start
+    menu();
+    updateFlashData();
+  }
 
-  // adc_select_input(2);
-  // uint8_t lRead = adc_read() >> 4;
-  // if (flashData[12]) // invertL
-  // {                                      
-  //   if (lRead > (flashData[7] - 0x08)) // deadzone
-  //     ControllerPacket.Controller.LeftTrigger = 0x00;
-  //   else if (lRead >= (flashData[6] - 0x0F) > flashData[6] ? 0x00 : (flashData[6] - 0x0F))
-  //     ControllerPacket.Controller.LeftTrigger = map(lRead, (flashData[6] - 0x04) > flashData[6] ? 0x00 : (flashData[6] - 0x04), (flashData[7] + 0x04) < flashData[7] ? 0xFF : (flashData[7] + 0x04), 0xFF, 0x01);
-  // }
-  // else
-  // {
-  //   if (lRead < (flashData[6] + 0x08)) // deadzone
-  //     ControllerPacket.Controller.LeftTrigger = 0x00;
-  //   else if (lRead <= (flashData[7] + 0x0F) < flashData[7] ? 0xFF : (flashData[7] + 0x0F))
-  //     ControllerPacket.Controller.LeftTrigger = map(lRead, (flashData[6] - 0x04) > flashData[6] ? 0x00 : (flashData[6] - 0x04), (flashData[7] + 0x04) < flashData[7] ? 0xFF : (flashData[7] + 0x04), 0x01, 0xFF);
-  // }
-
-  // adc_select_input(3);
-  // uint8_t rRead = adc_read() >> 4;
-  // if (flashData[13]) // invertR
-  // {                                      
-  //   if (rRead > (flashData[9] - 0x08)) // deadzone
-  //     ControllerPacket.Controller.RightTrigger = 0x00;
-  //   else if (rRead >= (flashData[8] - 0x0F) > flashData[8] ? 0x00 : (flashData[8] - 0x0F))
-  //     ControllerPacket.Controller.RightTrigger = map(rRead, (flashData[8] - 0x04) > flashData[8] ? 0x00 : (flashData[8] - 0x04), (flashData[9] + 0x04) < flashData[9] ? 0xFF : (flashData[9] + 0x04), 0xFF, 0x01);
-  // }
-  // else
-  // {
-  //   if (rRead < (flashData[8] + 0x08)) // deadzone
-  //     ControllerPacket.Controller.RightTrigger = 0x00;
-  //   else if (rRead <= (flashData[9] + 0x0F) < flashData[9] ? 0xFF : (flashData[9] + 0x0F))
-  //     ControllerPacket.Controller.RightTrigger = map(rRead, (flashData[8] - 0x04) > flashData[8] ? 0x00 : (flashData[8] - 0x04), (flashData[9] + 0x04) < flashData[9] ? 0xFF : (flashData[9] + 0x04), 0x01, 0xFF);
-  // }
-
-  //   printf("\033[H\033[2J");
-  //   printf("\033[36m");
-  //   printf("X Raw: 0x%02x  Y Raw: 0x%02x L Raw: 0x%02x R Raw: 0x%02x\n", xRead, yRead, lRead, rRead);
-  //   printf("X: 0x%02x  Y: 0x%02x L: 0x%02x R: 0x%02x\n", ControllerPacket.Controller.JoyX, ControllerPacket.Controller.JoyY, ControllerPacket.Controller.LeftTrigger, ControllerPacket.Controller.RightTrigger);
-  //   sleep_ms(50);
-  // }
-
+  // Start Core1 Maple RX
   multicore_launch_core1(core1_entry);
 
   // Controller packets
@@ -2009,11 +1967,10 @@ int main()
   BuildPuruPuruInfoPacket();
   BuildDataPacket();
 
-  SetupButtons();
   SetupMapleTX();
   SetupMapleRX();
 
-  // menu();
+  
 
   // srand(time(0));
 

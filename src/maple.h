@@ -12,6 +12,8 @@
 #define NUM_BUTTONS 11
 #endif
 
+extern uint flashData[];
+
 typedef struct PacketHeader_s {
   int8_t Command;
   uint8_t Destination;

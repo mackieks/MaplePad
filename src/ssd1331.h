@@ -6,7 +6,7 @@
 #include "hardware/dma.h"
 
 #define SSD1331_SPI spi0
-#define SSD1331_SPEED  62500000  // 62.5MHz
+#define SSD1331_SPEED  50000000  // 62.5MHz
 #define SCK 2
 #define MOSI 3
 #define DC 14
@@ -14,6 +14,8 @@
 
 #define OLED_W 96
 #define OLED_H 64
+
+#define OLED_FLIP flashData[18]
 
 // SSD1331 Commands
 #define SSD1331_CMD_DRAWLINE 0x21      //!< Draw line
@@ -66,6 +68,8 @@ void hagl_draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t col
 void fillCircle(int x0, int y0, int r, uint16_t color);
 
 void drawCursor(int iy, uint16_t color);
+
+void drawToggle(int iy, uint16_t color, bool on);
 
 void putLetter(int ix, int iy, int index, uint16_t color);
 
