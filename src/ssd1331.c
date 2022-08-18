@@ -759,6 +759,81 @@ return (y);
 
 }
 
+
+#define HSV_HUE_SEXTANT		256
+#define HSV_HUE_STEPS		(6 * HSV_HUE_SEXTANT)
+
+#define HSV_HUE_MIN		0
+#define HSV_HUE_MAX		(HSV_HUE_STEPS - 1)
+
+#define HSV_SWAPPTR(a,b)	do { uint8_t *tmp = (a); (a) = (b); (b) = tmp; } while(0)
+#define HSV_POINTER_SWAP(sextant,r,g,b) \
+	do { \
+		if((sextant) & 2) { \
+			HSV_SWAPPTR((r), (b)); \
+		} \
+		if((sextant) & 4) { \
+			HSV_SWAPPTR((g), (b)); \
+		} \
+		if(!((sextant) & 6)) { \
+			if(!((sextant) & 1)) { \
+				HSV_SWAPPTR((r), (g)); \
+			} \
+		} else { \
+			if((sextant) & 1) { \
+				HSV_SWAPPTR((r), (g)); \
+			} \
+		} \
+	} while(0)
+
+#define HSV_SEXTANT_TEST(sextant) \
+	do { \
+		if((sextant) > 5) { \
+			(sextant) = 5; \
+		} \
+	} while(0)
+
+void fast_hsv2rgb_32bit(uint16_t h, uint8_t s, uint8_t v, uint8_t *r, uint8_t *g , uint8_t *b)
+{
+
+	uint8_t sextant = h >> 8;
+
+	HSV_SEXTANT_TEST(sextant);	
+
+	HSV_POINTER_SWAP(sextant, r, g, b);	// Swap pointers depending which sextant we are in 
+
+	*g = v;		// Top level
+
+	// Perform actual calculations
+
+	/*
+	 * Bottom level: v * (1.0 - s)
+	 * --> (v * (255 - s) + error_corr + 1) / 256
+	 */
+	uint16_t ww;		// Intermediate result
+	ww = v * (255 - s);	// We don't use ~s to prevent size-promotion side effects
+	ww += 1;		// Error correction
+	ww += ww >> 8;		// Error correction
+	*b = ww >> 8;
+
+	uint8_t h_fraction = h & 0xff;	// 0...255
+	uint32_t d;			// Intermediate result
+
+	if(!(sextant & 1)) {
+		// *r = ...slope_up...;
+		d = v * (uint32_t)((255 << 8) - (uint16_t)(s * (256 - h_fraction)));
+		d += d >> 8;	// Error correction
+		d += v;		// Error correction
+		*r = d >> 16;
+	} else {
+		// *r = ...slope_down...;
+		d = v * (uint32_t)((255 << 8) - (uint16_t)(s * h_fraction));
+		d += d >> 8;	// Error correction
+		d += v;		// Error correction
+		*r = d >> 16;
+	}
+}
+
 void ssd1331WriteCommand(const uint8_t data){
   // gpio_put(DC, 0);
   spi_write_blocking(SSD1331_SPI, &data, 1);

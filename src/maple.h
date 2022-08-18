@@ -70,15 +70,6 @@ typedef struct PacketLCDInfo_s {
 
 } PacketLCDInfo;
 
-typedef struct PacketTimerInfo_s {
-  uint Func;            // Nb. Big endian
-  uint8_t dX;           // Number of X-axis dots
-  uint8_t dY;           // Number of Y-axis dots
-  uint8_t GradContrast; // Upper nybble Gradation (bits/dot), lower nybble contrast (0 to 16 steps)
-  uint8_t Reserved;
-
-} PacketTimerInfo;
-
 typedef struct PacketPuruPuruInfo_s {
   uint Func;     // Nb. Big endian
   uint8_t VSet0; // Upper nybble is number of vibration sources, lower nybble is vibration source location and vibration source axis
@@ -108,17 +99,29 @@ typedef struct PacketPuruPuruCondition_s {
   uint8_t Inc;     // Vibration inclination
 } PacketPuruPuruCondition;
 
+typedef struct PacketTimerCondition_s {
+  uint Func;       // Nb. Big endian
+  uint8_t BT;      // Button data
+  uint8_t Reserved[3]; // Reserved (0)
+} PacketTimerCondition;
+
 typedef struct PacketBlockRead_s {
   uint Func; // Nb. Big endian
   uint Address;
   uint8_t Data[BLOCK_SIZE];
 } PacketBlockRead;
 
-typedef struct FPuruPuruBlockReadPacket_s {
+typedef struct PuruPuruBlockReadPacket_s {
   uint Func; // Nb. Big endian
   uint Address;
   uint8_t Data[4];
-} FPuruPuruBlockReadPacket;
+} PuruPuruBlockReadPacket;
+
+typedef struct TimerBlockReadPacket_s {
+  uint Func; // Nb. Big endian
+  uint Address;
+  uint8_t Date[8];
+} TimerBlockReadPacket;
 
 typedef struct FACKPacket_s {
   uint BitPairsMinus1;
@@ -154,13 +157,6 @@ typedef struct FLCDInfoPacket_s {
   uint CRC;
 } FLCDInfoPacket;
 
-typedef struct FTimerInfoPacket_s {
-  uint BitPairsMinus1;
-  PacketHeader Header;
-  PacketLCDInfo Info;
-  uint CRC;
-} FTimerInfoPacket;
-
 typedef struct FPuruPuruInfoPacket_s {
   uint BitPairsMinus1;
   PacketHeader Header;
@@ -175,6 +171,13 @@ typedef struct FPuruPuruConditionPacket_s {
   uint CRC;
 } FPuruPuruConditionPacket;
 
+typedef struct FTimerConditionPacket_s {
+  uint BitPairsMinus1;
+  PacketHeader Header;
+  PacketTimerCondition Condition;
+  uint CRC;
+} FTimerConditionPacket;
+
 typedef struct FControllerPacket_s {
   uint BitPairsMinus1;
   PacketHeader Header;
@@ -185,7 +188,7 @@ typedef struct FControllerPacket_s {
 typedef struct FPuruPuruBlockReadResponsePacket_s {
   uint BitPairsMinus1;
   PacketHeader Header;
-  FPuruPuruBlockReadPacket PuruPuruBlockRead;
+  PuruPuruBlockReadPacket PuruPuruBlockRead;
   uint CRC;
 } FPuruPuruBlockReadResponsePacket;
 
@@ -195,6 +198,13 @@ typedef struct FBlockReadResponsePacket_s {
   PacketBlockRead BlockRead;
   uint CRC;
 } FBlockReadResponsePacket;
+
+typedef struct FTimerBlockReadResponsePacket_s {
+  uint BitPairsMinus1;
+  PacketHeader Header;
+  TimerBlockReadPacket TimerBlockRead;
+  uint CRC;
+} FTimerBlockReadResponsePacket;
 
 typedef struct ButtonInfo_s {
   int InputIO;

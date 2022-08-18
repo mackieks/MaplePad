@@ -68,9 +68,6 @@
 // Purupuru Enable
 #define ENABLE_RUMBLE 1
 
-#define VMU 0
-#define PURUPURU 1
-
 #define PHASE_SIZE (BLOCK_SIZE / 4)
 #define FLASH_WRITE_DELAY 16       // About quarter of a second if polling once a frame
 #define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 75kB of code so assuming this will be fine
@@ -148,14 +145,15 @@ typedef enum ESendState_e
   SEND_VMU_ALL_INFO,
   SEND_MEMORY_INFO,
   SEND_LCD_INFO,
-  SEND_TIMER_INFO,
   SEND_PURUPURU_INFO,
   SEND_PURUPURU_ALL_INFO,
   SEND_PURUPURU_MEDIA_INFO,
   SEND_ACK,
   SEND_DATA,
   SEND_PURUPURU_DATA,
-  SEND_PURUPURU_CONDITION //
+  SEND_TIMER_DATA,
+  SEND_PURUPURU_CONDITION,
+  SEND_TIMER_CONDITION //
 } ESendState;
 
 enum ECommands
@@ -198,21 +196,24 @@ static FControllerPacket ControllerPacket;                  // Send buffer for c
 static FInfoPacket InfoPacket;                              // Send buffer for controller info packet (pre-built for speed)
 static FInfoPacket SubPeripheral0InfoPacket;                // Send buffer for memory card info packet (pre-built for speed)
 static FInfoPacket SubPeripheral1InfoPacket;                // Send buffer for memory card info packet (pre-built for speed)
-static FAllInfoPacket AllInfoPacket;                              // Send buffer for controller info packet (pre-built for speed)
-static FAllInfoPacket SubPeripheral0AllInfoPacket;                // Send buffer for memory card info packet (pre-built for speed)
-static FAllInfoPacket SubPeripheral1AllInfoPacket;                // Send buffer for memory card info packet (pre-built for speed)
+static FAllInfoPacket AllInfoPacket;                        // Send buffer for controller info packet (pre-built for speed)
+static FAllInfoPacket SubPeripheral0AllInfoPacket;          // Send buffer for memory card info packet (pre-built for speed)
+static FAllInfoPacket SubPeripheral1AllInfoPacket;          // Send buffer for memory card info packet (pre-built for speed)
 static FMemoryInfoPacket MemoryInfoPacket;                  // Send buffer for memory card info packet (pre-built for speed)
 static FLCDInfoPacket LCDInfoPacket;                        // Send buffer for LCD info packet (pre-built for speed)
-static FTimerInfoPacket TimerInfoPacket;                    // Send buffer for Timer info packet (pre-built for speed)
 static FPuruPuruInfoPacket PuruPuruInfoPacket;              // Send buffer for PuruPuru info packet (pre-built for speed)
 static FPuruPuruConditionPacket PuruPuruConditionPacket;    // Send buffer for PuruPuru condition packet (pre-built for speed)
+static FTimerConditionPacket TimerConditionPacket;          // Send buffer for timer condition packet (pre-built for speed)
 static FACKPacket ACKPacket;                                // Send buffer for ACK packet (pre-built for speed)
 static FBlockReadResponsePacket DataPacket;                 // Send buffer for Data packet (pre-built for speed)
 static FPuruPuruBlockReadResponsePacket PuruPuruDataPacket; // Send buffer for PuruPuru packet (pre-built for speed)
+static FTimerBlockReadResponsePacket TimerDataPacket;       // Send buffer for PuruPuru packet (pre-built for speed)
 
 static ESendState NextPacketSend = SEND_NOTHING;
 static uint OriginalControllerCRC = 0;
-static uint OriginalReadBlockResponseCRC = 0;
+static uint OriginalMemCardReadBlockResponseCRC = 0;
+static uint OriginalPuruPuruReadBlockResponseCRC = 0;
+static uint OriginalTimerReadBlockResponseCRC = 0;
 static uint TXDMAChannel = 0;
 
 // Memory Card
@@ -230,6 +231,9 @@ static const uint8_t NumWrites = LCDFramebufferSize / BPPacket;
 static uint8_t LCDFramebuffer[LCDFramebufferSize] = {0};
 volatile bool LCDUpdated = false;
 static volatile bool colorOLED = true; // True = SSD1331, false = SSD1306
+
+// Timer
+static uint8_t dateTime[8] = {0};
 
 // Purupuru
 static bool purupuruUpdated = false;
@@ -268,7 +272,7 @@ uint8_t min(uint8_t x, uint8_t y) { return x <= y ? x : y; }
 
 uint8_t max(uint8_t x, uint8_t y) { return x >= y ? x : y; }
 
-uint flashData[19] = {0}; // Persistent data (stick/trigger calibration, flags, etc.)
+uint flashData[64] = {0}; // Persistent data (stick/trigger calibration, flags, etc.)
 
   // flashData[0] 	// xCenter
   // flashData[1] 	// xMin
@@ -573,25 +577,6 @@ void BuildLCDInfoPacket()
   LCDInfoPacket.CRC = CalcCRC((uint *)&LCDInfoPacket.Header, sizeof(LCDInfoPacket) / sizeof(uint) - 2);
 }
 
-void BuildTimerInfoPacket()
-{
-  TimerInfoPacket.BitPairsMinus1 = (sizeof(TimerInfoPacket) - 7) * 4 - 1;
-
-  TimerInfoPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
-  TimerInfoPacket.Header.Destination = ADDRESS_DREAMCAST;
-  TimerInfoPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
-  TimerInfoPacket.Header.NumWords = sizeof(TimerInfoPacket.Info) / sizeof(uint);
-
-  TimerInfoPacket.Info.Func = __builtin_bswap32(FUNC_TIMER);
-
-  LCDInfoPacket.Info.dX = LCD_Width - 1;  // 48 dots wide (dX + 1)
-  LCDInfoPacket.Info.dY = LCD_Height - 1; // 32 dots tall (dY + 1)
-  LCDInfoPacket.Info.GradContrast = 0x10; // Gradation = 1 bit/dot, Contrast = 0 (disabled)
-  LCDInfoPacket.Info.Reserved = 0;
-
-  LCDInfoPacket.CRC = CalcCRC((uint *)&LCDInfoPacket.Header, sizeof(LCDInfoPacket) / sizeof(uint) - 2);
-}
-
 void BuildPuruPuruInfoPacket()
 {
   PuruPuruInfoPacket.BitPairsMinus1 = (sizeof(PuruPuruInfoPacket) - 7) * 4 - 1;
@@ -636,6 +621,26 @@ void BuildPuruPuruConditionPacket()
   PuruPuruConditionPacket.CRC = CalcCRC((uint *)&PuruPuruConditionPacket.Header, sizeof(PuruPuruConditionPacket) / sizeof(uint) - 2);
 }
 
+void BuildTimerConditionPacket()
+{
+  TimerConditionPacket.BitPairsMinus1 = (sizeof(TimerConditionPacket) - 7) * 4 - 1;
+
+  TimerConditionPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
+  TimerConditionPacket.Header.Destination = ADDRESS_DREAMCAST;
+  TimerConditionPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
+  TimerConditionPacket.Header.NumWords = sizeof(TimerConditionPacket.Condition) / sizeof(uint);
+
+  TimerConditionPacket.Condition.Func = __builtin_bswap32(FUNC_TIMER);
+
+  TimerConditionPacket.Condition.BT = 0xff;
+
+  TimerConditionPacket.Condition.Reserved[0] = 0x00;
+  TimerConditionPacket.Condition.Reserved[1] = 0x00;
+  TimerConditionPacket.Condition.Reserved[2] = 0x00;
+
+  TimerConditionPacket.CRC = CalcCRC((uint *)&TimerConditionPacket.Header, sizeof(TimerConditionPacket) / sizeof(uint) - 2);
+}
+
 void BuildControllerPacket()
 {
   ControllerPacket.BitPairsMinus1 = (sizeof(ControllerPacket) - 7) * 4 - 1;
@@ -670,7 +675,7 @@ void BuildDataPacket()
   DataPacket.BlockRead.Address = 0;
   memset(DataPacket.BlockRead.Data, 0, sizeof(DataPacket.BlockRead.Data));
 
-  OriginalReadBlockResponseCRC = CalcCRC((uint *)&DataPacket.Header, sizeof(DataPacket) / sizeof(uint) - 2);
+  DataPacket.CRC = CalcCRC((uint *)&DataPacket.Header, sizeof(DataPacket) / sizeof(uint) - 2);
 }
 
 void BuildPuruPuruBlockReadPacket()
@@ -686,7 +691,29 @@ void BuildPuruPuruBlockReadPacket()
   PuruPuruDataPacket.PuruPuruBlockRead.Address = 0;
   memset(PuruPuruDataPacket.PuruPuruBlockRead.Data, 0, sizeof(PuruPuruDataPacket.PuruPuruBlockRead.Data));
 
-  OriginalReadBlockResponseCRC = CalcCRC((uint *)&PuruPuruDataPacket.Header, sizeof(PuruPuruDataPacket) / sizeof(uint) - 2);
+  PuruPuruDataPacket.CRC = CalcCRC((uint *)&PuruPuruDataPacket.Header, sizeof(PuruPuruDataPacket) / sizeof(uint) - 2);
+}
+
+void BuildTimerBlockReadPacket()
+{
+  TimerDataPacket.BitPairsMinus1 = (sizeof(TimerDataPacket) - 7) * 4 - 1;
+
+  TimerDataPacket.Header.Command = CMD_RESPOND_DATA_TRANSFER;
+  TimerDataPacket.Header.Destination = ADDRESS_DREAMCAST;
+  TimerDataPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
+  TimerDataPacket.Header.NumWords = sizeof(TimerDataPacket.TimerBlockRead) / sizeof(uint);
+
+  TimerDataPacket.TimerBlockRead.Func = __builtin_bswap32(FUNC_TIMER);
+  TimerDataPacket.TimerBlockRead.Date[0] = 0x07;
+  TimerDataPacket.TimerBlockRead.Date[1] = 0xCF; // 1999
+  TimerDataPacket.TimerBlockRead.Date[2] = 0x09; // September
+  TimerDataPacket.TimerBlockRead.Date[3] = 0x09; // 9
+  TimerDataPacket.TimerBlockRead.Date[4] = 0x09; // 
+  TimerDataPacket.TimerBlockRead.Date[5] = 0x09; //
+  TimerDataPacket.TimerBlockRead.Date[6] = 0x09; // 09:09:09
+  TimerDataPacket.TimerBlockRead.Date[7] = 0x00; // Day of week not supported
+
+  TimerDataPacket.CRC = CalcCRC((uint *)&TimerDataPacket.Header, sizeof(TimerDataPacket) / sizeof(uint) - 2);
 }
 
 int SendPacket(const uint *Words, uint NumWords)
@@ -827,7 +854,7 @@ void SendControllerStatus()
   SendPacket((uint *)&ControllerPacket, sizeof(ControllerPacket) / sizeof(uint));
 }
 
-void SendBlockReadResponsePacket(uint PuruPuru)
+void SendBlockReadResponsePacket(uint func)
 {
   uint Partition = (SendBlockAddress >> 24) & 0xFF;
   uint Phase = (SendBlockAddress >> 16) & 0xFF;
@@ -836,38 +863,43 @@ void SendBlockReadResponsePacket(uint PuruPuru)
   assert(Phase == 0); // Note: Phase is analogous to the VN parameter in a vibration AST block R/W.
   uint MemoryOffset = Block * BLOCK_SIZE + Phase * PHASE_SIZE;
 
-  if (PuruPuru)
+  if (func == FUNC_VIBRATION)
   { // PuruPuru AST Block Read
-    PuruPuruDataPacket.PuruPuruBlockRead.Address = SendBlockAddress;
+    PuruPuruDataPacket.PuruPuruBlockRead.Address = 0;
     memcpy(PuruPuruDataPacket.PuruPuruBlockRead.Data, &AST[0], sizeof(PuruPuruDataPacket.PuruPuruBlockRead.Data));
-    uint CRC = CalcCRC(&PuruPuruDataPacket.PuruPuruBlockRead.Address, 1 + (sizeof(PuruPuruDataPacket.PuruPuruBlockRead.Data) / sizeof(uint)));
-    PuruPuruDataPacket.CRC = CRC ^ OriginalReadBlockResponseCRC;
-
-    SendBlockAddress = ~0u;
+    PuruPuruDataPacket.CRC = CalcCRC((uint *)&PuruPuruDataPacket.Header, sizeof(PuruPuruDataPacket) / sizeof(uint) - 2);
 
     SendPacket((uint *)&PuruPuruDataPacket, sizeof(PuruPuruDataPacket) / sizeof(uint));
   }
-  else
+  else if (func == FUNC_MEMORY_CARD)
   { // Memory Card Block Read
     DataPacket.BlockRead.Address = SendBlockAddress;
     memcpy(DataPacket.BlockRead.Data, &MemoryCard[MemoryOffset], sizeof(DataPacket.BlockRead.Data));
-    uint CRC = CalcCRC(&DataPacket.BlockRead.Address, 1 + (sizeof(DataPacket.BlockRead.Data) / sizeof(uint)));
-    DataPacket.CRC = CRC ^ OriginalReadBlockResponseCRC;
+    DataPacket.CRC = CalcCRC((uint *)&DataPacket.Header, sizeof(DataPacket) / sizeof(uint) - 2);
 
     SendBlockAddress = ~0u;
 
     SendPacket((uint *)&DataPacket, sizeof(DataPacket) / sizeof(uint));
   }
+  else if (func == FUNC_TIMER)
+  {
+    memcpy(TimerDataPacket.TimerBlockRead.Date, &dateTime[0], sizeof(TimerDataPacket.TimerBlockRead.Date));
+    TimerDataPacket.CRC = CalcCRC((uint *)&TimerDataPacket.Header, sizeof(TimerDataPacket) / sizeof(uint) - 2);
+
+    SendPacket((uint *)&TimerDataPacket, sizeof(TimerDataPacket) / sizeof(uint));
+  }
 }
 
-void BlockRead(uint Address, uint PuruPuru)
+void BlockRead(uint Address, uint func)
 {
   assert(SendBlockAddress == ~0u); // No send pending
   SendBlockAddress = Address;
-  if (PuruPuru)
-    NextPacketSend = SEND_PURUPURU_DATA;
-  else
+  if (func == FUNC_MEMORY_CARD)
     NextPacketSend = SEND_DATA;
+  else if (func == FUNC_TIMER)
+    NextPacketSend = SEND_TIMER_DATA;
+  else if (func == FUNC_VIBRATION)
+    NextPacketSend = SEND_PURUPURU_DATA;
 }
 
 void BlockWrite(uint Address, uint *Data, uint NumWords)
@@ -915,6 +947,16 @@ void PuruPuruWrite(uint Address, uint *Data, uint NumWords)
   memcpy(AST, Data, NumWords * sizeof(uint));
 
   ACKPacket.Header.Origin = ADDRESS_SUBPERIPHERAL1;
+  ACKPacket.CRC = CalcCRC((uint *)&ACKPacket.Header, sizeof(ACKPacket) / sizeof(uint) - 2);
+
+  NextPacketSend = SEND_ACK;
+}
+
+void timerWrite(uint Address, uint *Data, uint NumWords)
+{
+  memcpy(dateTime, Data, NumWords * sizeof(uint));
+
+  ACKPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
   ACKPacket.CRC = CalcCRC((uint *)&ACKPacket.Header, sizeof(ACKPacket) / sizeof(uint) - 2);
 
   NextPacketSend = SEND_ACK;
@@ -1116,10 +1158,14 @@ bool ConsumePacket(uint Size)
           }
           case CMD_BLOCK_READ:
           {
-            if (Header->NumWords >= 2)
+            if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_MEMORY_CARD))
             {
-              assert(*PacketData == __builtin_bswap32(FUNC_MEMORY_CARD));
-              BlockRead(__builtin_bswap32(*(PacketData + 1)), VMU);
+              BlockRead(__builtin_bswap32(*(PacketData + 1)), FUNC_MEMORY_CARD);
+              return true;
+            } 
+            else if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_TIMER))
+            {
+              BlockRead(__builtin_bswap32(*(PacketData + 1)), FUNC_TIMER);
               return true;
             }
             break;
@@ -1144,6 +1190,11 @@ bool ConsumePacket(uint Size)
                 return true;
               }
             }
+            else if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_TIMER))
+            {
+              timerWrite(__builtin_bswap32(*(PacketData + 1)), PacketData + 2, Header->NumWords - 2);
+              return true;
+            }
             break;
           }
           case CMD_BLOCK_COMPLETE_WRITE:
@@ -1156,6 +1207,27 @@ bool ConsumePacket(uint Size)
             }
             break;
           }
+          case CMD_GET_CONDITION:
+          {
+            if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_TIMER))
+            {
+              NextPacketSend = SEND_TIMER_CONDITION;
+              return true;
+            }
+            break;
+          }
+          case CMD_SET_CONDITION:
+          {
+            if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_TIMER))
+            {
+              ACKPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
+              ACKPacket.CRC = CalcCRC((uint *)&ACKPacket.Header, sizeof(ACKPacket) / sizeof(uint) - 2);
+
+              NextPacketSend = SEND_ACK;
+              return true;
+            }
+            break;
+          }
           case CMD_RESPOND_DATA_TRANSFER:
           {
             return true;
@@ -1163,14 +1235,7 @@ bool ConsumePacket(uint Size)
           }
           case CMD_RESPOND_COMMAND_ACK:
           {
-            if (true)
-            {
-              // ACKPacket.Header.Origin = ADDRESS_SUBPERIPHERAL0;
-              // ACKPacket.CRC = CalcCRC((uint *)&ACKPacket.Header, sizeof(ACKPacket) / sizeof(uint) - 2);
-
-              // NextPacketSend = SEND_ACK;
-              return true;
-            }              
+            return true;
             break;
           }
           }
@@ -1197,7 +1262,7 @@ bool ConsumePacket(uint Size)
           }
           case CMD_GET_CONDITION:
           {
-            if (Header->NumWords == 1 && *PacketData == __builtin_bswap32(FUNC_VIBRATION))
+            if (*PacketData == __builtin_bswap32(FUNC_VIBRATION))
             {
               PuruPuruConditionPacket.Condition.Ctrl = ctrl;
               PuruPuruConditionPacket.Condition.Power = power;
@@ -1274,7 +1339,7 @@ bool ConsumePacket(uint Size)
             if (Header->NumWords >= 2)
             {
               assert(*PacketData == __builtin_bswap32(FUNC_VIBRATION));
-              BlockRead(__builtin_bswap32(*(PacketData + 1)), PURUPURU);
+              BlockRead(__builtin_bswap32(*(PacketData + 1)), FUNC_VIBRATION);
               return true;
             }
             break;
@@ -1946,6 +2011,8 @@ int main()
   if(!gpio_get(ButtonInfos[3].InputIO) && !gpio_get(ButtonInfos[8].InputIO)){ // Y + Start
     menu();
     updateFlashData();
+    clearSSD1331();
+    updateSSD1331();
   }
 
   // Start Core1 Maple RX
@@ -2225,14 +2292,20 @@ int main()
           SendPacket((uint *)&ACKPacket, sizeof(ACKPacket) / sizeof(uint));
           break;
         case SEND_DATA:
-          SendBlockReadResponsePacket(VMU);
+          SendBlockReadResponsePacket(FUNC_MEMORY_CARD);
           break;
         case SEND_PURUPURU_DATA:
-          SendBlockReadResponsePacket(PURUPURU);
+          SendBlockReadResponsePacket(FUNC_VIBRATION);
           break;
         case SEND_PURUPURU_CONDITION:
           SendPacket((uint *)&PuruPuruConditionPacket, sizeof(PuruPuruConditionPacket) / sizeof(uint));
           break;
+        case SEND_TIMER_CONDITION:
+          SendPacket((uint *)&TimerConditionPacket, sizeof(TimerConditionPacket) / sizeof(uint));
+          break; 
+        case SEND_TIMER_DATA:
+          SendBlockReadResponsePacket(FUNC_TIMER);
+          break; 
         }
       }
 #endif

@@ -53,6 +53,8 @@ float sin32(float x);
 double atan66(double x);
 double atan_66s(double x);
 
+void fast_hsv2rgb_32bit(uint16_t, uint8_t, uint8_t, uint8_t *, uint8_t *, uint8_t *);
+
 void ssd1331WriteCommand(const uint8_t data);
 
 void ssd1331WriteCommands(const uint8_t* data, uint num);

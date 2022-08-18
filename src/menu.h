@@ -56,8 +56,6 @@ void updateFlags(void);
 
 void redrawMenu(void);
 
-void fast_hsv2rgb_32bit(uint16_t, uint8_t, uint8_t, uint8_t *, uint8_t *, uint8_t *);
-
 bool rainbowCycle(struct repeating_timer*);
 
 void menu(void);
