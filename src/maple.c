@@ -69,7 +69,7 @@
 #define ENABLE_RUMBLE 1
 
 #define PHASE_SIZE (BLOCK_SIZE / 4)
-#define FLASH_WRITE_DELAY 16       // About quarter of a second if polling once a frame
+#define FLASH_WRITE_DELAY 64       // About quarter of a second if polling once a frame TWEAKED TO 64, SEE IF CDOS IMPROVES
 #define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 100kB of code so assuming this will be fine
 
 // ### TO-DO: Check for button combo in SendControllerStatus to page cycle on MaplePad
@@ -1145,12 +1145,12 @@ bool ConsumePacket(uint Size)
           }
           case CMD_GET_MEDIA_INFO:
           {
-            if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_MEMORY_CARD) && *(PacketData + 1) == 0)
+            if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_MEMORY_CARD))
             {
               NextPacketSend = SEND_MEMORY_INFO;
               return true;
             }
-            else if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_LCD) && *(PacketData + 1) == 0)
+            else if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_LCD))
             {
               NextPacketSend = SEND_LCD_INFO;
               return true;
@@ -1381,7 +1381,7 @@ bool ConsumePacket(uint Size)
 
 // *IMPORTANT* This function must be in RAM. Will be too slow if have to fetch
 // code from flash
-static void __not_in_flash_func(core1_entry)(void)
+static void __no_inline_not_in_flash_func(core1_entry)(void)
 {
   uint State = 0;
   uint8_t Byte = 0;
@@ -1403,8 +1403,8 @@ static void __not_in_flash_func(core1_entry)(void)
 
   while (true)
   {
-    // Worst case we could have only 0.5us (~65 cycles) to process each byte if
-    // want to keep up real time In practice we have around 4us on average so
+    // Worst case we could have only 0.5us (~65 cycles) to process each byte if we want to keep up real time
+    // In practice we have around 4us on average so
     // this code is easily fast enough
     while ((RXPIO->fstat & (1u << (PIO_FSTAT_RXEMPTY_LSB))) != 0)
       ;
