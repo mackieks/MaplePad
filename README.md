@@ -8,7 +8,7 @@ Note: MaplePad is still a WIP, and is not recommended for general use at this ti
 
 With MaplePad you can: cycle through 8 200-block internal VMUs with custom icons and colors at your leisure...
 
-<img src="vmu.png" width="750">
+<img src="vmu.png" width="751">
 
 ...use an I2C or SPI OLED display to see the VMU screen in color and at 2x integer scale...
 
