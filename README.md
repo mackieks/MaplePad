@@ -23,7 +23,7 @@ Feature List:
 - [x] Full FT<sub>2</sub> (LCD) support with SSD1331 96\*64 color SPI OLED for VMU display (SSD1306 128\*64 I2C OLED also supported)
 - [x] Customizable color palettes for all 8 internal memory cards
 - [x] Robust FT<sub>8</sub> (vibration) functionality (WIP)
-- [x] Basic FT<sub>3</sub> (timer/RTC) reporting for compatibility purposes
+- [x] Robust FT<sub>3</sub> (timer/RTC) reporting for compatibility purposes (no RTC)
 
 To-do: (highest priority to lowest)
 - [ ] Finish FT<sub>8</sub> (vibration) continuous vibration and AST
