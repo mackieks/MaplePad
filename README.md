@@ -24,6 +24,7 @@ Feature List:
 - [x] Customizable color palettes for all 8 internal memory cards
 - [x] Robust FT<sub>8</sub> (vibration) functionality (WIP)
 - [x] Robust FT<sub>3</sub> (timer/RTC) reporting for compatibility purposes (no RTC)
+- [x] Basic menu on SSD1331 OLED for configuring MaplePad behavior (WIP)
 
 To-do: (highest priority to lowest)
 - [ ] Finish FT<sub>8</sub> (vibration) continuous vibration and AST
