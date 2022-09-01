@@ -30,7 +30,7 @@ To-do: (highest priority to lowest)
 - [ ] Finish menu for calibrating sticks and customizing MaplePad behavior
 - [ ] Implement 'fancy' VMU color palettes (gradients, animated backgrounds, etc.)
 - [ ] Implement DC boot animation on OLED
-- [ ] Finish FT<sub>3</sub> (timer/RTC) support with either dummy time values or external RTC
+- [ ] Add external RTC for true FT<sub>3</sub> (timer/RTC) support
 - [ ] Implement FT<sub>4</sub> (microphone) support
 
 MaplePad is forked from [Charlie Cole's Pop'n Music Controller.](https://github.com/charcole/Dreamcast-PopnMusic)
