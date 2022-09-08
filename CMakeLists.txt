@@ -9,6 +9,10 @@ set(CMAKE_CXX_STANDARD 17)
 
 pico_sdk_init()
 
+add_compile_options(
+        -O3
+        )
+
 add_executable(maple_pio)
 
 target_compile_definitions(maple_pio PRIVATE PICO_HW)

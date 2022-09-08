@@ -69,7 +69,7 @@
 #define ENABLE_RUMBLE 1
 
 #define PHASE_SIZE (BLOCK_SIZE / 4)
-#define FLASH_WRITE_DELAY 64       // About quarter of a second if polling once a frame TWEAKED TO 64, SEE IF CDOS IMPROVES
+#define FLASH_WRITE_DELAY 16       // About quarter of a second if polling once a frame TWEAKED TO 64, SEE IF CDOS IMPROVES
 #define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 100kB of code so assuming this will be fine
 
 // ### TO-DO: Check for button combo in SendControllerStatus to page cycle on MaplePad
