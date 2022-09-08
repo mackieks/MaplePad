@@ -23,14 +23,15 @@ Feature List:
 - [x] Full FT<sub>2</sub> (LCD) support with SSD1331 96\*64 color SPI OLED for VMU display (SSD1306 128\*64 I2C OLED also supported)
 - [x] Customizable color palettes for all 8 internal memory cards
 - [x] Robust FT<sub>8</sub> (vibration) functionality (WIP)
-- [x] Basic FT<sub>3</sub> (timer/RTC) reporting for compatibility purposes
+- [x] Robust FT<sub>3</sub> (timer/RTC) reporting for compatibility purposes (no RTC)
+- [x] Basic menu on SSD1331 OLED for configuring MaplePad behavior (WIP)
 
 To-do: (highest priority to lowest)
 - [ ] Finish FT<sub>8</sub> (vibration) continuous vibration and AST
 - [ ] Finish menu for calibrating sticks and customizing MaplePad behavior
 - [ ] Implement 'fancy' VMU color palettes (gradients, animated backgrounds, etc.)
 - [ ] Implement DC boot animation on OLED
-- [ ] Finish FT<sub>3</sub> (timer/RTC) support with either dummy time values or external RTC
+- [ ] Add external RTC for true FT<sub>3</sub> (timer/RTC) support
 - [ ] Implement FT<sub>4</sub> (microphone) support
 
 MaplePad is forked from [Charlie Cole's Pop'n Music Controller.](https://github.com/charcole/Dreamcast-PopnMusic)
