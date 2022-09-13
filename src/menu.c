@@ -262,32 +262,33 @@ void menu(){
 		 // needs to be declared globally
 		//selectedEntry = ? getSelectedEntry should update this global variable ✓
 
-
 		mainMenu[1].run = sconfig;
 		mainMenu[2].run = tconfig;
 		mainMenu[4].run = setting;
 
 		loadFlags();
 
-		struct repeating_timer timer2;
-		// negative interval means the callback fcn is called every 500us regardless of how long callback takes to execute
-		add_repeating_timer_ms(-10, rainbowCycle, NULL, &timer2);
+		struct repeating_timer redrawTimer;
+		// negative interval means the callback func is called every 10ms regardless of how long callback takes to execute
+		add_repeating_timer_ms(-10, rainbowCycle, NULL, &redrawTimer);
 	
 		while(1){
 			getSelectedEntry(); // where to draw cursor
-			//redrawMenu(); // should include redrawing cursor based on getSelectedEntry()!
+			//redrawMenu(); // called by redrawTimer
 
-			// Wait for button release
+			// Wait for A button release (submenu rate-limit)
+			while(!gpio_get(ButtonInfos[0].InputIO));
+
 			uint8_t pressed = 0;
 			do {
-				for (int i = 0; i < 9; i++){
+				for (int i = 0; i < 9; i++){	
 					pressed |= (!gpio_get(ButtonInfos[i].InputIO));
 				}
 			} while(!pressed);
 
 			sleep_ms(75); // Wait out switch bounce + rate-limiting
 
-			if(!gpio_get(ButtonInfos[4].InputIO)){
+			if(!gpio_get(ButtonInfos[4].InputIO)){ // Up
 				// check currently selected element
 				// if element is not the top one, deselect current element 
 				// and select element above it
@@ -307,7 +308,7 @@ void menu(){
 
 			}
 
-			else if(!gpio_get(ButtonInfos[5].InputIO)){
+			else if(!gpio_get(ButtonInfos[5].InputIO)){ // Down
 				// check currently selected element
 				// if element is not the bottom one, deselect current element
 				// and select element below it
@@ -326,7 +327,7 @@ void menu(){
 				} 
 			}
 
-			else if(!gpio_get(ButtonInfos[0].InputIO)){
+			else if(!gpio_get(ButtonInfos[0].InputIO)){ // A
 				// check currently selected element
 				// if element is enabled, run element's function
 				// element functions should set currentMenu if they enter a submenu.
@@ -336,5 +337,5 @@ void menu(){
 			// The elements' functions should all return 1 except for mainMenu.exitToPad,  
 			// which should return 0 and result in a break from this while loop.
 		}
-	cancel_repeating_timer(&timer2);
+	cancel_repeating_timer(&redrawTimer);
 }
