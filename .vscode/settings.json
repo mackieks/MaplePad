@@ -37,6 +37,8 @@
         "spi.h": "c",
         "maple.h": "c",
         "adc.h": "c",
-        "maple.pio.h": "c"
+        "maple.pio.h": "c",
+        "state_machine.h": "c",
+        "irq.h": "c"
     }
 }
