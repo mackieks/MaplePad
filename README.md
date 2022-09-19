@@ -6,7 +6,10 @@ MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) 
 
 Note: MaplePad is still a WIP, and is not recommended for general use at this time.
 
+*StrikerDC MaplePad mod by Wesk:*
+
 <img src="images/striker3.jpg" width="250"> <img src="images/striker1.jpg" width="250"> <img src="images/striker2.jpg" width="250">
+
 
 With MaplePad you can: cycle through 8 200-block internal VMUs with custom icons and colors at your leisure...
 
