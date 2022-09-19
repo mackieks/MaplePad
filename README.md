@@ -1,6 +1,6 @@
 # MaplePad<br/>
 
-<img src="maplepad_logo_shadow.png" width="500">
+<img src="images/maplepad_logo_shadow.png" width="500">
 
 MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) emulator that is intended for use in Dreamcast portables and custom Dreamcast controllers. It can be used with either the Raspberry Pi Pico or a custom MaplePad PCB (see hardware folder.) 
 
@@ -8,11 +8,11 @@ Note: MaplePad is still a WIP, and is not recommended for general use at this ti
 
 With MaplePad you can: cycle through 8 200-block internal VMUs with custom icons and colors at your leisure...
 
-<img src="vmu.png" width="750">
+<img src="images/vmu.png" width="750">
 
 ...use an I2C or SPI OLED display to see the VMU screen in color and at 2x integer scale...
 
-<img src="purupuru.png" width="750">
+<img src="images/purupuru.png" width="750">
 
 ...and enjoy rumble that is 1:1 with the Performance TremorPak in most retail software (still some minor bugs!)
 
