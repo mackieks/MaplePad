@@ -3,6 +3,22 @@
 #include "maple.pio.h"
 #include "pico/stdlib.h"
 
+#include "hardware/adc.h"
+#include "hardware/dma.h"
+#include "hardware/flash.h"
+#include "hardware/i2c.h"
+#include "hardware/irq.h"
+#include "hardware/pio.h"
+#include "hardware/pwm.h"
+#include "hardware/timer.h"
+#include "maple.pio.h"
+#include "pico/multicore.h"
+#include "pico/stdlib.h"
+#include "pico/time.h"
+#include "ssd1306.h"
+#include "ssd1331.h"
+#include "state_machine.h"
+
 #define HKT7700 1 // "Seed" (standard controller)
 #define HKT7300 0 // Arcade stick
 
@@ -12,7 +28,9 @@
 #define NUM_BUTTONS 11
 #endif
 
-extern uint flashData[];
+extern uint8_t flashData[];
+
+void updateFlashData(void);
 
 typedef struct PacketHeader_s {
   int8_t Command;

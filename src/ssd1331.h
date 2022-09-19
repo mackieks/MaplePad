@@ -83,4 +83,6 @@ void clearSSD1331(void);
 
 void updateSSD1331(void);
 
+void splashSSD1331(void);
+
 void ssd1331_init();

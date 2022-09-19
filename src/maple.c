@@ -30,23 +30,6 @@
 #include <string.h>
 #include <time.h>
 
-#include "format.h"
-#include "hardware/adc.h"
-#include "hardware/dma.h"
-#include "hardware/flash.h"
-#include "hardware/i2c.h"
-#include "hardware/irq.h"
-#include "hardware/pio.h"
-#include "hardware/pwm.h"
-#include "hardware/timer.h"
-#include "maple.pio.h"
-#include "pico/multicore.h"
-#include "pico/stdlib.h"
-#include "pico/time.h"
-#include "ssd1306.h"
-#include "ssd1331.h"
-#include "state_machine.h"
-
 // Maple Bus Defines and Funcs
 
 #define SHOULD_SEND 1  // Set to zero to sniff two devices sending signals to each other
@@ -72,7 +55,7 @@
 #define FLASH_WRITE_DELAY 16       // About quarter of a second if polling once a frame TWEAKED TO 64, SEE IF CDOS IMPROVES
 #define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 100kB of code so assuming this will be fine
 
-// ### TO-DO: Check for button combo in SendControllerStatus to page cycle on MaplePad
+// 
 #if PICO
 #define PAGE_BUTTON 21 // Pull GP21 low for Page Cycle. Avoid page cycling for ~10s after saving or copying VMU data to avoid data corruption
 #elif MAPLEPAD
@@ -80,9 +63,8 @@
 #endif
 
 #define PAGE_BUTTON_MASK 0x0608 // X, Y, and Start
-#define PAGE_BACKWARD_MASK 0x0048
-#define PAGE_FORWARD_MASK 0x0088
-#define CurrentPage flashData[15]
+#define PAGE_BACKWARD_MASK 0x0048 // Start and D-pad Left
+#define PAGE_FORWARD_MASK 0x0088 // Start and D-pad Right
 
 #define CAL_MODE 20
 #define OLED_PIN 22
@@ -98,10 +80,11 @@
 #define ADDRESS_SUBPERIPHERAL1 0x02
 
 // Checks flags and enables/disables subperipherals appropriately
+// Probably a cleaner way to do this with a function called after menu(), but this is ea
 #if ENABLE_RUMBLE
-#define ADDRESS_CONTROLLER_AND_SUBS flashData[16] ? flashData[17] ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 | ADDRESS_SUBPERIPHERAL1) : (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL1) : flashData[17] ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 ) : (ADDRESS_CONTROLLER) // Determines which peripherals MaplePad reports
+#define ADDRESS_CONTROLLER_AND_SUBS rumbleEnable ? vmuEnable ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 | ADDRESS_SUBPERIPHERAL1) : (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL1) : vmuEnable ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 ) : (ADDRESS_CONTROLLER) // Determines which peripherals MaplePad reports
 #else
-#define ADDRESS_CONTROLLER_AND_SUBS flashData[17] ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 ) : (ADDRESS_CONTROLLER)
+#define ADDRESS_CONTROLLER_AND_SUBS vmuEnable ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 ) : (ADDRESS_CONTROLLER)
 #endif
 
 #define ADDRESS_PORT_MASK 0xC0
@@ -273,34 +256,14 @@ uint8_t min(uint8_t x, uint8_t y) { return x <= y ? x : y; }
 
 uint8_t max(uint8_t x, uint8_t y) { return x >= y ? x : y; }
 
-uint flashData[64] = {0}; // Persistent data (stick/trigger calibration, flags, etc.)
-
-  // flashData[0] 	// xCenter
-  // flashData[1] 	// xMin
-  // flashData[2] 	// xMax
-  // flashData[3]	// yCenter
-  // flashData[4]	// yMin
-  // flashData[5]	// yMax
-  // flashData[6]	// lMin
-  // flashData[7]	// lMax
-  // flashData[8]	// rMin
-  // flashData[9] 	// rMax
-  // flashData[10] 	// invertX
-  // flashData[11] 	// invertY
-  // flashData[12] 	// invertL
-  // flashData[13] 	// invertR
-  // flashData[14]  // First boot flag
-  // flashData[15]  // Current page
-  // flashData[16]  // Rumble enable
-  // flashData[17]  // VMU enable
-  // flashData[18]  // oledFlip
+uint8_t flashData[64] = {0}; // Persistent data (stick/trigger calibration, flags, etc.)
 
 void readFlash()
 {
   memset(MemoryCard, 0, sizeof(MemoryCard));
-  memcpy(MemoryCard, (uint8_t *)XIP_BASE + (FLASH_OFFSET * CurrentPage),
+  memcpy(MemoryCard, (uint8_t *)XIP_BASE + (FLASH_OFFSET * currentPage),
          sizeof(MemoryCard)); // read into variable
-  SectorDirty = CheckFormatted(MemoryCard, CurrentPage);
+  SectorDirty = CheckFormatted(MemoryCard, currentPage);
 }
 
 void updateFlashData() // Update calibration data and flags
@@ -352,11 +315,11 @@ void BuildInfoPacket()
   InfoPacket.Info.FuncData[2] = 0;
   InfoPacket.Info.AreaCode = -1;
   InfoPacket.Info.ConnectorDirection = 0;
-  strncpy(InfoPacket.Info.ProductName, "Dreamcast Controller         ", sizeof(InfoPacket.Info.ProductName));
+  strncpy(InfoPacket.Info.ProductName, "Dreamcast Controller          ", sizeof(InfoPacket.Info.ProductName));
 
   strncpy(InfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
-          "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(InfoPacket.Info.ProductLicense));
+          "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(InfoPacket.Info.ProductLicense));
   InfoPacket.Info.StandbyPower = 430;
   InfoPacket.Info.MaxPower = 500;
 #elif HKT7300
@@ -366,11 +329,11 @@ void BuildInfoPacket()
   InfoPacket.Info.FuncData[2] = 0;
   InfoPacket.Info.AreaCode = -1;
   InfoPacket.Info.ConnectorDirection = 0;
-  strncpy(InfoPacket.Info.ProductName, "Arcade Stick                 ", sizeof(InfoPacket.Info.ProductName));
+  strncpy(InfoPacket.Info.ProductName, "Arcade Stick                  ", sizeof(InfoPacket.Info.ProductName));
 
   strncpy(InfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
-          "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(InfoPacket.Info.ProductLicense));
+          "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(InfoPacket.Info.ProductLicense));
   InfoPacket.Info.StandbyPower = 30;
   InfoPacket.Info.MaxPower = 40;
 #endif
@@ -402,7 +365,7 @@ void BuildAllInfoPacket()
           "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(AllInfoPacket.Info.ProductLicense));
   AllInfoPacket.Info.StandbyPower = 430;
   AllInfoPacket.Info.MaxPower = 500;
-  strncpy(AllInfoPacket.Info.FreeDeviceStatus, "Version 1.000,1998/05/11,315-6125-AB   ,Analog Module : The 4th Edition. 05/08 ", sizeof(AllInfoPacket.Info.FreeDeviceStatus)); 
+  strncpy(AllInfoPacket.Info.FreeDeviceStatus, "Version 1.000,1998/05/11,315-6125-AB   ,Analog Module : The 4th Edition. 05/08  ", sizeof(AllInfoPacket.Info.FreeDeviceStatus)); 
 #elif HKT7300
   AllInfoPacket.Info.Func = __builtin_bswap32(FUNC_CONTROLLER);
   AllInfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000007FF); // What buttons it supports
@@ -410,11 +373,11 @@ void BuildAllInfoPacket()
   AllInfoPacket.Info.FuncData[2] = 0;
   AllInfoPacket.Info.AreaCode = -1;
   AllInfoPacket.Info.ConnectorDirection = 0;
-  strncpy(AllInfoPacket.Info.ProductName, "Arcade Stick                 ", sizeof(AllInfoPacket.Info.ProductName));
+  strncpy(AllInfoPacket.Info.ProductName, "Arcade Stick                  ", sizeof(AllInfoPacket.Info.ProductName));
 
   strncpy(AllInfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
-          "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(AllInfoPacket.Info.ProductLicense));
+          "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(AllInfoPacket.Info.ProductLicense));
   AllInfoPacket.Info.StandbyPower = 30;
   AllInfoPacket.Info.MaxPower = 40;
 #endif
@@ -438,10 +401,10 @@ void BuildSubPeripheral0InfoPacket() // Visual Memory Unit
   SubPeripheral0InfoPacket.Info.FuncData[2] = __builtin_bswap32(0x000f4100); // Function Definition Block for Function Type 1 (Storage)
   SubPeripheral0InfoPacket.Info.AreaCode = -1;
   SubPeripheral0InfoPacket.Info.ConnectorDirection = 0;
-  strncpy(SubPeripheral0InfoPacket.Info.ProductName, "Visual Memory                ", sizeof(SubPeripheral0InfoPacket.Info.ProductName));
+  strncpy(SubPeripheral0InfoPacket.Info.ProductName, "Visual Memory                 ", sizeof(SubPeripheral0InfoPacket.Info.ProductName));
   strncpy(SubPeripheral0InfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
-          "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(SubPeripheral0InfoPacket.Info.ProductLicense));
+          "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(SubPeripheral0InfoPacket.Info.ProductLicense));
   SubPeripheral0InfoPacket.Info.StandbyPower = 100;
   SubPeripheral0InfoPacket.Info.MaxPower = 130;
 
@@ -464,13 +427,13 @@ void BuildSubPeripheral0AllInfoPacket() // Visual Memory Unit
   SubPeripheral0AllInfoPacket.Info.FuncData[2] = __builtin_bswap32(0x000f4100); // Function Definition Block for Function Type 1 (Storage)
   SubPeripheral0AllInfoPacket.Info.AreaCode = -1;
   SubPeripheral0AllInfoPacket.Info.ConnectorDirection = 0;
-  strncpy(SubPeripheral0AllInfoPacket.Info.ProductName, "Visual Memory                ", sizeof(SubPeripheral0AllInfoPacket.Info.ProductName));
+  strncpy(SubPeripheral0AllInfoPacket.Info.ProductName, "Visual Memory                 ", sizeof(SubPeripheral0AllInfoPacket.Info.ProductName));
   strncpy(SubPeripheral0AllInfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
-          "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(SubPeripheral0AllInfoPacket.Info.ProductLicense));
+          "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(SubPeripheral0AllInfoPacket.Info.ProductLicense));
   SubPeripheral0AllInfoPacket.Info.StandbyPower = 100;
   SubPeripheral0AllInfoPacket.Info.MaxPower = 130;
-  strncpy(SubPeripheral0AllInfoPacket.Info.FreeDeviceStatus, "Version 1.005,1999/10/26,315-6208-05,SEGA Visual Memory System BIOS Produced by", sizeof(SubPeripheral0AllInfoPacket.Info.FreeDeviceStatus)); 
+  strncpy(SubPeripheral0AllInfoPacket.Info.FreeDeviceStatus, "Version 1.005,1999/10/26,315-6208-05,SEGA Visual Memory System BIOS Produced by ", sizeof(SubPeripheral0AllInfoPacket.Info.FreeDeviceStatus)); 
 
   SubPeripheral0AllInfoPacket.CRC = CalcCRC((uint *)&SubPeripheral0AllInfoPacket.Header, sizeof(SubPeripheral0AllInfoPacket) / sizeof(uint) - 2);
 }
@@ -491,10 +454,10 @@ void BuildSubPeripheral1InfoPacket() // PuruPuru Pack
   SubPeripheral1InfoPacket.Info.FuncData[2] = 0;
   SubPeripheral1InfoPacket.Info.AreaCode = -1;
   SubPeripheral1InfoPacket.Info.ConnectorDirection = 0;
-  strncpy(SubPeripheral1InfoPacket.Info.ProductName, "Puru Puru Pack               ", sizeof(SubPeripheral1InfoPacket.Info.ProductName));
+  strncpy(SubPeripheral1InfoPacket.Info.ProductName, "Puru Puru Pack                ", sizeof(SubPeripheral1InfoPacket.Info.ProductName));
   strncpy(SubPeripheral1InfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
-          "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(SubPeripheral1InfoPacket.Info.ProductLicense));
+          "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(SubPeripheral1InfoPacket.Info.ProductLicense));
   SubPeripheral1InfoPacket.Info.StandbyPower = 200;
   SubPeripheral1InfoPacket.Info.MaxPower = 1600;
 
@@ -518,13 +481,13 @@ void BuildSubPeripheral1AllInfoPacket() // PuruPuru Pack
   SubPeripheral1AllInfoPacket.Info.FuncData[2] = 0;
   SubPeripheral1AllInfoPacket.Info.AreaCode = -1;
   SubPeripheral1AllInfoPacket.Info.ConnectorDirection = 0;
-  strncpy(SubPeripheral1AllInfoPacket.Info.ProductName, "Puru Puru Pack               ", sizeof(SubPeripheral1AllInfoPacket.Info.ProductName));
+  strncpy(SubPeripheral1AllInfoPacket.Info.ProductName, "Puru Puru Pack                ", sizeof(SubPeripheral1AllInfoPacket.Info.ProductName));
   strncpy(SubPeripheral1AllInfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
-          "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(SubPeripheral1AllInfoPacket.Info.ProductLicense));
+          "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(SubPeripheral1AllInfoPacket.Info.ProductLicense));
   SubPeripheral1AllInfoPacket.Info.StandbyPower = 200;
   SubPeripheral1AllInfoPacket.Info.MaxPower = 1600;
-  strncpy(SubPeripheral1AllInfoPacket.Info.FreeDeviceStatus, "Version 1.000,1998/11/10,315-6211-AH   ,Vibration Motor:1 , Fm:4 - 30Hz ,Pow:7 ", sizeof(SubPeripheral1AllInfoPacket.Info.FreeDeviceStatus)); 
+  strncpy(SubPeripheral1AllInfoPacket.Info.FreeDeviceStatus, "Version 1.000,1998/11/10,315-6211-AH   ,Vibration Motor:1 , Fm:4 - 30Hz ,Pow:7  ", sizeof(SubPeripheral1AllInfoPacket.Info.FreeDeviceStatus)); 
 
   SubPeripheral1AllInfoPacket.CRC = CalcCRC((uint *)&SubPeripheral1AllInfoPacket.Header, sizeof(SubPeripheral1AllInfoPacket) / sizeof(uint) - 2);
 }
@@ -590,7 +553,7 @@ void BuildPuruPuruInfoPacket()
   PuruPuruInfoPacket.Info.Func = __builtin_bswap32(FUNC_VIBRATION);
 
   PuruPuruInfoPacket.Info.VSet0 = 0x10;
-  PuruPuruInfoPacket.Info.Vset1 = 0xC0;
+  PuruPuruInfoPacket.Info.Vset1 = 0xE0;
   //PuruPuruInfoPacket.Info.Vset1 = 0x80; // disable continuous vibration for now
   PuruPuruInfoPacket.Info.FMin = 0x07;
   PuruPuruInfoPacket.Info.FMin = 0x3B;
@@ -750,10 +713,10 @@ void SendControllerStatus()
     if ((pressTime - lastPress) >= 500)
     {
       if (!PageCycle && !SectorDirty){
-        if (CurrentPage == 8)
-          CurrentPage = 1;
+        if (currentPage == 8)
+          currentPage = 1;
         else
-          CurrentPage++;
+          currentPage++;
         PageCycle = true;
         lastPress = pressTime;
         updateFlashData();
@@ -767,10 +730,10 @@ void SendControllerStatus()
     if ((pressTime - lastPress) >= 500)
     {
       if (!PageCycle && !SectorDirty){
-        if (CurrentPage == 1)
-          CurrentPage = 8;
+        if (currentPage == 1)
+          currentPage = 8;
         else
-          CurrentPage--;
+          currentPage--;
         PageCycle = true;
         lastPress = pressTime;
         updateFlashData();
@@ -780,77 +743,96 @@ void SendControllerStatus()
 
   ControllerPacket.Controller.Buttons = Buttons;
 
-  // flashData[0] 	// xCenter
-  // flashData[1] 	// xMin
-  // flashData[2] 	// xMax
-  // flashData[3]	  // yCenter
-  // flashData[4]	  // yMin
-  // flashData[5]	  // yMax
-  // flashData[6]	  // lMax
-  // flashData[7]	  // lMin
-  // flashData[8]	  // rMax
-  // flashData[9] 	// rMin
+  // xCenter 	// xCenter
+  // xMin 	// xMin
+  // xMax 	// xMax
+  // yCenter	  // yCenter
+  // yMin	  // yMin
+  // yMax	  // yMax
+  // lMin	  // lMax
+  // lMax	  // lMin
+  // rMin	  // rMax
+  // rMax 	// rMin
 
 #if HKT7700 // Only HKT-7700 has analog stick and triggers
 
   adc_select_input(0);
   uint8_t xRead = adc_read() >> 4;
-  if (xRead > (flashData[0] - 0x0F) && xRead < (flashData[0] + 0x0F)) // deadzone
-    ControllerPacket.Controller.JoyX = 0x80;
-  else if (xRead < flashData[0])
-    ControllerPacket.Controller.JoyX = map(xRead, flashData[1] - 0x04, flashData[0] - 0x0F, 0x00, 0x7F);
-  else if (xRead > flashData[0])
-    ControllerPacket.Controller.JoyX = map(xRead, flashData[0] + 0x0F, flashData[2] + 0x04, 0x81, 0xFF);
+
+  if (invertX){
+    if (xRead > (xCenter - 0x0F) && xRead < (xCenter + 0x0F)) // deadzone
+      ControllerPacket.Controller.JoyX = 0x80;
+    else if (xRead < xCenter)
+      ControllerPacket.Controller.JoyX = map(xRead, xMin - 0x04, xCenter - 0x0F, 0xFF, 0x81);
+    else if (xRead > xCenter)
+      ControllerPacket.Controller.JoyX = map(xRead, xCenter + 0x0F, xMax + 0x04, 0x7F, 0x00);
+  } else {
+    if (xRead > (xCenter - 0x0F) && xRead < (xCenter + 0x0F)) // deadzone
+      ControllerPacket.Controller.JoyX = 0x80;
+    else if (xRead < xCenter)
+      ControllerPacket.Controller.JoyX = map(xRead, xMin - 0x04, xCenter - 0x0F, 0x00, 0x7F);
+    else if (xRead > xCenter)
+      ControllerPacket.Controller.JoyX = map(xRead, xCenter + 0x0F, xMax + 0x04, 0x81, 0xFF);
+  }
 
   adc_select_input(1);
   uint8_t yRead = adc_read() >> 4;
-  if (yRead > (flashData[3] - 0x0F) && yRead < (flashData[3] + 0x0F)) // deadzone
-    ControllerPacket.Controller.JoyY = 0x80;
-  else if (yRead < flashData[3])
-    ControllerPacket.Controller.JoyY = map(yRead, flashData[4] - 0x04, flashData[3] - 0x0F, 0x00, 0x7F);
-  else if (yRead > flashData[3])
-    ControllerPacket.Controller.JoyY = map(yRead, flashData[3] + 0x0F, flashData[5] + 0x04, 0x81, 0xFF);
+  if (invertY){
+    if (yRead > (yCenter - 0x0F) && yRead < (yCenter + 0x0F)) // deadzone
+      ControllerPacket.Controller.JoyY = 0x80;
+    else if (yRead < yCenter)
+      ControllerPacket.Controller.JoyY = map(yRead, yMin - 0x04, yCenter - 0x0F, 0xFF, 0x81);
+    else if (yRead > yCenter)
+      ControllerPacket.Controller.JoyY = map(yRead, yCenter + 0x0F, yMax + 0x04, 0x7F, 0x00);
+  } else {
+    if (yRead > (yCenter - 0x0F) && yRead < (yCenter + 0x0F)) // deadzone
+      ControllerPacket.Controller.JoyY = 0x80;
+    else if (yRead < yCenter)
+      ControllerPacket.Controller.JoyY = map(yRead, yMin - 0x04, yCenter - 0x0F, 0x00, 0x7F);
+    else if (yRead > yCenter)
+      ControllerPacket.Controller.JoyY = map(yRead, yCenter + 0x0F, yMax + 0x04, 0x81, 0xFF);
+  }
+
 
   adc_select_input(2);
   uint8_t lRead = adc_read() >> 4;
-  if (flashData[12]) // invertL
+  if (invertL) // invertL
   {                                      
-    if (lRead > (flashData[7] - 0x08)) // deadzone
+    if (lRead > (lMax - 0x08)) // deadzone
       ControllerPacket.Controller.LeftTrigger = 0x00;
-    else if (lRead >= (flashData[6] - 0x0F) > flashData[6] ? 0x00 : (flashData[6] - 0x0F))
-      ControllerPacket.Controller.LeftTrigger = map(lRead, (flashData[6] - 0x04) > flashData[6] ? 0x00 : (flashData[6] - 0x04), (flashData[7] + 0x04) < flashData[7] ? 0xFF : (flashData[7] + 0x04), 0xFF, 0x01);
+    else if (lRead <= (lMax + 0x0F) < lMax ? 0xFF : (lMax + 0x0F))
+      ControllerPacket.Controller.LeftTrigger = map(lRead, (lMin - 0x04) < 0x00 ? 0x00 : (lMin - 0x04), (lMax + 0x04) > 0xFF ? 0xFF : (lMax + 0x04), 0xFF, 0x01);
   }
   else
   {
-    if (lRead < (flashData[6] + 0x08)) // deadzone
+    if (lRead < (lMin + 0x08)) // deadzone
       ControllerPacket.Controller.LeftTrigger = 0x00;
-    else if (lRead <= (flashData[7] + 0x0F) < flashData[7] ? 0xFF : (flashData[7] + 0x0F))
-      ControllerPacket.Controller.LeftTrigger = map(lRead, (flashData[6] - 0x04) > flashData[6] ? 0x00 : (flashData[6] - 0x04), (flashData[7] + 0x04) < flashData[7] ? 0xFF : (flashData[7] + 0x04), 0x01, 0xFF);
+    else if (lRead <= (lMax + 0x0F) < lMax ? 0xFF : (lMax + 0x0F))
+      ControllerPacket.Controller.LeftTrigger = map(lRead, (lMin - 0x04) < 0x00 ? 0x00 : (lMin - 0x04), (lMax + 0x04) > 0xFF ? 0xFF : (lMax + 0x04), 0x01, 0xFF);
   }
 
   adc_select_input(3);
   uint8_t rRead = adc_read() >> 4;
-  if (flashData[13]) // invertR
+  if (invertR) // invertR
   {                                      
-    if (rRead > (flashData[9] - 0x08)) // deadzone
+    if (rRead > (rMax - 0x08)) // deadzone
       ControllerPacket.Controller.RightTrigger = 0x00;
-    else if (rRead >= (flashData[8] - 0x0F) > flashData[8] ? 0x00 : (flashData[8] - 0x0F))
-      ControllerPacket.Controller.RightTrigger = map(rRead, (flashData[8] - 0x04) > flashData[8] ? 0x00 : (flashData[8] - 0x04), (flashData[9] + 0x04) < flashData[9] ? 0xFF : (flashData[9] + 0x04), 0xFF, 0x01);
+    else if (rRead <= (rMax + 0x0F) < rMax ? 0xFF : (rMax + 0x0F))
+      ControllerPacket.Controller.RightTrigger = map(rRead, (rMin - 0x04) < 0x00 ? 0x00 : (rMin - 0x04), (rMax + 0x04) > 0xFF ? 0xFF : (rMax + 0x04), 0xFF, 0x01);
   }
   else
   {
-    if (rRead < (flashData[8] + 0x08)) // deadzone
+    if (rRead < (rMin + 0x08)) // deadzone
       ControllerPacket.Controller.RightTrigger = 0x00;
-    else if (rRead <= (flashData[9] + 0x0F) < flashData[9] ? 0xFF : (flashData[9] + 0x0F))
-      ControllerPacket.Controller.RightTrigger = map(rRead, (flashData[8] - 0x04) > flashData[8] ? 0x00 : (flashData[8] - 0x04), (flashData[9] + 0x04) < flashData[9] ? 0xFF : (flashData[9] + 0x04), 0x01, 0xFF);
+    else if (rRead <= (rMax + 0x0F) < rMax ? 0xFF : (rMax + 0x0F))
+      ControllerPacket.Controller.RightTrigger = map(rRead, (rMin - 0x04) < 0x00 ? 0x00 : (rMin - 0x04), (rMax + 0x04) > 0xFF ? 0xFF : (rMax + 0x04), 0x01, 0xFF);
   }
 
 #endif
 
-  // Debug
-  // ControllerPacket.Controller.JoyX = 0x00;
-
   ControllerPacket.CRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
+
+  // sleep_us(40);
 
   SendPacket((uint *)&ControllerPacket, sizeof(ControllerPacket) / sizeof(uint));
 }
@@ -1263,113 +1245,75 @@ bool ConsumePacket(uint Size)
           }
           case CMD_GET_CONDITION:
           {
-            if (*PacketData == __builtin_bswap32(FUNC_VIBRATION))
-            {
-              PuruPuruConditionPacket.Condition.Ctrl = ctrl;
-              PuruPuruConditionPacket.Condition.Power = power;
-              PuruPuruConditionPacket.Condition.Freq = freq;
-              PuruPuruConditionPacket.Condition.Inc = inc;
+            PuruPuruConditionPacket.Condition.Ctrl = ctrl;
+            PuruPuruConditionPacket.Condition.Power = power;
+            PuruPuruConditionPacket.Condition.Freq = freq;
+            PuruPuruConditionPacket.Condition.Inc = inc;
 
-              PuruPuruConditionPacket.CRC = CalcCRC((uint *)&PuruPuruConditionPacket.Header, sizeof(PuruPuruConditionPacket) / sizeof(uint) - 2);
-              NextPacketSend = SEND_PURUPURU_CONDITION;
-              return true;
-              }
-            break;
+            PuruPuruConditionPacket.CRC = CalcCRC((uint *)&PuruPuruConditionPacket.Header, sizeof(PuruPuruConditionPacket) / sizeof(uint) - 2);
+            NextPacketSend = SEND_PURUPURU_CONDITION;
+            return true;
           }
           case CMD_RESPOND_DEVICE_STATUS:
           {
             PacketDeviceInfo *DeviceInfo = (PacketDeviceInfo *)(Header + 1);
-            if (Header->NumWords * sizeof(uint) == sizeof(PacketDeviceInfo))
-            {
-              SWAP4(DeviceInfo->Func);
-              SWAP4(DeviceInfo->FuncData[0]);
-              SWAP4(DeviceInfo->FuncData[1]);
-              SWAP4(DeviceInfo->FuncData[2]);
-              return true;
-            }
-            break;
+            SWAP4(DeviceInfo->Func);
+            SWAP4(DeviceInfo->FuncData[0]);
+            SWAP4(DeviceInfo->FuncData[1]);
+            SWAP4(DeviceInfo->FuncData[2]);
+            return true;
           }
           case CMD_RESPOND_ALL_DEVICE_STATUS:
           {
             PacketDeviceInfo *DeviceInfo = (PacketDeviceInfo *)(Header + 1);
-            if (Header->NumWords * sizeof(uint) == sizeof(PacketDeviceInfo))
-            {
-              SWAP4(DeviceInfo->Func);
-              SWAP4(DeviceInfo->FuncData[0]);
-              SWAP4(DeviceInfo->FuncData[1]);
-              SWAP4(DeviceInfo->FuncData[2]);
-              return true;
-            }
-            break;
+            SWAP4(DeviceInfo->Func);
+            SWAP4(DeviceInfo->FuncData[0]);
+            SWAP4(DeviceInfo->FuncData[1]);
+            SWAP4(DeviceInfo->FuncData[2]);
+            return true;
           }
           case CMD_GET_MEDIA_INFO:
           {
-            if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_VIBRATION) && *(PacketData + 1) == 0)
-            {
-              NextPacketSend = SEND_PURUPURU_MEDIA_INFO;
-              return true;
-            }
-            break;
+            NextPacketSend = SEND_PURUPURU_MEDIA_INFO;
+            return true;
           }
           case CMD_SET_CONDITION:
           {
-            if (Header->NumWords >= 2)
-            {
-              assert(*PacketData == __builtin_bswap32(FUNC_VIBRATION));
+            memcpy(&purupuru_cond, PacketData + 1, sizeof(purupuru_cond));
 
-              memcpy(&purupuru_cond, PacketData + 1, sizeof(purupuru_cond));
+            ctrl = purupuru_cond & 0x000000ff;
+            power = (purupuru_cond & 0x0000ff00) >> 8;
+            freq = (purupuru_cond & 0x00ff0000) >> 16;
+            inc = (purupuru_cond & 0xff000000) >> 24;
 
-              ctrl = purupuru_cond & 0x000000ff;
-              power = (purupuru_cond & 0x0000ff00) >> 8;
-              freq = (purupuru_cond & 0x00ff0000) >> 16;
-              inc = (purupuru_cond & 0xff000000) >> 24;
+            if ((freq >= 0x07) && (freq <= 0x3B) && (ctrl & 0x10)) // check if frequency is in supported range
+              purupuruUpdated = true;
 
-              if ((freq >= 0x07) && (freq <= 0x3B) && (ctrl & 0x10)) // check if frequency is in supported range
-                purupuruUpdated = true;
+            ACKPacket.Header.Origin = ADDRESS_SUBPERIPHERAL1;
+            ACKPacket.CRC = CalcCRC((uint *)&ACKPacket.Header, sizeof(ACKPacket) / sizeof(uint) - 2);
 
-              ACKPacket.Header.Origin = ADDRESS_SUBPERIPHERAL1;
-              ACKPacket.CRC = CalcCRC((uint *)&ACKPacket.Header, sizeof(ACKPacket) / sizeof(uint) - 2);
+            NextPacketSend = SEND_ACK;
+            return true;
 
-              NextPacketSend = SEND_ACK;
-              return true;
-            }
-            break;
           }
           case CMD_BLOCK_READ:
           {
-            if (Header->NumWords >= 2)
-            {
-              assert(*PacketData == __builtin_bswap32(FUNC_VIBRATION));
-              BlockRead(__builtin_bswap32(*(PacketData + 1)), FUNC_VIBRATION);
-              return true;
-            }
-            break;
+            BlockRead(__builtin_bswap32(*(PacketData + 1)), FUNC_VIBRATION);
+            return true;
           }
           case CMD_BLOCK_WRITE:
           {
-            if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_VIBRATION))
-            {
-              PuruPuruWrite(__builtin_bswap32(*(PacketData + 1)), PacketData + 2, Header->NumWords - 2);
-              return true;
-            }
-            break;
+            PuruPuruWrite(__builtin_bswap32(*(PacketData + 1)), PacketData + 2, Header->NumWords - 2);
+            // sleep_us(50);
+            return true;
           }
           case CMD_RESPOND_DATA_TRANSFER:
           {
             return true;
-            break;
           }
           case CMD_RESPOND_COMMAND_ACK:
           {
-            if (true)
-            {
-              // ACKPacket.Header.Origin = ADDRESS_SUBPERIPHERAL1;
-              // ACKPacket.CRC = CalcCRC((uint *)&ACKPacket.Header, sizeof(ACKPacket) / sizeof(uint) - 2);
-
-              // NextPacketSend = SEND_ACK;
-              return true;
-            }              
-            break;
+            return true;
           }
           }
         }
@@ -1485,6 +1429,10 @@ void SetupMapleTX()
 
   gpio_pull_up(MAPLE_A);
   gpio_pull_up(MAPLE_B);
+  // gpio_set_drive_strength(MAPLE_A, GPIO_DRIVE_STRENGTH_12MA);
+  // gpio_set_slew_rate(MAPLE_A, GPIO_SLEW_RATE_FAST);
+  // gpio_set_drive_strength(MAPLE_B, GPIO_DRIVE_STRENGTH_12MA);
+  // gpio_set_slew_rate(MAPLE_B, GPIO_SLEW_RATE_FAST);
 }
 
 void SetupMapleRX()
@@ -1508,10 +1456,10 @@ void pageToggle(uint gpio, uint32_t events)
   if ((pressTime - lastPress) >= 500)
   {
     if (!PageCycle && !SectorDirty){
-      if (CurrentPage == 8)
-        CurrentPage = 1;
+      if (currentPage == 8)
+        currentPage = 1;
       else
-        CurrentPage++;
+        currentPage++;
       PageCycle = true;
       lastPress = pressTime;
       updateFlashData();
@@ -1731,7 +1679,7 @@ bool __no_inline_not_in_flash_func(vibeHandler)(struct repeating_timer *t)
       }
     }
   }
-  if(flashData[16])
+  if(rumbleEnable)
     return (true);
   else
     return (false);
@@ -1770,6 +1718,7 @@ int main()
     gpio_set_function(MOSI, GPIO_FUNC_SPI);
 
     ssd1331_init();
+    splashSSD1331(); // n.b. splashSSD1331 configures DMA channel!
   }
   else
   { // set up I2C for SSD1306 OLED
@@ -1803,7 +1752,7 @@ int main()
   pwm_set_gpio_level(15, 0);
 
   struct repeating_timer timer;
-  // negative interval means the callback fcn is called every 500us regardless of how long callback takes to execute
+  // negative interval means the callback function is called every 500us regardless of how long callback takes to execute
   add_repeating_timer_us(-500, vibeHandler, NULL, &timer);
 #endif
 
@@ -1815,176 +1764,16 @@ int main()
 
   lastPress = to_ms_since_boot(get_absolute_time());
 
-  // ClearDisplay();
-  // clearSSD1331();
-  // updateSSD1331();
-
-  if (!gpio_get(CAL_MODE))
-  {
-    // Stick calibration mode
-
-    setPixel(0, 0, color);
-    updateSSD1331();
-
-    while (!gpio_get(CAL_MODE))
-    {
-    };
-
-    clearSSD1331();
-    char *cal_string = "center";
-    putString(cal_string, 0, 0, 0x049f);
-    updateSSD1331();
-
-    while (gpio_get(CAL_MODE))
-    {
-    };
-
-    // flashData[0] 	// xCenter
-    // flashData[1] 	// xMin
-    // flashData[2] 	// xMax
-    // flashData[3]	// yCenter
-    // flashData[4]	// yMin
-    // flashData[5]	// yMax
-    // flashData[6]	// lMin
-    // flashData[7]	// lMax
-    // flashData[8]	// rMin
-    // flashData[9] 	// rMax
-    // flashData[10] 	// invertX
-    // flashData[11] 	// invertY
-    // flashData[12] 	// invertL
-    // flashData[13] 	// invertR
-
-    adc_select_input(0); // X
-    flashData[0] = adc_read() >> 4;
-
-    adc_select_input(1); // Y
-    flashData[3] = adc_read() >> 4;
-
-    adc_select_input(2); // L
-    flashData[6] = adc_read() >> 4;
-
-    adc_select_input(3); // R
-    flashData[8] = adc_read() >> 4;
-
-    clearSSD1331();
-    cal_string = "xMin left";
-    putString(cal_string, 0, 0, 0x049f);
-    updateSSD1331();
-
-    sleep_ms(500);
-    while (gpio_get(CAL_MODE))
-    {
-    };
-
-    adc_select_input(0); // Xmin
-    flashData[1] = adc_read() >> 4;
-
-    clearSSD1331();
-    cal_string = "yMin up";
-    putString(cal_string, 0, 0, 0x049f);
-    updateSSD1331();
-
-    sleep_ms(500);
-    while (gpio_get(CAL_MODE))
-    {
-    };
-
-    adc_select_input(1); // Ymin
-    flashData[4] = adc_read() >> 4;
-
-    clearSSD1331();
-    cal_string = "yMax down";
-    putString(cal_string, 0, 0, 0x049f);
-    updateSSD1331();
-
-    sleep_ms(500);
-    while (gpio_get(CAL_MODE))
-    {
-    };
-
-    adc_select_input(1); // Ymax
-    flashData[5] = adc_read() >> 4;
-
-    clearSSD1331();
-    cal_string = "xMax right";
-    putString(cal_string, 0, 0, 0x049f);
-    updateSSD1331();
-
-    if (flashData[4] > flashData[5]) // if yMin > yMax
-      flashData[11] = true;            // invertY
-
-    sleep_ms(500);
-    while (gpio_get(CAL_MODE))
-    {
-    };
-
-    adc_select_input(0); // Xmax
-    flashData[2] = adc_read() >> 4;
-
-    clearSSD1331();
-    cal_string = "lMax held";
-    putString(cal_string, 0, 0, 0x049f);
-    updateSSD1331();
-
-    if (flashData[1] > flashData[2]) // if xMin > xMax
-      flashData[10] = true;            // invertX
-
-    sleep_ms(500);
-    while (gpio_get(CAL_MODE))
-    {
-    };
-
-    adc_select_input(2); // Lmax
-    flashData[7] = adc_read() >> 4;
-
-    clearSSD1331();
-    cal_string = "rMax held";
-    putString(cal_string, 0, 0, 0x049f);
-    updateSSD1331();
-
-    if (flashData[6] > flashData[7])
-    {                         // if lMin > lMax
-      flashData[12] = true; // invertL
-      uint8_t temp = flashData[6];
-      flashData[6] = flashData[7];
-      flashData[7] = temp;
-    }
-
-    sleep_ms(500);
-    while (gpio_get(CAL_MODE))
-    {
-    };
-
-    adc_select_input(3); // Rmax
-    flashData[9] = adc_read() >> 4;
-
-    if (flashData[8] > flashData[9])
-    {                         // if rMin > rMax
-      flashData[13] = true; // invertR
-      uint8_t temp = flashData[8];
-      flashData[8] = flashData[9];
-      flashData[9] = temp;
-    }
-
-    // Write config values to flash
-    updateFlashData();
-
-    clearSSD1331();
-    updateSSD1331();
-  }
-
   memset(flashData, 0, sizeof(flashData));
   memcpy(flashData, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(flashData)); // read into variable
 
-  sleep_ms(150); // to be safe, wait a bit after reading in boot flags / stick config data
-
   // Pre-format VMU pages since rumble timer interrupt interferes with on-the-fly formatting
-  if(!flashData[14]){ // if first boot (flashData[14] initialized to zero)
+  if(!firstBoot){ // if first boot (firstBoot initialized to zero)
     uint Interrupts = save_and_disable_interrupts();
 
     for (int page = 1; page <= 8; page++)
     {
-      CurrentPage = page;
+      currentPage = page;
 
       readFlash();
 
@@ -1994,17 +1783,17 @@ int main()
         SectorDirty &= ~(1 << Sector);
         uint SectorOffset = Sector * FLASH_SECTOR_SIZE;
 
-        flash_range_erase((FLASH_OFFSET * CurrentPage) + SectorOffset, FLASH_SECTOR_SIZE);
-        flash_range_program((FLASH_OFFSET * CurrentPage) + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
+        flash_range_erase((FLASH_OFFSET * currentPage) + SectorOffset, FLASH_SECTOR_SIZE);
+        flash_range_program((FLASH_OFFSET * currentPage) + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
       }
     }
     restore_interrupts(Interrupts);
-    flashData[14] = 1; // first boot format done
+    firstBoot = 1; // first boot format done
     updateFlashData();
   }
 
   // Read current VMU into memory
-  CurrentPage = 1;
+  currentPage = 1;
   readFlash();
 
   SetupButtons();
@@ -2039,63 +1828,6 @@ int main()
   SetupMapleRX();
 
   // srand(time(0));
-
-  // while(1){
-  //  	adc_select_input(0);
-  //  uint8_t xRead = adc_read() >> 4;
-  //  if(xRead > (flashData[0] - 0x0F) && xRead < (flashData[0] + 0x0F))
-  //  // deadzone 	ControllerPacket.Controller.JoyX = 0x80; else if (xRead
-  //  < flashData[0]) 	ControllerPacket.Controller.JoyX = map(xRead,
-  //  flashData[1] - 0x04, flashData[0] - 0x0F, 0x00, 0x7F); else if (xRead
-  //  > flashData[0]) 	ControllerPacket.Controller.JoyX = map(xRead,
-  //  flashData[0] + 0x0F, flashData[2] + 0x04, 0x81, 0xFF);
-
-  // adc_select_input(1);
-  // uint8_t yRead = adc_read() >> 4;
-  // if(yRead > (flashData[3] - 0x0F) && yRead < (flashData[3] + 0x0F))
-  // // deadzone 	ControllerPacket.Controller.JoyY = 0x80; else if (yRead
-  // < flashData[3]) 	ControllerPacket.Controller.JoyY = map(yRead,
-  // flashData[4] - 0x04, flashData[3] - 0x0F, 0x00, 0x7F); else if (yRead >
-  // flashData[3]) 	ControllerPacket.Controller.JoyY = map(yRead,
-  // flashData[3] + 0x0F, flashData[5] + 0x04, 0x81, 0xFF);
-
-  // 	clearSSD1331();
-  // 	//drawEllipse(48, 32, 21, 21, 0);
-  // 	// r = sqrt(x² + y²)
-  // 	// θ = tan⁻¹(y / x)
-
-  // 	uint8_t jX, jY = 0;
-
-  // 	if(ControllerPacket.Controller.JoyX <= 0x80)
-  // 		jX = map(ControllerPacket.Controller.JoyX, 0x00, 0x80, -128, 0);
-  // 	else
-  // 		jX = map(ControllerPacket.Controller.JoyX, 0x81, 0xFF, 1, 128);
-
-  // 	if(ControllerPacket.Controller.JoyY <= 0x80)
-  // 		jY = map(ControllerPacket.Controller.JoyY, 0x00, 0x80, -128, 0);
-  // 	else
-  // 		jY = map(ControllerPacket.Controller.JoyY, 0x81, 0xFF, 1, 128);
-
-  // 	double r = sqrt(pow(jX,2)+pow(jY,2));
-  // 	double div = (double)(jY)/(double)(jX);
-  // 	double theta = atan66(div) * 57.2957795131;
-
-  // 	// if( (ControllerPacket.Controller.JoyX > 0x80) &&
-  // (ControllerPacket.Controller.JoyY < 0x80) )
-  // 	// 	drawEllipse(map(ControllerPacket.Controller.JoyX, 0x00, 0xff,
-  // 69, 27), map(ControllerPacket.Controller.JoyY, 0x00, 0xff, 53, 10), map(r,
-  // 0x00, 0x80, 13, 4), 13, -theta);
-  // 	// else if( (ControllerPacket.Controller.JoyX < 0x80) &&
-  // (ControllerPacket.Controller.JoyY > 0x80) )
-  // 	// 	drawEllipse(map(ControllerPacket.Controller.JoyX, 0x00, 0xff,
-  // 69, 27), map(ControllerPacket.Controller.JoyY, 0x00, 0xff, 53, 10), map(r,
-  // 0x00, 0x80, 13, 4), 13, -theta);
-  // 	// else
-  // 	// 	drawEllipse(map(ControllerPacket.Controller.JoyX, 0x00, 0xff,
-  // 69, 27), map(ControllerPacket.Controller.JoyY, 0x00, 0xff, 53, 10), map(r,
-  // 0x00, 0x80, 13, 4), 13, theta); 	fillCircle(48, 32, 5, 0xffff);
-  // 	//sleep_ms();
-  // 	updateSSD1331();
 
   // char* item = "Button Test";
   // char* item2 = "Stick Config";
@@ -2213,8 +1945,8 @@ int main()
             uint SectorOffset = Sector * FLASH_SECTOR_SIZE;
 
             uint Interrupts = save_and_disable_interrupts();
-            flash_range_erase((FLASH_OFFSET * CurrentPage) + SectorOffset, FLASH_SECTOR_SIZE);
-            flash_range_program((FLASH_OFFSET * CurrentPage) + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
+            flash_range_erase((FLASH_OFFSET * currentPage) + SectorOffset, FLASH_SECTOR_SIZE);
+            flash_range_program((FLASH_OFFSET * currentPage) + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
             restore_interrupts(Interrupts);
           }
           else if (!SectorDirty && MessagesSinceWrite >= FLASH_WRITE_DELAY && PageCycle)
@@ -2237,10 +1969,10 @@ int main()
                 {
                   if (((LCDFramebuffer[fb] >> bb) & 0x01))
                   {                                                                                                            // if bit is set...
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, palette[CurrentPage - 1]);       // set corresponding OLED pixels!
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, palette[CurrentPage - 1]); // Each VMU dot corresponds to 4 OLED pixels.
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[CurrentPage - 1]);
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, palette[CurrentPage - 1]);
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, palette[currentPage - 1]);       // set corresponding OLED pixels!
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, palette[currentPage - 1]); // Each VMU dot corresponds to 4 OLED pixels.
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1]);
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1]);
                   }
                   else
                   {

@@ -5,7 +5,12 @@
 #include "menu.h"
 
 extern ButtonInfo ButtonInfos[];
+extern uint8_t flashData[64];
+uint32_t flipLockout;
 uint ssd1331present = 1;
+volatile bool redraw = 1;
+
+struct repeating_timer redrawTimer;
 
 static uint16_t color = 0x0000;
 
@@ -21,16 +26,171 @@ int paletteUI(menuItem *self){
 
 int buttontest(menuItem *self){
     // draw button test
+	
     return(1);
 }
 
 int stickcal(menuItem *self){
     // draw stick calibration
+	redraw = 0; // Disable redrawMenu
+
+	while(!gpio_get(ButtonInfos[0].InputIO));
+
+    clearSSD1331();
+    char *cal_string = "center stick";
+    putString(cal_string, 0, 0, 0x049f);
+	cal_string = "and press A";
+	putString(cal_string, 0, 1, 0x049f);
+    updateSSD1331();
+
+	sleep_ms(500);
+	while(gpio_get(ButtonInfos[0].InputIO));
+
+    adc_select_input(0); // X
+    xCenter = adc_read() >> 4;
+
+    adc_select_input(1); // Y
+    yCenter = adc_read() >> 4;
+
+    clearSSD1331();
+    cal_string = "xMin left";
+    putString(cal_string, 0, 0, 0x049f);
+	cal_string = "and press A";
+	putString(cal_string, 0, 1, 0x049f);
+    updateSSD1331();
+
+	sleep_ms(500);
+	while(gpio_get(ButtonInfos[0].InputIO));
+
+    adc_select_input(0); // Xmin
+    xMin = adc_read() >> 4;
+
+    clearSSD1331();
+    cal_string = "yMin up";
+    putString(cal_string, 0, 0, 0x049f);
+	cal_string = "and press A";
+	putString(cal_string, 0, 1, 0x049f);
+    updateSSD1331();
+
+	sleep_ms(500);
+	while(gpio_get(ButtonInfos[0].InputIO));
+
+    adc_select_input(1); // Ymin
+    yMin = adc_read() >> 4;
+
+    clearSSD1331();
+    cal_string = "yMax down";
+    putString(cal_string, 0, 0, 0x049f);
+	cal_string = "and press A";
+	putString(cal_string, 0, 1, 0x049f);
+    updateSSD1331();
+
+	sleep_ms(500);
+	while(gpio_get(ButtonInfos[0].InputIO));
+
+    adc_select_input(1); // Ymax
+    yMax = adc_read() >> 4;
+
+    clearSSD1331();
+    cal_string = "xMax right";
+    putString(cal_string, 0, 0, 0x049f);
+	cal_string = "and press A";
+	putString(cal_string, 0, 1, 0x049f);
+    updateSSD1331();
+
+	sleep_ms(500);
+	while(gpio_get(ButtonInfos[0].InputIO));
+
+    adc_select_input(0); // Xmax
+    xMax = adc_read() >> 4;
+
+	if (xMin > xMax){
+		uint temp = xMin;
+		xMin = xMax;
+		xMax = temp;
+	}
+
+	if (yMin > yMax){
+		uint temp = yMin;
+		yMin = yMax;
+		yMax= temp;
+	}
+
+    // Write config values to flash
+    updateFlashData();
+
+	redraw = 1;
+
     return(1);
 }
 
 int trigcal(menuItem *self){
     // draw trigger calibration
+	redraw = 0; // Disable redrawMenu
+
+	while(!gpio_get(ButtonInfos[0].InputIO));
+
+    clearSSD1331();
+    char *cal_string = "leave";
+    putString(cal_string, 0, 0, 0x049f);
+	cal_string = "triggers idle";
+	putString(cal_string, 0, 1, 0x049f);
+	cal_string = "and press A";
+	putString(cal_string, 0, 2, 0x049f);
+    updateSSD1331();
+
+	sleep_ms(500);
+	while(gpio_get(ButtonInfos[0].InputIO));
+
+    adc_select_input(2); // L
+    lMin = adc_read() >> 4;
+
+    adc_select_input(3); // R
+    rMin = adc_read() >> 4;
+
+    clearSSD1331();
+    cal_string = "hold lMax";
+    putString(cal_string, 0, 0, 0x049f);
+	cal_string = "and press A";
+	putString(cal_string, 0, 1, 0x049f);
+    updateSSD1331();
+
+	sleep_ms(500);
+	while(gpio_get(ButtonInfos[0].InputIO));
+
+    adc_select_input(2); // lMax
+    lMax = adc_read() >> 4;
+
+    clearSSD1331();
+    cal_string = "hold rMax";
+    putString(cal_string, 0, 0, 0x049f);
+	cal_string = "and press A";
+	putString(cal_string, 0, 1, 0x049f);
+    updateSSD1331();
+
+	sleep_ms(500);
+	while(gpio_get(ButtonInfos[0].InputIO));
+
+    adc_select_input(3); // rMax
+    rMax = adc_read() >> 4;
+
+	if (lMin > lMax){
+		uint temp = lMin;
+		lMin = lMax;
+		lMax = temp;
+	}
+
+	if (rMin > rMax){
+		uint temp = rMin;
+		rMin = rMax;
+		rMax= temp;
+	}
+
+    // Write config values to flash
+    updateFlashData();
+
+	redraw = 1;
+
     return(1);
 }
 
@@ -40,8 +200,30 @@ int deadzone(menuItem *self){
 }
 
 int toggleOption(menuItem *self){
-    if(self->type == 1)
-    	self->on = !(self->on);
+
+	if(!strcmp(self->name, "OLED Flip     ")){
+		if((to_ms_since_boot(get_absolute_time()) - flipLockout) > 500){
+
+			if(self->type == 1)
+    			self->on = !(self->on);
+
+			flipLockout = to_ms_since_boot(get_absolute_time());
+			
+			cancel_repeating_timer(&redrawTimer);
+			updateFlags();
+			updateFlashData();
+
+			ssd1331_init();
+			sleep_ms(100);
+
+			add_repeating_timer_ms(-10, rainbowCycle, NULL, &redrawTimer);
+			return(1);
+		} else return(1);
+	} else {
+		if(self->type == 1)
+    		self->on = !(self->on);
+	}
+
     return(1);
 } 
 
@@ -121,7 +303,7 @@ static menuItem settings[8] = {
     {"UI Color      ", 2, 1, 0, 1, 1, paletteUI}, // ssd1331 present
     {"OLED:  SSD1331", 3, 0, 0, 1, 0, toggleOption},
 	{"OLED Flip     ", 1, 0, 0, 0, 1, toggleOption},
-    {"Firmware   1.5", 3, 0, 0, 1, 0, dummy}
+    {"Firmware  1.4c", 3, 0, 0, 1, 0, dummy}
 };
 
 int setting(menuItem* self){
@@ -133,15 +315,23 @@ int setting(menuItem* self){
 }
 
 void loadFlags(){
-	settings[2].on = flashData[16];
-	settings[3].on = flashData[17];
-	settings[6].on = flashData[18];
+	stickConfig[3].on = invertX;
+	stickConfig[4].on = invertY;
+	triggerConfig[2].on = invertL;
+	triggerConfig[3].on = invertR;
+	settings[2].on = rumbleEnable;
+	settings[3].on = vmuEnable;
+	settings[6].on = flashData[18]; // oledFlip
 }
 
 void updateFlags(){
-	flashData[16] = settings[2].on;
-	flashData[17] = settings[3].on;
-	flashData[18] = settings[6].on;
+	invertX = stickConfig[3].on;
+	invertY = stickConfig[4].on;
+	invertL = triggerConfig[2].on;
+	invertR = triggerConfig[3].on;
+	rumbleEnable = settings[2].on;
+	vmuEnable = settings[3].on;
+	flashData[18] = settings[6].on; // oledFlip
 }
 
 void getSelectedEntry(){
@@ -200,11 +390,11 @@ bool rainbowCycle(struct repeating_timer *t){
 		hue = 0;
 	else hue++;
 
-	redrawMenu();
+	if(redraw)
+		redrawMenu();
 
 	return(true);
 }
-
 
 void menu(){
 
@@ -268,7 +458,6 @@ void menu(){
 
 		loadFlags();
 
-		struct repeating_timer redrawTimer;
 		// negative interval means the callback func is called every 10ms regardless of how long callback takes to execute
 		add_repeating_timer_ms(-10, rainbowCycle, NULL, &redrawTimer);
 	

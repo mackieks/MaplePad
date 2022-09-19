@@ -9,6 +9,26 @@
 #include "ssd1331.h"
 #include "pico/stdlib.h"
 
+#define xCenter flashData[0]
+#define xMin flashData[1]
+#define xMax flashData[2]
+#define yCenter flashData[3]
+#define yMin flashData[4]
+#define yMax flashData[5]
+#define lMin flashData[6]
+#define lMax flashData[7]
+#define rMin flashData[8]
+#define rMax flashData[9]
+#define invertX flashData[10]
+#define invertY flashData[11]
+#define invertL flashData[12]
+#define invertR flashData[13]
+#define firstBoot flashData[14]
+#define currentPage flashData[15]
+#define rumbleEnable flashData[16]
+#define vmuEnable flashData[17]
+#define oledFlip flashData[18] 
+
 typedef struct menuItem_s menuItem;
 
 struct menuItem_s
