@@ -1,5 +1,9 @@
 # MaplePad 
 
+Wiring diagram for Raspberry Pi Pico: 
+
+<img src="maplepad_wiring.png" width="1000">
+
 Replacement Dreamcast controller PCB for portablizing, using RP2040. EAGLE source, Gerbers, BOM and assembly drawing are available in this directory. (Photo below is of the previous revision which lacked the BOOTSEL button.)
 
 <img src="maplepad_pcb.jpg" width="500">
