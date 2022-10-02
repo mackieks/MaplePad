@@ -5,6 +5,7 @@ Wiring diagram for Raspberry Pi Pico:
 <img src="maplepad_wiring.png" width="1000">
 
 Notes:
+- Do not connect a USB cable to the Pico when it is connected to the Dreamcast. (5V will backfeed to console!)
 - The official Raspberry Pi Pico must be modded to access the right trigger pin (ADC3). See the wiring diagram for details.
 - For rumble, use an N-channel FET with V<sub>GS(th)</sub> < 3V and I<sub>d</sub> ≥ 1A. Both large Xbox-style ERMs and coin-type vibration motors work well.
 - You can add a freewheel diode between 5V and the NFET's drain if you'd like, but it's not necessary for prototyping.
