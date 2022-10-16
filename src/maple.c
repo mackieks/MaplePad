@@ -334,8 +334,8 @@ void BuildInfoPacket()
   strncpy(InfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
           "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(InfoPacket.Info.ProductLicense));
-  InfoPacket.Info.StandbyPower = 30;
-  InfoPacket.Info.MaxPower = 40;
+  InfoPacket.Info.StandbyPower = 170;
+  InfoPacket.Info.MaxPower = 300;
 #endif
 
   InfoPacket.CRC = CalcCRC((uint *)&InfoPacket.Header, sizeof(InfoPacket) / sizeof(uint) - 2);
@@ -365,7 +365,7 @@ void BuildAllInfoPacket()
           "Produced By or Under License From SEGA ENTERPRISES,LTD.    ", sizeof(AllInfoPacket.Info.ProductLicense));
   AllInfoPacket.Info.StandbyPower = 430;
   AllInfoPacket.Info.MaxPower = 500;
-  strncpy(AllInfoPacket.Info.FreeDeviceStatus, "Version 1.000,1998/05/11,315-6125-AB   ,Analog Module : The 4th Edition. 05/08  ", sizeof(AllInfoPacket.Info.FreeDeviceStatus)); 
+  strncpy(AllInfoPacket.Info.FreeDeviceStatus, "Version 1.010,1998/09/28,315-6211-AB   ,Analog Module : The 4th Edition.5/8  +DF", sizeof(AllInfoPacket.Info.FreeDeviceStatus)); 
 #elif HKT7300
   AllInfoPacket.Info.Func = __builtin_bswap32(FUNC_CONTROLLER);
   AllInfoPacket.Info.FuncData[0] = __builtin_bswap32(0x000007FF); // What buttons it supports
@@ -378,8 +378,9 @@ void BuildAllInfoPacket()
   strncpy(AllInfoPacket.Info.ProductLicense,
           // NOT REALLY! Don't sue me Sega!
           "Produced By or Under License From SEGA ENTERPRISES,LTD.     ", sizeof(AllInfoPacket.Info.ProductLicense));
-  AllInfoPacket.Info.StandbyPower = 30;
-  AllInfoPacket.Info.MaxPower = 40;
+  AllInfoPacket.Info.StandbyPower = 170;
+  AllInfoPacket.Info.MaxPower = 300;
+  strncpy(AllInfoPacket.Info.FreeDeviceStatus, "Version 1.000,1998/06/09,315-6125-AC   ,Direction Key & A,B,C,X,Y,Z,Start Button", sizeof(AllInfoPacket.Info.FreeDeviceStatus)); 
 #endif
 
   AllInfoPacket.CRC = CalcCRC((uint *)&AllInfoPacket.Header, sizeof(AllInfoPacket) / sizeof(uint) - 2);

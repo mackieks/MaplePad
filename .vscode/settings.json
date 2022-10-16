@@ -39,6 +39,10 @@
         "adc.h": "c",
         "maple.pio.h": "c",
         "state_machine.h": "c",
-        "irq.h": "c"
+        "irq.h": "c",
+        "multicore.h": "c",
+        "stdlib.h": "c",
+        "time.h": "c",
+        "timer.h": "c"
     }
 }
