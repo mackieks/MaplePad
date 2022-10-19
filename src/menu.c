@@ -6,6 +6,7 @@
 
 extern ButtonInfo ButtonInfos[];
 extern uint8_t flashData[64];
+
 uint32_t flipLockout;
 uint ssd1331present = 1;
 volatile bool redraw = 1;
@@ -30,7 +31,7 @@ int buttontest(menuItem *self){
     return(1);
 }
 
-int stickcal(menuItem *self){
+int sCal(menuItem *self){
     // draw stick calibration
 	redraw = 0; // Disable redrawMenu
 
@@ -124,7 +125,7 @@ int stickcal(menuItem *self){
     return(1);
 }
 
-int trigcal(menuItem *self){
+int tCal(menuItem *self){
     // draw trigger calibration
 	redraw = 0; // Disable redrawMenu
 
@@ -194,7 +195,12 @@ int trigcal(menuItem *self){
     return(1);
 }
 
-int deadzone(menuItem *self){
+int sDeadzone(menuItem *self){
+    // draw deadzone configuration
+    return(1);
+}
+
+int tDeadzone(menuItem *self){
     // draw deadzone configuration
     return(1);
 }
@@ -264,14 +270,14 @@ int mainmen(menuItem* self){
 
 static menuItem stickConfig[6] = {
     {"Back          ", 2, 1, 0, 1, 1, mainmen}, // i.e. setCurrentMenu to mainMenu
-    {"Calibration   ", 2, 1, 1, 1, 1, stickcal},
-    {"Deadzone Edit ", 2, 1, 0, 1, 1, deadzone},
+    {"Calibration   ", 2, 1, 1, 1, 1, sCal},
+    {"Deadzone Edit ", 2, 1, 0, 1, 1, sDeadzone},
     {"Invert X      ", 1, 1, 0, 0, 1, toggleOption},
     {"Invert Y      ", 1, 1, 0, 0, 1, toggleOption},
     {"Swap X Y      ", 1, 0, 0, 0, 1, toggleOption}
 };
 
-int sconfig(menuItem* self){
+int sConfig(menuItem* self){
     currentMenu = stickConfig;
     currentNumEntries = sizeof(stickConfig)/sizeof(menuItem);
 	prevEntryModifier = entryModifier;
@@ -281,13 +287,14 @@ int sconfig(menuItem* self){
 
 static menuItem triggerConfig[5] = {
     {"Back          ", 2, 1, 0, 1, 1, mainmen},
-    {"Calibration   ", 2, 1, 1, 1, 1, trigcal},
+    {"Calibration   ", 2, 1, 1, 1, 1, tCal},
+	{"Deadzone Edit ", 2, 1, 0, 1, 1, tDeadzone},
     {"Invert L      ", 1, 1, 0, 0, 1, toggleOption},
     {"Invert R      ", 1, 1, 0, 0, 1, toggleOption},
     {"Swap L R      ", 1, 1, 0, 0, 1, toggleOption}
 };
 
-int tconfig(menuItem* self){
+int tConfig(menuItem* self){
     currentMenu = triggerConfig;
     currentNumEntries = sizeof(triggerConfig)/sizeof(menuItem);
 	prevEntryModifier = entryModifier;
@@ -317,21 +324,25 @@ int setting(menuItem* self){
 void loadFlags(){
 	stickConfig[3].on = invertX;
 	stickConfig[4].on = invertY;
+	stickConfig[5].on = swapXY;
 	triggerConfig[2].on = invertL;
 	triggerConfig[3].on = invertR;
+	triggerConfig[4].on = swapLR;
 	settings[2].on = rumbleEnable;
 	settings[3].on = vmuEnable;
-	settings[6].on = flashData[18]; // oledFlip
+	settings[6].on = oledFlip; 
 }
 
 void updateFlags(){
 	invertX = stickConfig[3].on;
 	invertY = stickConfig[4].on;
+	swapXY = stickConfig[5].on;
 	invertL = triggerConfig[2].on;
 	invertR = triggerConfig[3].on;
+	swapLR = triggerConfig[4].on;
 	rumbleEnable = settings[2].on;
 	vmuEnable = settings[3].on;
-	flashData[18] = settings[6].on; // oledFlip
+	oledFlip = settings[6].on; 
 }
 
 void getSelectedEntry(){
@@ -421,10 +432,10 @@ void menu(){
 			-Enters button test screen (Press and hold B to exit)
 		-Sticks Config
 			-Back
-			-Calibration
+			-Calibration ✓
 			-Deadzone Adjust
-			-Invert X 
-			-Invert Y 
+			-Invert X  ✓
+			-Invert Y  ✓
 			-Swap X and Y
 		-Triggers Config
 			-Back
@@ -452,8 +463,8 @@ void menu(){
 		 // needs to be declared globally
 		//selectedEntry = ? getSelectedEntry should update this global variable ✓
 
-		mainMenu[1].run = sconfig;
-		mainMenu[2].run = tconfig;
+		mainMenu[1].run = sConfig;
+		mainMenu[2].run = tConfig;
 		mainMenu[4].run = setting;
 
 		loadFlags();

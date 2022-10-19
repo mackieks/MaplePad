@@ -10,6 +10,7 @@
 #include "hardware/irq.h"
 #include "hardware/pio.h"
 #include "hardware/pwm.h"
+#include "hardware/spi.h"
 #include "hardware/timer.h"
 #include "maple.pio.h"
 #include "pico/multicore.h"

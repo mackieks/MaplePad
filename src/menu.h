@@ -28,6 +28,8 @@
 #define rumbleEnable flashData[16]
 #define vmuEnable flashData[17]
 #define oledFlip flashData[18] 
+#define swapXY flashData[19]
+#define swapLR flashData[20]
 
 typedef struct menuItem_s menuItem;
 

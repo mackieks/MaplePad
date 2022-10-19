@@ -1,6 +1,6 @@
 /**
- * Pop'n'Music controller
- * Dreamcast Maple Bus Transiever example for Raspberry Pi Pico (RP2040)
+ * MaplePad
+ * Dreamcast controller emulator for Raspberry Pi Pico (RP2040)
  * (C) Charlie Cole 2021
  *
  * Modified by Mackie Kannard-Smith 2022
@@ -24,6 +24,7 @@
 
 #include "maple.h"
 #include "menu.h"
+#include "draw.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -34,8 +35,6 @@
 
 #define SHOULD_SEND 1  // Set to zero to sniff two devices sending signals to each other
 #define SHOULD_PRINT 0 // Nice for debugging but can cause timing issues
-
-#define MAPLE_DEBUG 0 // Print all command codes to COM port
 
 // Board Variant
 #define PICO 1
@@ -80,7 +79,7 @@
 #define ADDRESS_SUBPERIPHERAL1 0x02
 
 // Checks flags and enables/disables subperipherals appropriately
-// Probably a cleaner way to do this with a function called after menu(), but this is ea
+// Probably a cleaner way to do this with a function called after menu(), but this is easy
 #if ENABLE_RUMBLE
 #define ADDRESS_CONTROLLER_AND_SUBS rumbleEnable ? vmuEnable ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 | ADDRESS_SUBPERIPHERAL1) : (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL1) : vmuEnable ? (ADDRESS_CONTROLLER | ADDRESS_SUBPERIPHERAL0 ) : (ADDRESS_CONTROLLER) // Determines which peripherals MaplePad reports
 #else
@@ -214,7 +213,7 @@ uint32_t lastPress = 0;
 static const uint8_t NumWrites = LCDFramebufferSize / BPPacket;
 static uint8_t LCDFramebuffer[LCDFramebufferSize] = {0};
 volatile bool LCDUpdated = false;
-static volatile bool colorOLED = true; // True = SSD1331, false = SSD1306
+volatile bool oledType = true; // True = SSD1331, false = SSD1306
 
 // Timer
 static uint8_t dateTime[8] = {0};
@@ -744,17 +743,6 @@ void SendControllerStatus()
 
   ControllerPacket.Controller.Buttons = Buttons;
 
-  // xCenter 	// xCenter
-  // xMin 	// xMin
-  // xMax 	// xMax
-  // yCenter	  // yCenter
-  // yMin	  // yMin
-  // yMax	  // yMax
-  // lMin	  // lMax
-  // lMax	  // lMin
-  // rMin	  // rMax
-  // rMax 	// rMin
-
 #if HKT7700 // Only HKT-7700 has analog stick and triggers
 
   adc_select_input(0);
@@ -829,7 +817,21 @@ void SendControllerStatus()
       ControllerPacket.Controller.RightTrigger = map(rRead, (rMin - 0x04) < 0x00 ? 0x00 : (rMin - 0x04), (rMax + 0x04) > 0xFF ? 0xFF : (rMax + 0x04), 0x01, 0xFF);
   }
 
+  if(swapXY){
+    uint8_t temp = ControllerPacket.Controller.JoyX;
+    ControllerPacket.Controller.JoyX = ControllerPacket.Controller.JoyY;
+    ControllerPacket.Controller.JoyY = temp;
+  }
+
+  if(swapLR){
+    uint8_t temp = ControllerPacket.Controller.LeftTrigger;
+    ControllerPacket.Controller.LeftTrigger = ControllerPacket.Controller.RightTrigger;
+    ControllerPacket.Controller.RightTrigger = temp;
+  }
+
 #endif
+
+  
 
   ControllerPacket.CRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
 
@@ -980,11 +982,6 @@ bool ConsumePacket(uint Size)
       PacketHeader *Header = (PacketHeader *)Packet;
       uint *PacketData = (uint *)(Header + 1);
       uint16_t debugdata = (*PacketData & 0xffff0000) >> 16;
-
-      #if MAPLE_DEBUG
-        // printf("C:0x%02X Ft:0x%04X\n", Header->Command, debugdata);
-        //printf("C%01X F%02x\n", Header->Command, debugdata);
-      #endif
 
       if (Size == (Header->NumWords + 1) * 4)
       {
@@ -1468,14 +1465,6 @@ void pageToggle(uint gpio, uint32_t events)
   }
 }
 
-void setPixel(uint8_t x, uint8_t y, uint16_t color)
-{
-  if (gpio_get(OLED_PIN))
-    setPixelSSD1331(x, y, color);
-  else
-    setPixel1306(x + 16, y, color ? 1 : 0);
-}
-
 bool __no_inline_not_in_flash_func(vibeHandler)(struct repeating_timer *t)
 {
   static uint32_t pulseTimestamp = 0;
@@ -1709,7 +1698,7 @@ int main()
   gpio_set_dir(OLED_PIN, GPIO_IN);
   gpio_pull_up(OLED_PIN);
 
-  colorOLED = gpio_get(OLED_PIN);
+  oledType = gpio_get(OLED_PIN);
 
   if (gpio_get(OLED_PIN))
   { // set up SPI for SSD1331 OLED
@@ -1794,7 +1783,6 @@ int main()
   }
 
   // Read current VMU into memory
-  currentPage = 1;
   readFlash();
 
   SetupButtons();
@@ -1828,58 +1816,6 @@ int main()
   SetupMapleTX();
   SetupMapleRX();
 
-  // srand(time(0));
-
-  // char* item = "Button Test";
-  // char* item2 = "Stick Config";
-  // char* item3 = "Trigger Config";
-  // char* item4 = "VMU Colors";
-  // char* item5 = "Settings";
-  // putString(item, 0, 0, 0x049f);
-  // putString(item2, 0, 1, 0x049f);
-  // putString(item3, 0, 2, 0x049f);
-  // putString(item4, 0, 3, 0x049f);
-  // putString(item5, 0, 4, 0x049f);
-  // uint8_t pos = 0;
-  // drawCursor(pos, 0x049f);
-  // updateSSD1331();
-
-  // while(1){
-
-  // while(gpio_get(ButtonInfos[4].InputIO) &&
-  // gpio_get(ButtonInfos[5].InputIO)){};
-
-  // sleep_ms(100);
-
-  // if(!gpio_get(ButtonInfos[5].InputIO)){ // up
-  // 	if(pos < 4){
-  // 		pos++;
-  // 		drawCursor(pos, 0x049f);
-  // 	}
-  // }
-  // else if(!gpio_get(ButtonInfos[4].InputIO)){ // down
-  // 	if(pos > 0){
-  // 		pos--;
-  // 		drawCursor(pos, 0x049f);
-  // 	}
-  // }
-
-  // updateSSD1331();
-
-  // }
-
-  // while (1){
-  //     if(stop){
-  //         pwm_set_gpio_level(15, 100*100);
-  //         //pwm_set_irq_enabled(slice_num, false);
-  //         //irq_set_enabled(PWM_IRQ_WRAP, false);
-  //         //while(1);
-  //     }
-  // }
-
-  // 	// if (!gpio_get(ButtonInfos[1].InputIO) &&
-  // !gpio_get(ButtonInfos[7].InputIO) && !gpio_get(ButtonInfos[10].InputIO)){}
-
   uint StartOfPacket = 0;
   while (true)
   {
@@ -1894,13 +1830,6 @@ int main()
     uint PacketSize = EndOfPacket - StartOfPacket;
     ConsumePacket(PacketSize);
     StartOfPacket = ((EndOfPacket + 3) & ~3);
-
-    // PacketHeader *Header = (PacketHeader *)Packet;
-    // uint *PacketData = (uint *)(Header + 1);
-
-    // #if MAPLE_DEBUG
-    //   printf("Command: 0x%02X\nFunction Type: 0x%04X\n", *PacketData);
-    // #endif
 
     if (NextPacketSend != SEND_NOTHING)
     {
@@ -1970,19 +1899,19 @@ int main()
                 {
                   if (((LCDFramebuffer[fb] >> bb) & 0x01))
                   {                                                                                                            // if bit is set...
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, palette[currentPage - 1]);       // set corresponding OLED pixels!
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, palette[currentPage - 1]); // Each VMU dot corresponds to 4 OLED pixels.
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1]);
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1]);
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, palette[currentPage - 1], oledType);       // set corresponding OLED pixels!
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, palette[currentPage - 1], oledType); // Each VMU dot corresponds to 4 OLED pixels.
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1], oledType);
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1], oledType);
                   }
                   else
                   {
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, 0); // ...otherwise, clear the four OLED pixels.
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, 0);
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, 0);
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, 0);
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, 0, oledType); // ...otherwise, clear the four OLED pixels.
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, 0, oledType);
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, 0, oledType);
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, 0, oledType);
                   }
-                } // else // 128x64 Test Mode
+                } // else // 128x64 Experimental Mode
                 // {
                 //   if (((LCDFramebuffer[fb] >> bb) & 0x01)) {
                 //     setPixel1306(((fb % LCD_NumCols) * 8 + (7 - bb)), (fb / LCD_NumCols), true);
@@ -1992,8 +1921,8 @@ int main()
                 // }
               }
             }
-            // UpdateDisplay();
-            updateSSD1331();
+            updateDisplay(oledType);
+            // updateSSD1331();
             LCDUpdated = false;
           }
           break;

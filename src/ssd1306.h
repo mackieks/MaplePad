@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
 
@@ -18,7 +19,6 @@ static int DEVICE_ADDRESS = 0x3C;
 #define SSD1306_LCDHEIGHT           64
 #define SSD1306_FRAMEBUFFER_SIZE    (SSD1306_LCDWIDTH * SSD1306_LCDHEIGHT / 8)
 
-// Not currently used.
 #define SSD1306_SETLOWCOLUMN        0x00
 #define SSD1306_SETHIGHCOLUMN       0x10
 
@@ -52,14 +52,14 @@ static int DEVICE_ADDRESS = 0x3C;
 #define SSD1306_SETCOMPINS          0xDA
 #define SSD1306_SETVCOMDETECT       0xDB
 
-void SendCommand(uint8_t cmd);
+void ssd1306SendCommand(uint8_t cmd);
 
-void SendCommandBuffer(uint8_t *inbuf, int len);
+void ssd1306SendCommandBuffer(uint8_t *inbuf, int len);
 
 void ssd1306_init();
 
-void UpdateDisplay();
+void updateSSD1306();
 
-void ClearDisplay();
+void clearSSD1306();
 
-void setPixel1306(int x,int y, bool on);
+void setPixelSSD1306(int x,int y, bool on);

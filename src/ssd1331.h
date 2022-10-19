@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
+
 #include "pico/stdlib.h"
 #include "pico/binary_info.h"
 #include "hardware/spi.h"
@@ -62,22 +64,6 @@ void ssd1331WriteCommands(const uint8_t* data, uint num);
 void ssd1331WriteData(const uint8_t* data, uint numbytes);
 
 void setPixelSSD1331(const uint8_t x, const uint8_t y, const uint16_t color);
-
-void drawLine(int x1, int x2, int y, uint16_t color);
-
-void hagl_draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
-
-void fillCircle(int x0, int y0, int r, uint16_t color);
-
-void drawCursor(int iy, uint16_t color);
-
-void drawToggle(int iy, uint16_t color, bool on);
-
-void putLetter(int ix, int iy, int index, uint16_t color);
-
-void putString(char* text, int ix, int iy, uint16_t color);
-
-void drawEllipse(int xc, int yc, int xr, int yr, int angle);
 
 void clearSSD1331(void);
 

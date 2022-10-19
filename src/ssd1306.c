@@ -1,15 +1,15 @@
-#include "ssd1306.h"
-#include <string.h>
+#include "maple.h"
+#include "draw.h"
 
 uint8_t _Framebuffer[SSD1306_FRAMEBUFFER_SIZE + 1] = {0x40};
 uint8_t *Framebuffer = _Framebuffer+1;
 
-void SendCommand(uint8_t cmd) {
+void ssd1306SendCommand(uint8_t cmd) {
     uint8_t buf[] = {0x00, cmd};
     i2c_write_blocking(SSD1306_I2C, DEVICE_ADDRESS, buf, 2, false);
 }
 
-void SendCommandBuffer(uint8_t *inbuf, int len) {
+void ssd1306SendCommandBuffer(uint8_t *inbuf, int len) {
     i2c_write_blocking(SSD1306_I2C, DEVICE_ADDRESS, inbuf, len, false);
 }
 
@@ -34,20 +34,19 @@ uint8_t init_cmds[]=
     SSD1306_COLUMNADDR, 0, SSD1306_LCDWIDTH-1,  // Set the screen wrapping points
     SSD1306_PAGEADDR, 0, 7};
 
-    SendCommandBuffer(init_cmds, sizeof(init_cmds));
+    ssd1306SendCommandBuffer(init_cmds, sizeof(init_cmds));
 }
 
-// This copies the entire framebuffer to the display.
-void UpdateDisplay() {
+// This copies the entire framebuffer to the display. TO-DO: Update to use DMA
+void updateSSD1306() {
     i2c_write_blocking(SSD1306_I2C, DEVICE_ADDRESS, _Framebuffer, sizeof(_Framebuffer), false);
 }
 
-void ClearDisplay() {
+void clearSSD1306() {
     memset(Framebuffer, 0, SSD1306_FRAMEBUFFER_SIZE);
-    UpdateDisplay();
 }
 
-void setPixel1306(int x,int y, bool on) {
+void setPixelSSD1306(int x,int y, bool on) {
     assert(x >= 0 && x < SSD1306_LCDWIDTH && y >=0 && y < SSD1306_LCDHEIGHT);
 
     const int BytesPerRow = SSD1306_LCDWIDTH; // 128 pixels, 1bpp, but each row is 8 pixel high, so (128 / 8) * 8
