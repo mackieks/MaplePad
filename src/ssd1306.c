@@ -1,5 +1,9 @@
+/* ssd1306.c
+ *  monochrome 128x64 I2C OLED driver
+ */
+
 #include "maple.h"
-#include "draw.h"
+#include "display.h"
 
 uint8_t _Framebuffer[SSD1306_FRAMEBUFFER_SIZE + 1] = {0x40};
 uint8_t *Framebuffer = _Framebuffer+1;

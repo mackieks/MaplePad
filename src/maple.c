@@ -1,35 +1,25 @@
-/**
+/*
  * MaplePad
  * Dreamcast controller emulator for Raspberry Pi Pico (RP2040)
- * (C) Charlie Cole 2021
+ * © Charlie Cole 2021
  *
- * Modified by Mackie Kannard-Smith 2022
+ * Modified by Mackie Kannard-Smith (mackieks / YveltalGriffin) 2022
  * SSD1306 library by James Hughes (JamesH65)
  *
- * Dreamcast controller connector pin 1 (Maple Bus A) to GP11 (MAPLE_A)
- * Dreamcast controller connector pin 5 (Maple Bus B) to GP12 (MAPLE_B)
- * Dreamcast controller connector pins 3 (GND) and 4 (Sense) to GND
- * GPIO pins for buttons (uses internal pullups, switch to GND. See ButtonInfos in maple.h)
- *
+ * Check out the wiring diagram on Github! (https://github.com/mackieks/MaplePad)
+ * 
  * Maple TX done completely in PIO. Sends start of packet, data and end of
- * packet. Fed by DMA so fire and forget.
+ * packet. Fed by DMA, so fire and forget.
  *
  * Maple RX done mostly in software on core 1. PIO just waits for transitions
- * and shifts in whenever data pins change. For maximum speed the RX state
+ * and shifts in whenever data pins change. For maximum speed, the RX state
  * machine is implemented in lookup table to process 4 transitions at a time
- * 
- * 
- * !!!!!TO-DO: 
+ *  
  */
 
 #include "maple.h"
 #include "menu.h"
-#include "draw.h"
-
-#include <math.h>
-#include <stdio.h>
-#include <string.h>
-#include <time.h>
+#include "display.h"
 
 // Maple Bus Defines and Funcs
 
@@ -213,7 +203,7 @@ uint32_t lastPress = 0;
 static const uint8_t NumWrites = LCDFramebufferSize / BPPacket;
 static uint8_t LCDFramebuffer[LCDFramebufferSize] = {0};
 volatile bool LCDUpdated = false;
-volatile bool oledType = true; // True = SSD1331, false = SSD1306
+volatile uint8_t oledType = 1; 
 
 // Timer
 static uint8_t dateTime[8] = {0};
@@ -1790,8 +1780,8 @@ int main()
   if(!gpio_get(ButtonInfos[3].InputIO) && !gpio_get(ButtonInfos[8].InputIO)){ // Y + Start
     menu();
     updateFlashData();
-    clearSSD1331();
-    updateSSD1331();
+    clearDisplay(oledType);
+    updateDisplay(oledType);
   }
 
   // Start Core1 Maple RX

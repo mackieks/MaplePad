@@ -17,7 +17,7 @@ pico_add_extra_outputs(maplepad)
 
 pico_generate_pio_header(maplepad ${CMAKE_CURRENT_LIST_DIR}/src/maple.pio)
 
-target_sources(maplepad PRIVATE src/maple.c src/state_machine.c src/format.c src/ssd1331.c src/ssd1306.c src/font.c src/menu.c src/draw.c)
+target_sources(maplepad PRIVATE src/maple.c src/state_machine.c src/format.c src/ssd1331.c src/ssd1306.c src/font.c src/menu.c src/display.c)
 
 
 target_link_libraries(maplepad PRIVATE

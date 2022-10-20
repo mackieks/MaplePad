@@ -1,18 +1,14 @@
-/* draw.c
-*  drawing functions for all OLEDs
-*
-*
-*/
+/* display.c
+ *  drawing functions for all OLEDs
+ */
 
-#include "draw.h"
-#include "ssd1331.h"
-#include "ssd1306.h"
+#include "display.h"
 
 #define TRUE 1
 #define FALSE 0
 
 extern tFont Font;
-extern volatile bool oledType;
+extern volatile uint8_t oledType;
 
 // Math constants we'll use
 double const pi=3.1415926535897932384626433;	// pi
@@ -691,10 +687,26 @@ void putString(char* text, int ix, int iy, uint16_t color){
   }
 }
 
+void displayInit(uint8_t oledType)
+{
+  if (oledType) // 1
+    ssd1331_init();
+  else // 0
+    ssd1306_init();
+}
+
 void updateDisplay(uint8_t oledType)
 {
   if (oledType) // 1
     updateSSD1331();
   else // 0
     updateSSD1306();
+}
+
+void clearDisplay(uint8_t oledType)
+{
+  if (oledType) // 1
+    clearSSD1331();
+  else // 0
+    clearSSD1306();
 }

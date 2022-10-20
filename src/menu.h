@@ -6,6 +6,8 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
+#pragma once 
+
 #include "ssd1331.h"
 #include "pico/stdlib.h"
 

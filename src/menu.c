@@ -1,11 +1,17 @@
 /*
-    Menu 
-*/
+ * MaplePad Menu
+ *
+ * Attempt at a flexible, extensible, hierarchical menu system 
+ * 
+ */
+
 #include "maple.h"
 #include "menu.h"
+#include "display.h"
 
 extern ButtonInfo ButtonInfos[];
 extern uint8_t flashData[64];
+extern volatile uint8_t oledType;
 
 uint32_t flipLockout;
 uint ssd1331present = 1;
@@ -37,12 +43,12 @@ int sCal(menuItem *self){
 
 	while(!gpio_get(ButtonInfos[0].InputIO));
 
-    clearSSD1331();
+    clearDisplay(oledType);
     char *cal_string = "center stick";
     putString(cal_string, 0, 0, 0x049f);
 	cal_string = "and press A";
 	putString(cal_string, 0, 1, 0x049f);
-    updateSSD1331();
+    updateDisplay(oledType);
 
 	sleep_ms(500);
 	while(gpio_get(ButtonInfos[0].InputIO));
@@ -53,12 +59,12 @@ int sCal(menuItem *self){
     adc_select_input(1); // Y
     yCenter = adc_read() >> 4;
 
-    clearSSD1331();
+    clearDisplay(oledType);
     cal_string = "xMin left";
     putString(cal_string, 0, 0, 0x049f);
 	cal_string = "and press A";
 	putString(cal_string, 0, 1, 0x049f);
-    updateSSD1331();
+    updateDisplay(oledType);
 
 	sleep_ms(500);
 	while(gpio_get(ButtonInfos[0].InputIO));
@@ -66,12 +72,12 @@ int sCal(menuItem *self){
     adc_select_input(0); // Xmin
     xMin = adc_read() >> 4;
 
-    clearSSD1331();
+    clearDisplay(oledType);
     cal_string = "yMin up";
     putString(cal_string, 0, 0, 0x049f);
 	cal_string = "and press A";
 	putString(cal_string, 0, 1, 0x049f);
-    updateSSD1331();
+    updateDisplay(oledType);
 
 	sleep_ms(500);
 	while(gpio_get(ButtonInfos[0].InputIO));
@@ -79,12 +85,12 @@ int sCal(menuItem *self){
     adc_select_input(1); // Ymin
     yMin = adc_read() >> 4;
 
-    clearSSD1331();
+    clearDisplay(oledType);
     cal_string = "yMax down";
     putString(cal_string, 0, 0, 0x049f);
 	cal_string = "and press A";
 	putString(cal_string, 0, 1, 0x049f);
-    updateSSD1331();
+    updateDisplay(oledType);
 
 	sleep_ms(500);
 	while(gpio_get(ButtonInfos[0].InputIO));
@@ -92,12 +98,12 @@ int sCal(menuItem *self){
     adc_select_input(1); // Ymax
     yMax = adc_read() >> 4;
 
-    clearSSD1331();
+    clearDisplay(oledType);
     cal_string = "xMax right";
     putString(cal_string, 0, 0, 0x049f);
 	cal_string = "and press A";
 	putString(cal_string, 0, 1, 0x049f);
-    updateSSD1331();
+    updateDisplay(oledType);
 
 	sleep_ms(500);
 	while(gpio_get(ButtonInfos[0].InputIO));
@@ -131,14 +137,14 @@ int tCal(menuItem *self){
 
 	while(!gpio_get(ButtonInfos[0].InputIO));
 
-    clearSSD1331();
+    clearDisplay(oledType);
     char *cal_string = "leave";
     putString(cal_string, 0, 0, 0x049f);
 	cal_string = "triggers idle";
 	putString(cal_string, 0, 1, 0x049f);
 	cal_string = "and press A";
 	putString(cal_string, 0, 2, 0x049f);
-    updateSSD1331();
+    updateDisplay(oledType);
 
 	sleep_ms(500);
 	while(gpio_get(ButtonInfos[0].InputIO));
@@ -149,12 +155,12 @@ int tCal(menuItem *self){
     adc_select_input(3); // R
     rMin = adc_read() >> 4;
 
-    clearSSD1331();
+    clearDisplay(oledType);
     cal_string = "hold lMax";
     putString(cal_string, 0, 0, 0x049f);
 	cal_string = "and press A";
 	putString(cal_string, 0, 1, 0x049f);
-    updateSSD1331();
+    updateDisplay(oledType);
 
 	sleep_ms(500);
 	while(gpio_get(ButtonInfos[0].InputIO));
@@ -162,12 +168,12 @@ int tCal(menuItem *self){
     adc_select_input(2); // lMax
     lMax = adc_read() >> 4;
 
-    clearSSD1331();
+    clearDisplay(oledType);
     cal_string = "hold rMax";
     putString(cal_string, 0, 0, 0x049f);
 	cal_string = "and press A";
 	putString(cal_string, 0, 1, 0x049f);
-    updateSSD1331();
+    updateDisplay(oledType);
 
 	sleep_ms(500);
 	while(gpio_get(ButtonInfos[0].InputIO));
@@ -274,7 +280,7 @@ static menuItem stickConfig[6] = {
     {"Deadzone Edit ", 2, 1, 0, 1, 1, sDeadzone},
     {"Invert X      ", 1, 1, 0, 0, 1, toggleOption},
     {"Invert Y      ", 1, 1, 0, 0, 1, toggleOption},
-    {"Swap X Y      ", 1, 0, 0, 0, 1, toggleOption}
+    {"Swap X&Y      ", 1, 0, 0, 0, 1, toggleOption}
 };
 
 int sConfig(menuItem* self){
@@ -285,13 +291,13 @@ int sConfig(menuItem* self){
     return(1);
 }
 
-static menuItem triggerConfig[5] = {
+static menuItem triggerConfig[6] = {
     {"Back          ", 2, 1, 0, 1, 1, mainmen},
     {"Calibration   ", 2, 1, 1, 1, 1, tCal},
 	{"Deadzone Edit ", 2, 1, 0, 1, 1, tDeadzone},
     {"Invert L      ", 1, 1, 0, 0, 1, toggleOption},
     {"Invert R      ", 1, 1, 0, 0, 1, toggleOption},
-    {"Swap L R      ", 1, 1, 0, 0, 1, toggleOption}
+    {"Swap L&R      ", 1, 1, 0, 0, 1, toggleOption}
 };
 
 int tConfig(menuItem* self){
@@ -373,7 +379,7 @@ void getLastVisibleEntry(){
 }
 
 void redrawMenu(){
-	clearSSD1331();
+	clearDisplay(oledType);
 
 	for(uint8_t n = 0; n < currentNumEntries; n++){
 		if(currentMenu[n].visible){
@@ -383,7 +389,7 @@ void redrawMenu(){
 		}
 		drawCursor(selectedEntry + entryModifier, color);
 	}
-	updateSSD1331();
+	updateDisplay(oledType);
 }
 
 static uint16_t hue = 0;

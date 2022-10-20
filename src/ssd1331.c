@@ -1,5 +1,9 @@
+/* ssd1331.c
+ *  16-bit color 96x64 SPI OLED driver
+ */
+
 #include "maple.h"
-#include "draw.h"
+#include "display.h"
 
 #define TRUE 1
 #define FALSE 0
