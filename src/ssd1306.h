@@ -6,8 +6,7 @@
 #include "hardware/i2c.h"
 
 // SSD1306 defines
-static int DEVICE_ADDRESS = 0x3C;
-
+#define SSD1306_ADDRESS 0x3C
 #define SSD1306_I2C i2c1
 #define I2C_SDA 2
 #define I2C_SCL 3

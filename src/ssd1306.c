@@ -10,11 +10,11 @@ uint8_t *Framebuffer = _Framebuffer+1;
 
 void ssd1306SendCommand(uint8_t cmd) {
     uint8_t buf[] = {0x00, cmd};
-    i2c_write_blocking(SSD1306_I2C, DEVICE_ADDRESS, buf, 2, false);
+    i2c_write_blocking(SSD1306_I2C, SSD1306_ADDRESS, buf, 2, false);
 }
 
 void ssd1306SendCommandBuffer(uint8_t *inbuf, int len) {
-    i2c_write_blocking(SSD1306_I2C, DEVICE_ADDRESS, inbuf, len, false);
+    i2c_write_blocking(SSD1306_I2C, SSD1306_ADDRESS, inbuf, len, false);
 }
 
 void ssd1306_init() {
@@ -43,7 +43,7 @@ uint8_t init_cmds[]=
 
 // This copies the entire framebuffer to the display. TO-DO: Update to use DMA
 void updateSSD1306() {
-    i2c_write_blocking(SSD1306_I2C, DEVICE_ADDRESS, _Framebuffer, sizeof(_Framebuffer), false);
+    i2c_write_blocking(SSD1306_I2C, SSD1306_ADDRESS, _Framebuffer, sizeof(_Framebuffer), false);
 }
 
 void clearSSD1306() {

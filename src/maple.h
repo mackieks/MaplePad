@@ -36,7 +36,7 @@
 
 extern uint8_t flashData[];
 
-void updateFlashData(void);
+void updateFlashData();
 
 typedef struct PacketHeader_s {
   int8_t Command;

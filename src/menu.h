@@ -1,14 +1,18 @@
 /*
     Menu 
 */
+
+#pragma once 
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
-#pragma once 
 
 #include "ssd1331.h"
+#include "ssd1306.h"
+
 #include "pico/stdlib.h"
 
 #define xCenter flashData[0]
@@ -32,6 +36,9 @@
 #define oledFlip flashData[18] 
 #define swapXY flashData[19]
 #define swapLR flashData[20]
+#define oledType flashData[21]
+
+extern ButtonInfo ButtonInfos[];
 
 typedef struct menuItem_s menuItem;
 
@@ -42,7 +49,7 @@ struct menuItem_s
 	bool visible;
     bool selected;
     bool on;
-    bool enabled;   // control for greyed-out menu items
+    bool enabled;   // control for greyed-out menu items (ssd1331) and hidden menu items (ssd1306)
     int (*run)(menuItem *self);
 };
 

@@ -941,26 +941,14 @@ void ssd1331_init() {
   ssd1331WriteCommand(SSD1331_CMD_NORMALDISPLAY); // 0xA4
   ssd1331WriteCommand(SSD1331_CMD_DISPLAYON); //--turn on oled panel
 
-  // gpio_put(DC, 0);
-
-  // ssd1331WriteCommand(0x15);
-  // ssd1331WriteCommand(0);
-  // ssd1331WriteCommand(95);
-  // ssd1331WriteCommand(0x75);
-  // ssd1331WriteCommand(0);
-  // ssd1331WriteCommand(63);
-
-  // gpio_put(DC, 1);
-
-
-  // dma_tx = dma_claim_unused_channel(true);
-  // c = dma_channel_get_default_config(dma_tx);
-  // channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
-  // channel_config_set_dreq(&c, spi_get_index(SSD1331_SPI) ? DREQ_SPI1_TX : DREQ_SPI0_TX);
+  dma_tx = dma_claim_unused_channel(true);
+  c = dma_channel_get_default_config(dma_tx);
+  channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
+  channel_config_set_dreq(&c, spi_get_index(SSD1331_SPI) ? DREQ_SPI1_TX : DREQ_SPI0_TX);
   // dma_channel_configure(dma_tx, &c,
   //                         &spi_get_hw(SSD1331_SPI)->dr, // write address
-  //                         image_data_splash_girl_sat, // read address
-  //                         sizeof(image_data_splash_girl_sat), // element count (each element is of size transfer_data_size)
+  //                         image_data_maplepad_logo_9664, // read address
+  //                         sizeof(image_data_maplepad_logo_9664), // element count (each element is of size transfer_data_size)
   //                         true); // start
 
   // spi_write_blocking(SSD1331_SPI, image_data_maplepad_logo_9664, sizeof(image_data_maplepad_logo_9664));

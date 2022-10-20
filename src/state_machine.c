@@ -3,7 +3,7 @@
 #include "state_machine.h"
 
 // Simple state machine
-// This part of the code encodes the basic state machine states for recieving Maple
+// This part of the code encodes the basic state machine states for recieving Maple packets
 // We will later use this to precalculate the lookup table for dealing with multiple transitions at once
 // The tables we create here could be thrown away once the combined state machine table is built
 

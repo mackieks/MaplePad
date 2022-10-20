@@ -40,11 +40,11 @@
 // Purupuru Enable
 #define ENABLE_RUMBLE 1
 
+// Memory Card
 #define PHASE_SIZE (BLOCK_SIZE / 4)
 #define FLASH_WRITE_DELAY 16       // About quarter of a second if polling once a frame TWEAKED TO 64, SEE IF CDOS IMPROVES
 #define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 100kB of code so assuming this will be fine
 
-// 
 #if PICO
 #define PAGE_BUTTON 21 // Pull GP21 low for Page Cycle. Avoid page cycling for ~10s after saving or copying VMU data to avoid data corruption
 #elif MAPLEPAD
@@ -203,7 +203,6 @@ uint32_t lastPress = 0;
 static const uint8_t NumWrites = LCDFramebufferSize / BPPacket;
 static uint8_t LCDFramebuffer[LCDFramebufferSize] = {0};
 volatile bool LCDUpdated = false;
-volatile uint8_t oledType = 1; 
 
 // Timer
 static uint8_t dateTime[8] = {0};
@@ -819,9 +818,7 @@ void SendControllerStatus()
     ControllerPacket.Controller.RightTrigger = temp;
   }
 
-#endif
-
-  
+#endif  
 
   ControllerPacket.CRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
 
@@ -1688,9 +1685,10 @@ int main()
   gpio_set_dir(OLED_PIN, GPIO_IN);
   gpio_pull_up(OLED_PIN);
 
-  oledType = gpio_get(OLED_PIN);
+  // TO-DO: Update with 0, 1, 2 once new AMOLED is working
+  oledType = gpio_get(OLED_PIN); 
 
-  if (gpio_get(OLED_PIN))
+  if (oledType)
   { // set up SPI for SSD1331 OLED
     spi_init(SSD1331_SPI, SSD1331_SPEED);
     spi_set_format(spi0, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
@@ -1888,18 +1886,18 @@ int main()
                 if (LCD_Width == 48 && LCD_Height == 32) // Standard LCD
                 {
                   if (((LCDFramebuffer[fb] >> bb) & 0x01))
-                  {                                                                                                            // if bit is set...
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, palette[currentPage - 1], oledType);       // set corresponding OLED pixels!
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, palette[currentPage - 1], oledType); // Each VMU dot corresponds to 4 OLED pixels.
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1], oledType);
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1], oledType);
+                  {                                                                                                                      // if bit is set...
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, palette[currentPage - 1]);       // set corresponding OLED pixels!
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, palette[currentPage - 1]); // Each VMU dot corresponds to 4 OLED pixels.
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1]);
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1]);
                   }
                   else
                   {
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, 0, oledType); // ...otherwise, clear the four OLED pixels.
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, 0, oledType);
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, 0, oledType);
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, 0, oledType);
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, 0); // ...otherwise, clear the four OLED pixels.
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, 0);
+                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, 0);
+                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, 0);
                   }
                 } // else // 128x64 Experimental Mode
                 // {

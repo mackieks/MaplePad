@@ -7,9 +7,6 @@
 #define TRUE 1
 #define FALSE 0
 
-extern tFont Font;
-extern volatile uint8_t oledType;
-
 // Math constants we'll use
 double const pi=3.1415926535897932384626433;	// pi
 double const twopi=2.0*pi;			// pi times 2
@@ -178,7 +175,7 @@ void fast_hsv2rgb_32bit(uint16_t h, uint8_t s, uint8_t v, uint8_t *r, uint8_t *g
 	}
 }
 
-void setPixel(uint8_t x, uint8_t y, uint16_t color, uint8_t oledType)
+void setPixel(uint8_t x, uint8_t y, uint16_t color)
 {
   if (oledType) // 1
     setPixelSSD1331(x, y, color);
@@ -207,7 +204,7 @@ void drawEllipse(int xc, int yc, int xr, int yr, int angle){
     y = yc + yr * sin32(theta);
     xrot = round(xc + (x - xc) * cangle - (y - yc) * sangle);
     yrot = round(yc + (x - xc) * sangle + (y - yc) * cangle);
-    setPixel(xrot, yrot, 0xffff, oledType);
+    setPixel(xrot, yrot, 0xffff);
   }
   //updateSSD1331();
 };
@@ -233,7 +230,7 @@ void hagl_draw_line(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t col
     err = (dx > dy ? dx : -dy) / 2;
 
     while (1) {
-        setPixel(x0, y0, color, oledType);
+        setPixel(x0, y0, color);
 
         if (x0 == x1 && y0 == y1) {
             break;
@@ -291,18 +288,18 @@ int f = 1 - r;
 void drawCursor(int iy, uint16_t color){
   for(int i = 87; i <= 95; i++){
     for(int j = 0; j <= 63; j++){
-      setPixel(i,j,0x00, oledType);
+      setPixel(i,j,0x00);
     }
   }
   for(int i = 93; i >= 90; i--){
     for(int j = 57; j >= 53; j--){
       if(i > 90)
-        setPixel(i, j - (12 * iy), color, oledType);
+        setPixel(i, j - (12 * iy), color);
       else if ((j > 53) && (j < 57))
-        setPixel(i, j - (12 * iy), color, oledType);
+        setPixel(i, j - (12 * iy), color);
     }
   }
-  setPixel(89, 55 - (12 * iy), color, oledType);
+  setPixel(89, 55 - (12 * iy), color);
 }
 
 void drawToggle(int iy, uint16_t color, bool on){
@@ -310,43 +307,43 @@ void drawToggle(int iy, uint16_t color, bool on){
     for(int i = 20; i >= 3; i--){
       for(int j = 58; j >= 52; j--){
         if( !(( i >= 4 && i <= 8) && (j >= 53 && j <= 57)) )
-          setPixel(i, j - (12 * iy), color, oledType);
+          setPixel(i, j - (12 * iy), color);
       }
     }
-    setPixel(20, 58 - (12 * iy), 0x0000, oledType);
-    setPixel(20, 57 - (12 * iy), 0x0000, oledType);
-    setPixel(20, 53 - (12 * iy), 0x0000, oledType);
-    setPixel(20, 52 - (12 * iy), 0x0000, oledType);
-    setPixel(19, 58 - (12 * iy), 0x0000, oledType);
-    setPixel(19, 52 - (12 * iy), 0x0000, oledType);
+    setPixel(20, 58 - (12 * iy), 0x0000);
+    setPixel(20, 57 - (12 * iy), 0x0000);
+    setPixel(20, 53 - (12 * iy), 0x0000);
+    setPixel(20, 52 - (12 * iy), 0x0000);
+    setPixel(19, 58 - (12 * iy), 0x0000);
+    setPixel(19, 52 - (12 * iy), 0x0000);
 
-    setPixel(3, 58 - (12 * iy), 0x0000, oledType);
-    setPixel(3, 57 - (12 * iy), 0x0000, oledType);
-    setPixel(3, 53 - (12 * iy), 0x0000, oledType);
-    setPixel(3, 52 - (12 * iy), 0x0000, oledType);
-    setPixel(4, 58 - (12 * iy), 0x0000, oledType);
-    setPixel(4, 52 - (12 * iy), 0x0000, oledType);
+    setPixel(3, 58 - (12 * iy), 0x0000);
+    setPixel(3, 57 - (12 * iy), 0x0000);
+    setPixel(3, 53 - (12 * iy), 0x0000);
+    setPixel(3, 52 - (12 * iy), 0x0000);
+    setPixel(4, 58 - (12 * iy), 0x0000);
+    setPixel(4, 52 - (12 * iy), 0x0000);
 
-    setPixel(4, 57 - (12 * iy), color, oledType);
-    setPixel(8, 57 - (12 * iy), color, oledType);
-    setPixel(8, 53 - (12 * iy), color, oledType);
-    setPixel(4, 53 - (12 * iy), color, oledType);
+    setPixel(4, 57 - (12 * iy), color);
+    setPixel(8, 57 - (12 * iy), color);
+    setPixel(8, 53 - (12 * iy), color);
+    setPixel(4, 53 - (12 * iy), color);
   } else {
     for(int i = 18; i >= 5; i--){
-      setPixel(i, 58 - (12 * iy), color, oledType);
-      setPixel(i, 52 - (12 * iy), color, oledType);
+      setPixel(i, 58 - (12 * iy), color);
+      setPixel(i, 52 - (12 * iy), color);
     }
     for(int j = 56; j >= 54; j--){
-      setPixel(3, j - (12 * iy), color, oledType);
-      setPixel(14, j - (12 * iy), color, oledType);
-      setPixel(20, j - (12 * iy), color, oledType);
+      setPixel(3, j - (12 * iy), color);
+      setPixel(14, j - (12 * iy), color);
+      setPixel(20, j - (12 * iy), color);
     }
-    setPixel(4, 57 - (12 * iy), color, oledType);
-    setPixel(4, 53 - (12 * iy), color, oledType);
-    setPixel(15, 57 - (12 * iy), color, oledType);
-    setPixel(15, 53 - (12 * iy), color, oledType);
-    setPixel(19, 57 - (12 * iy), color, oledType);
-    setPixel(19, 53 - (12 * iy), color, oledType);
+    setPixel(4, 57 - (12 * iy), color);
+    setPixel(4, 53 - (12 * iy), color);
+    setPixel(15, 57 - (12 * iy), color);
+    setPixel(15, 53 - (12 * iy), color);
+    setPixel(19, 57 - (12 * iy), color);
+    setPixel(19, 53 - (12 * iy), color);
   }
 }
 
@@ -359,9 +356,9 @@ void putLetter(int ix, int iy, int index, uint16_t color){
   for(int i = 0; i <= 9; i++){
     for(int j = 2; j <= 7; j++){  // iterate through bits in row of character
       if( !((1 << j) & a[i]) )
-        setPixel((88-(ix*6))-j,(59-(iy*10)-(iy*2))-i,color, oledType);
+        setPixel((88-(ix*6))-j,(59-(iy*10)-(iy*2))-i,color);
       else
-        setPixel((88-(ix*6))-j,(59-(iy*10)-(iy*2))-i,0x0000, oledType);
+        setPixel((88-(ix*6))-j,(59-(iy*10)-(iy*2))-i,0x0000);
     }
   }
 }
@@ -687,7 +684,7 @@ void putString(char* text, int ix, int iy, uint16_t color){
   }
 }
 
-void displayInit(uint8_t oledType)
+void displayInit()
 {
   if (oledType) // 1
     ssd1331_init();
@@ -695,7 +692,7 @@ void displayInit(uint8_t oledType)
     ssd1306_init();
 }
 
-void updateDisplay(uint8_t oledType)
+void updateDisplay()
 {
   if (oledType) // 1
     updateSSD1331();
@@ -703,7 +700,7 @@ void updateDisplay(uint8_t oledType)
     updateSSD1306();
 }
 
-void clearDisplay(uint8_t oledType)
+void clearDisplay()
 {
   if (oledType) // 1
     clearSSD1331();

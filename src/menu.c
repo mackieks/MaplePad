@@ -1,7 +1,14 @@
 /*
  * MaplePad Menu
  *
- * Attempt at a flexible, extensible, hierarchical menu system 
+ * Attempt at a flexible & extensible hierarchical menu system 
+ * 
+ * TO-DO:
+ * ☐ VMU Palette submenu
+ * ☐ UI Palette submenu
+ * ☐ Deadzone adjust submenus for stick + trigger
+ * ☐ Button test submenu (lineart + ellipse routine for now)
+ * ☐ OLED Detect (ssd1331present, needs to make certain menu items invisible if ssd1306 is selected)
  * 
  */
 
@@ -9,9 +16,7 @@
 #include "menu.h"
 #include "display.h"
 
-extern ButtonInfo ButtonInfos[];
-extern uint8_t flashData[64];
-extern volatile uint8_t oledType;
+
 
 uint32_t flipLockout;
 uint ssd1331present = 1;
