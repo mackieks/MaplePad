@@ -25,11 +25,11 @@ Feature List:
 - [x] Full FT<sub>0</sub> (controller) support including analog joystick and triggers
 - [x] Full FT<sub>1</sub> (storage) support for savegames with 1600 blocks of space
 - [x] Multipaging for memory card (8 separate 200-block memory cards)
-- [x] Full FT<sub>2</sub> (LCD) support with SSD1331 96\*64 color SPI OLED for VMU display (SSD1306 128\*64 I2C OLED also supported)
+- [x] Full FT<sub>2</sub> (LCD) support with SSD1331 96\*64 color SPI OLED for VMU display (monochrome SSD1306 128\*64 I2C OLED also supported)
 - [x] Customizable color palettes for all 8 internal memory cards
 - [x] Robust FT<sub>8</sub> (vibration) functionality (WIP)
 - [x] Robust FT<sub>3</sub> (timer/RTC) reporting for compatibility purposes (no RTC)
-- [x] Basic menu on SSD1331 OLED for configuring MaplePad behavior (WIP)
+- [x] Basic menu on SSD1306 and SSD1331 OLED for configuring MaplePad behavior (WIP)
 
 To-do: (highest priority to lowest)
 - [ ] Finish FT<sub>8</sub> (vibration) continuous vibration and AST
