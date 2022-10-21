@@ -11,9 +11,7 @@
 #define I2C_SDA 2
 #define I2C_SCL 3
 
- // This can be overclocked, 2000 seems to work on the device being tested
- // Spec says 400 is the maximum. Try faster clocks until it stops working!
- // Value in KHz.
+ // value in KHz
 #define I2C_CLOCK  3000
 
 #define SSD1306_LCDWIDTH            128
@@ -62,5 +60,7 @@ void ssd1306_init();
 void updateSSD1306();
 
 void clearSSD1306();
+
+void splashSSD1306();
 
 void setPixelSSD1306(int x,int y, bool on);

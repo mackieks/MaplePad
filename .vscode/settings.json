@@ -45,6 +45,7 @@
         "time.h": "c",
         "timer.h": "c",
         "stdint.h": "c",
-        "menu.h": "c"
+        "menu.h": "c",
+        "binary_info.h": "c"
     }
 }

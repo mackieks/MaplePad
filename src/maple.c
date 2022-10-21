@@ -1687,6 +1687,7 @@ int main()
 
   // TO-DO: Update with 0, 1, 2 once new AMOLED is working
   oledType = gpio_get(OLED_PIN); 
+  updateFlashData();
 
   if (oledType)
   { // set up SPI for SSD1331 OLED
@@ -1707,6 +1708,7 @@ int main()
     gpio_pull_up(I2C_SCL);
 
     ssd1306_init();
+    splashSSD1306();
   }
 
 #if PICO // Calibration mode button (dev/debug only)
@@ -1778,8 +1780,8 @@ int main()
   if(!gpio_get(ButtonInfos[3].InputIO) && !gpio_get(ButtonInfos[8].InputIO)){ // Y + Start
     menu();
     updateFlashData();
-    clearDisplay(oledType);
-    updateDisplay(oledType);
+    clearDisplay();
+    updateDisplay();
   }
 
   // Start Core1 Maple RX
@@ -1879,6 +1881,9 @@ int main()
           }
           if (LCDUpdated)
           {
+            if(!oledType) // clear SSD1306 128x64 splashscreen
+              clearDisplay();
+
             for (int fb = 0; fb < LCDFramebufferSize; fb++)
             { // iterate through LCD framebuffer
               for (int bb = 0; bb <= 7; bb++)
@@ -1886,7 +1891,7 @@ int main()
                 if (LCD_Width == 48 && LCD_Height == 32) // Standard LCD
                 {
                   if (((LCDFramebuffer[fb] >> bb) & 0x01))
-                  {                                                                                                                      // if bit is set...
+                  {                                                                                                            // if bit is set...
                     setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, palette[currentPage - 1]);       // set corresponding OLED pixels!
                     setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, palette[currentPage - 1]); // Each VMU dot corresponds to 4 OLED pixels.
                     setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1]);
@@ -1909,8 +1914,7 @@ int main()
                 // }
               }
             }
-            updateDisplay(oledType);
-            // updateSSD1331();
+            updateDisplay();
             LCDUpdated = false;
           }
           break;

@@ -2,6 +2,7 @@
  *  16-bit color 96x64 SPI OLED driver
  */
 
+#include "ssd1331.h"
 #include "maple.h"
 #include "display.h"
 
@@ -834,7 +835,7 @@ void setPixelSSD1331(const uint8_t x, const uint8_t y, const uint16_t color){
   // ssd1331WriteCommand(b);
 }
 
-void updateSSD1331(void){
+void updateSSD1331(){
   gpio_put(DC, 0);
 
   ssd1331WriteCommand(0x15);
@@ -856,7 +857,7 @@ void updateSSD1331(void){
   //spi_write_blocking(SSD1331_SPI, oledFB, sizeof(oledFB));
 }
 
-void splashSSD1331(void){
+void splashSSD1331(){
   gpio_put(DC, 0);
 
   ssd1331WriteCommand(0x15);
@@ -881,7 +882,7 @@ void splashSSD1331(void){
   //spi_write_blocking(SSD1331_SPI, oledFB, sizeof(oledFB));
 }
 
-void clearSSD1331(void){
+void clearSSD1331(){
   memset(oledFB, 0, sizeof(oledFB));
 }
 

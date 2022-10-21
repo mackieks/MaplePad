@@ -3,6 +3,8 @@
  */
 
 #include "display.h"
+#include "ssd1331.h"
+#include "ssd1306.h"
 
 #define TRUE 1
 #define FALSE 0

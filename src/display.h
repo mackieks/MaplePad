@@ -1,14 +1,20 @@
-#pragma once 
+// #pragma once 
 
-#include <stdint.h>
-#include "pico/stdlib.h"
-#include <string.h>
 #include <math.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+#include <stdint.h>
+
+#include "pico/stdlib.h"
+#include "pico/binary_info.h"
+#include "hardware/spi.h"
+#include "hardware/dma.h"
+
 #include "maple.h"
 #include "menu.h"
 #include "font.h"
-#include "ssd1331.h"
-#include "ssd1306.h"
+
 
 extern tFont Font;
 
@@ -44,8 +50,8 @@ void putLetter(int ix, int iy, int index, uint16_t color);
 
 void putString(char* text, int ix, int iy, uint16_t color);
 
-void updateDisplay();
+void updateDisplay(void);
 
-void clearDisplay();
+void clearDisplay(void);
 
-void displayInit();
+void displayInit(void);
