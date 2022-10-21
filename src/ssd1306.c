@@ -1,5 +1,10 @@
 /* ssd1306.c
  *  monochrome 128x64 I2C OLED driver
+ * 
+ * Copyright (c) 2021 Raspberry Pi (Trading) Ltd.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  */
 
 #include "ssd1306.h"
