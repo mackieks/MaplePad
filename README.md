@@ -1,16 +1,16 @@
 # MaplePad<br/>
 
-<img src="images/maplepad_logo_shadow.png" width="500">
+<img style="border-width:0" src="images/maplepad_logo_shadow.png" width="500">
 
-MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) emulator that is intended for use in Dreamcast portables and custom Dreamcast controllers. It can be used with either the Raspberry Pi Pico or a custom MaplePad PCB (see hardware folder for [wiring diagram](https://raw.githubusercontent.com/mackieks/MaplePad/main/hardware/maplepad_wiring.png).)
+MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) emulator for use in Dreamcast portables and custom Dreamcast controllers. It can be used with either the Raspberry Pi Pico or a custom MaplePad PCB (see [hardware folder](https://github.com/mackieks/MaplePad/tree/main/hardware) for wiring diagram.)
 
-Note: MaplePad is still a WIP, and is not recommended for general use at this time.
+**Note:** MaplePad is still a WIP. You may experience issues with [Windows CE games](https://segaretro.org/Windows_CE). In most problematic titles, disabling VMU and rumble through the MaplePad menu will make the game playable. Check out the [Compatibility List](https://docs.google.com/spreadsheets/d/1JzTGN29Ci8SeuSGkQHLN1p6ayQNWUcsNw77SMujkjbs/edit?usp=sharing) for details!
 
 *StrikerDC MaplePad mod by Wesk:*
 
 <img src="images/striker3.jpg" width="250"> <img src="images/striker1.jpg" width="250"> <img src="images/striker2.jpg" width="250">
 
-
+## Features
 With MaplePad you can: cycle through 8 200-block internal VMUs with custom icons and colors at your leisure...
 
 <img src="images/vmu.png" width="750">
@@ -38,6 +38,12 @@ To-do: (highest priority to lowest)
 - [ ] Implement DC boot animation on OLED
 - [ ] Add external RTC for true FT<sub>3</sub> (timer/RTC) support
 - [ ] Implement FT<sub>4</sub> (microphone) support
+
+## License
+
+<a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/88x31.png" /></a> <img src="https://mirrors.creativecommons.org/presskit/icons/heart.red.png" width="35"> <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b7/Approved-for-free-cultural-works.svg/240px-Approved-for-free-cultural-works.svg.png" width="38"><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+
+Share — copy and redistribute the material in any medium or format. Adapt — remix, transform, and build upon the material for any purpose, even commercially. Attribution — You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may do so in any reasonable manner, but not in any way that suggests the licensor endorses you or your use. ShareAlike — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
 
 MaplePad is forked from [Charlie Cole's Pop'n Music Controller.](https://github.com/charcole/Dreamcast-PopnMusic)
 
