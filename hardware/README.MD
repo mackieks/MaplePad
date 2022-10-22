@@ -9,7 +9,9 @@ Notes:
 - The official Raspberry Pi Pico must be modded to access the right trigger pin (ADC3). See the wiring diagram for details.
 - For rumble, use an N-channel FET with V<sub>GS(th)</sub> < 3V and I<sub>d</sub> ≥ 1A. Both large Xbox-style ERMs and coin-type vibration motors work well.
 - You can add a freewheel diode between 5V and the NFET's drain if you'd like, but it's not necessary for prototyping.
-- The SPI OLED runs at a high clock speed. Use at least 34AWG wire and keep the wires short and direct.
+- Connect OLED_SEL to GND to select the SSD1306 OLED. Leave floating to select the SSD1331 OLED.
+- When wiring the SSD1306 I2C OLED, SDA and SCL need to be swapped and will not match the silkscreen on the OLED PCB. See the wiring diagram for details.
+- The SSD1331 SPI OLED runs at a high clock speed. Use at least 34AWG wire and keep the wires short and direct.
 
 # MaplePad 
 
