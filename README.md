@@ -1,4 +1,4 @@
-# MaplePad 🍁<br/>
+# MaplePad🍁<br/>
 
 <img style="border-width:0" src="images/maplepad_logo_shadow.png" width="500">
 
