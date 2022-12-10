@@ -1675,7 +1675,7 @@ int main()
   adc_gpio_init(28); // Left Trigger
   adc_gpio_init(29); // Right Trigger
 
-  sleep_ms(150); // wait for power to stabilize
+  //sleep_ms(150); // wait for power to stabilize
 
   memset(flashData, 0, sizeof(flashData));
   memcpy(flashData, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(flashData)); // read into variable
@@ -1685,8 +1685,11 @@ int main()
   gpio_set_dir(OLED_PIN, GPIO_IN);
   gpio_pull_up(OLED_PIN);
 
+  sleep_ms(20);
+
   // TO-DO: Update with 0, 1, 2 once new AMOLED is working
-  oledType = gpio_get(OLED_PIN); 
+  // volatile uint8_t oledSel = gpio_get(OLED_PIN);
+  oledType = gpio_get(OLED_PIN);
   updateFlashData();
 
   if (oledType)
@@ -1710,12 +1713,6 @@ int main()
     ssd1306_init();
     splashSSD1306();
   }
-
-#if PICO // Calibration mode button (dev/debug only)
-  gpio_init(CAL_MODE);
-  gpio_set_dir(CAL_MODE, GPIO_IN);
-  gpio_pull_up(CAL_MODE);
-#endif
 
 #if ENABLE_RUMBLE
   // PWM setup for rumble

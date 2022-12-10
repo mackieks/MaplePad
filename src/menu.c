@@ -16,8 +16,6 @@
 #include "menu.h"
 #include "display.h"
 
-
-
 uint32_t flipLockout;
 uint ssd1331present = 1;
 volatile bool redraw = 1;
@@ -321,7 +319,7 @@ static menuItem settings[8] = {
     {"UI Color      ", 2, 1, 0, 1, 1, paletteUI}, // ssd1331 present
     {"OLED:  SSD1331", 3, 0, 0, 1, 0, toggleOption},
 	{"OLED Flip     ", 1, 0, 0, 0, 1, toggleOption},
-    {"Firmware  1.4c", 3, 0, 0, 1, 0, dummy}
+    {"Firmware  1.4d", 3, 0, 0, 1, 0, dummy}
 };
 
 int setting(menuItem* self){
