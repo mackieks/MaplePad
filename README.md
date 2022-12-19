@@ -13,7 +13,7 @@ MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) 
 
 *MaplePad Arcade Controller with VMU by GamesCare ([link](https://gamescare.com.br/produto/controle-arcade-dreamcast-tela-de-vmu-e-8-vmus-virtuais-na-placa-maple-board/))*
 
-<img src="images/IMG_20221216_191824_896.jpg" height="180"> <img src="images/20221206_124644.jpg" height="180">
+<img src="images/IMG_20221216_191824_896.jpg" height="170"> <img src="images/IMG_20221216_191824_862.jpg" height="170"> <img src="images/20221206_124644.jpg" height="170">
 
 *Giant Dreamcast VMU + Arcade Stick by CrazyJojo (code modified, [video](https://www.youtube.com/watch?v=bEA_On7P_g8))*
 
