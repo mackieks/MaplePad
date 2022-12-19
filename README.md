@@ -7,11 +7,15 @@ MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) 
 **Note:** MaplePad is still a WIP. You may experience issues with [Windows CE games](https://segaretro.org/Windows_CE). In most problematic titles, disabling VMU and rumble through the MaplePad menu will make the game playable. Check out the [Compatibility List](https://docs.google.com/spreadsheets/d/1JzTGN29Ci8SeuSGkQHLN1p6ayQNWUcsNw77SMujkjbs/edit?usp=sharing) for details!
 
 ## Project Showcase
-*StrikerDC MaplePad mod by Wesk:*
+*StrikerDC MaplePad mod by Wesk*
 
 <img src="images/striker3.jpg" width="250"> <img src="images/striker1.jpg" width="250"> <img src="images/striker2.jpg" width="250">
 
-*Giant Dreamcast VMU + Arcade Stick by CrazyJojo [(video)](https://www.youtube.com/watch?v=bEA_On7P_g8)*
+*MaplePad Arcade Controller with VMU by GamesCare ([link](https://gamescare.com.br/produto/controle-arcade-dreamcast-tela-de-vmu-e-8-vmus-virtuais-na-placa-maple-board/))*
+
+<img src="images/IMG_20221216_191824_896.jpg" height="180"> <img src="images/20221206_124644.jpg" height="180">
+
+*Giant Dreamcast VMU + Arcade Stick by CrazyJojo (code modified, [video](https://www.youtube.com/watch?v=bEA_On7P_g8))*
 
 <img src="images/主机演示2[00_05_12][20221030-111434].png" height="170"> <img src="images/从机演示2生化[00_08_05][20221030-111628].png" height="170"> <img src="images/从机演示4[00_01_19][20221030-111601].png" height="170"> 
 
