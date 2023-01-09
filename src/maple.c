@@ -42,7 +42,7 @@
 
 // Memory Card
 #define PHASE_SIZE (BLOCK_SIZE / 4)
-#define FLASH_WRITE_DELAY 16       // About quarter of a second if polling once a frame TWEAKED TO 64, SEE IF CDOS IMPROVES
+#define FLASH_WRITE_DELAY 16       // About quarter of a second if polling once a frame
 #define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 100kB of code so assuming this will be fine
 
 #if PICO
@@ -1745,7 +1745,7 @@ int main()
   memcpy(flashData, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(flashData)); // read into variable
 
   // Pre-format VMU pages since rumble timer interrupt interferes with on-the-fly formatting
-  if(!firstBoot){ // if first boot (firstBoot initialized to zero)
+  if(firstBoot){ // flash is 0xFF when erased!
     uint Interrupts = save_and_disable_interrupts();
 
     for (int page = 1; page <= 8; page++)
@@ -1765,7 +1765,8 @@ int main()
       }
     }
     restore_interrupts(Interrupts);
-    firstBoot = 1; // first boot format done
+    firstBoot = 0; // first boot format done
+    currentPage = 1;
     updateFlashData();
   }
 
