@@ -2,34 +2,14 @@
 
 <img style="border-width:0" src="images/maplepad_logo_shadow.png" width="500">
 
-MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) emulator for use in Dreamcast portables and custom Dreamcast controllers. It can be used with either the Raspberry Pi Pico or a custom MaplePad PCB (see [hardware folder](https://github.com/mackieks/MaplePad/tree/main/hardware) for wiring diagram.)
+MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) emulator for Dreamcast portables and custom Dreamcast controllers. It runs on RP2040 and is usable with the Raspberry Pi Pico as well as custom MaplePad PCBs. See the [hardware folder](https://github.com/mackieks/MaplePad/tree/main/hardware) for a wiring diagram.
 
-**Note:** MaplePad is still a WIP. You may experience issues with [Windows CE games](https://segaretro.org/Windows_CE). In most problematic titles, disabling VMU and rumble through the MaplePad menu will make the game playable. Check out the [Compatibility List](https://docs.google.com/spreadsheets/d/1JzTGN29Ci8SeuSGkQHLN1p6ayQNWUcsNw77SMujkjbs/edit?usp=sharing) for details!
-
-## Project Showcase
-*StrikerDC MaplePad mod by Wesk*
-
-<img src="images/striker3.jpg" width="250"> <img src="images/striker1.jpg" width="250"> <img src="images/striker2.jpg" width="250">
-
-*MaplePad Arcade Controller with VMU by GamesCare ([link](https://gamescare.com.br/produto/controle-arcade-dreamcast-tela-de-vmu-e-8-vmus-virtuais-na-placa-maple-board/))*
-
-<img src="images/IMG_20221216_191824_896.jpg" height="190"> <img src="images/20221206_124644.jpg" height="190">
-
-*Giant Dreamcast VMU + Arcade Stick by CrazyJojo (code modified, [video](https://www.youtube.com/watch?v=bEA_On7P_g8))*
-
-<img src="images/主机演示2[00_05_12][20221030-111434].png" height="170"> <img src="images/从机演示2生化[00_08_05][20221030-111628].png" height="170"> <img src="images/从机演示4[00_01_19][20221030-111601].png" height="170"> 
-
+**Note:** MaplePad is still a WIP. You may experience issues with [Windows CE games](https://segaretro.org/Windows_CE). In almost all problematic titles, disabling VMU and rumble through the MaplePad menu will make the game playable. Check out the [Compatibility List](https://docs.google.com/spreadsheets/d/1JzTGN29Ci8SeuSGkQHLN1p6ayQNWUcsNw77SMujkjbs/edit?usp=sharing) for details!
 
 ## Features
-With MaplePad you can: cycle through 8 200-block internal VMUs with custom icons and colors at your leisure...
+With MaplePad you can cycle through 8 200-block internal VMUs with custom icons and colors, use an I2C or SPI OLED display to see the VMU screen in color and at 2x integer scale, and enjoy rumble that is 1:1 with the Performance TremorPak in most retail software (still some minor bugs!)
 
 <img src="images/vmu.png" width="750">
-
-...use an I2C or SPI OLED display to see the VMU screen in color and at 2x integer scale...
-
-<img src="images/purupuru.png" width="750">
-
-...and enjoy rumble that is 1:1 with the Performance TremorPak in most retail software (still some minor bugs!)
 
 Feature List:
 - [x] Full FT<sub>0</sub> (controller) support including analog joystick and triggers
@@ -48,6 +28,30 @@ To-do: (highest priority to lowest)
 - [ ] Implement DC boot animation on OLED
 - [ ] Add external RTC for true FT<sub>3</sub> (timer/RTC) support
 - [ ] Implement FT<sub>4</sub> (microphone) support
+
+## Project Showcase
+*StrikerDC MaplePad mod by Wesk*
+
+<img src="images/striker3.jpg" width="250"> <img src="images/striker1.jpg" width="250"> <img src="images/striker2.jpg" width="250">
+
+*MaplePad Arcade Controller with VMU by GamesCare ([link](https://gamescare.com.br/produto/controle-arcade-dreamcast-tela-de-vmu-e-8-vmus-virtuais-na-placa-maple-board/))*
+
+<img src="images/IMG_20221216_191824_896.jpg" height="190"> <img src="images/20221206_124644.jpg" height="190">
+
+*Giant Dreamcast VMU + Arcade Stick by CrazyJojo (code modified, [video](https://www.youtube.com/watch?v=bEA_On7P_g8))*
+
+<img src="images/主机演示2[00_05_12][20221030-111434].png" height="170"> <img src="images/从机演示2生化[00_08_05][20221030-111628].png" height="170"> <img src="images/从机演示4[00_01_19][20221030-111601].png" height="170"> 
+
+## Dumping VMUs to PC
+You can use [picotool](https://github.com/raspberrypi/picotool) to dump VMUs manually. Here's the process:
+
+- Put RP2040 into programming mode with BOOTSEL button and connect it to your PC
+- Use picotool to dump whichever VMU page you want: `picotool save -r 10020000 10040000 dump1.bin`
+![image](https://user-images.githubusercontent.com/49252894/211163335-2463ae14-043e-40be-aa93-1a09b1a620f9.png)
+- VMUs start at 0x10020000 and each one is 0x20000 long. So to save page 7, for example, you'd use 
+`picotool save -r 100E0000 10100000 dump7.bin`
+- Open dump in [VMU Explorer](https://segaretro.org/VMU_Explorer)
+![image](https://user-images.githubusercontent.com/49252894/211163284-d4100301-11ad-459c-8d29-5afbde9b49f5.png)
 
 ## License
 
