@@ -25,8 +25,8 @@
 #include "pico/time.h"
 #include "state_machine.h"
 
-#define HKT7700 0 // "Seed" (standard controller)
-#define HKT7300 1 // Arcade stick
+#define HKT7700 1 // "Seed" (standard controller)
+#define HKT7300 0 // Arcade stick
 
 #if HKT7700
 #define NUM_BUTTONS 9

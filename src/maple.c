@@ -1437,17 +1437,19 @@ void SetupMapleRX()
 void pageToggle(uint gpio, uint32_t events)
 {
   gpio_acknowledge_irq(gpio, events);
-  uint32_t pressTime = to_ms_since_boot(get_absolute_time());
-  if ((pressTime - lastPress) >= 500)
-  {
-    if (!PageCycle && !SectorDirty){
-      if (currentPage == 8)
-        currentPage = 1;
-      else
-        currentPage++;
-      PageCycle = true;
-      lastPress = pressTime;
-      updateFlashData();
+  if(!PageCycle){
+    uint32_t pressTime = to_ms_since_boot(get_absolute_time());
+    if ((pressTime - lastPress) >= 500)
+    {
+      if (!PageCycle && !SectorDirty){
+        if (currentPage == 8)
+          currentPage = 1;
+        else
+          currentPage++;
+        PageCycle = true;
+        lastPress = pressTime;
+        updateFlashData();
+      }
     }
   }
 }
