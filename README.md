@@ -11,7 +11,7 @@ With MaplePad you can cycle through 8 200-block internal VMUs with custom icons 
 
 <img src="images/vmu.png" width="750">
 
-Feature List:
+### Feature List:
 - [x] Full FT<sub>0</sub> (controller) support including analog joystick and triggers
 - [x] Full FT<sub>1</sub> (storage) support for savegames with 1600 blocks of space
 - [x] Multipaging for memory card (8 separate 200-block memory cards)
@@ -21,11 +21,15 @@ Feature List:
 - [x] Robust FT<sub>3</sub> (timer/RTC) reporting for compatibility purposes (no RTC)
 - [x] Basic menu on SSD1306 and SSD1331 OLED for configuring MaplePad behavior (WIP)
 
-To-do: (highest priority to lowest)
+### To-do: 
+Release v1.5 is gated by the following TODOs
+- [ ] Finish menu (button test, VMU palette editor, misc. bugs)
+- [ ] Address issues with non-CE games (Crazy Taxi, Blue Stinger, Powerstone 2)
 - [ ] Finish FT<sub>8</sub> (vibration) continuous vibration and AST
-- [ ] Finish menu for calibrating sticks and customizing MaplePad behavior
+Future TODOs
+- [ ] Fix compatibility with Windows CE games
 - [ ] Implement 'fancy' VMU color palettes (gradients, animated backgrounds, etc.)
-- [ ] Implement DC boot animation on OLED
+- [ ] Implement option for DC boot animation on OLED
 - [ ] Add external RTC for true FT<sub>3</sub> (timer/RTC) support
 - [ ] Implement FT<sub>4</sub> (microphone) support
 
