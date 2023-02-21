@@ -26,6 +26,7 @@ Release v1.5 is gated by the following TODOs
 - [ ] Finish menu (button test, VMU palette editor, misc. bugs)
 - [ ] Address issues with non-CE games (Crazy Taxi, Blue Stinger, Powerstone 2)
 - [ ] Finish FT<sub>8</sub> (vibration) continuous vibration and AST
+
 Future TODOs
 - [ ] Fix compatibility with Windows CE games
 - [ ] Implement 'fancy' VMU color palettes (gradients, animated backgrounds, etc.)
