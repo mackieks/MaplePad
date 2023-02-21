@@ -24,36 +24,35 @@ struct repeating_timer redrawTimer;
 
 static uint16_t color = 0x0000;
 
-int paletteVMU(menuItem *self){
+int paletteVMU(menu *self){
     // draw VMU palette selection
     return(1);
 }
 
-int paletteUI(menuItem *self){
+int paletteUI(menu *self){
     // draw UI palette selection
     return(1);
 }
 
-int buttontest(menuItem *self){
+int buttontest(menu *self){
     // draw button test
-	
     return(1);
 }
 
-int sCal(menuItem *self){
+int sCal(menu *self){
     // draw stick calibration
 	redraw = 0; // Disable redrawMenu
 
 	while(!gpio_get(ButtonInfos[0].InputIO));
 
     clearDisplay();
-    char *cal_string = "center stick";
+    char *cal_string = "center stick,";
     putString(cal_string, 0, 0, 0x049f);
-	cal_string = "and press A";
+	cal_string = "then press A!";
 	putString(cal_string, 0, 1, 0x049f);
     updateDisplay();
 
-	sleep_ms(500);
+	sleep_ms(50);
 	while(gpio_get(ButtonInfos[0].InputIO));
 
     adc_select_input(0); // X
@@ -63,67 +62,45 @@ int sCal(menuItem *self){
     yCenter = adc_read() >> 4;
 
     clearDisplay();
-    cal_string = "xMin left";
+    cal_string = "move stick around";
     putString(cal_string, 0, 0, 0x049f);
-	cal_string = "and press A";
-	putString(cal_string, 0, 1, 0x049f);
+	cal_string = "   a lot!";
+    putString(cal_string, 0, 1, 0x049f);
     updateDisplay();
+	
+	uint32_t start = to_ms_since_boot(get_absolute_time());
+	while( (to_ms_since_boot(get_absolute_time()) - start) < 4000 ? true : gpio_get(ButtonInfos[0].InputIO)){
+		static bool prompt = true;		
+		static uint8_t xData = 0;
+		static uint8_t yData = 0;
 
-	sleep_ms(500);
-	while(gpio_get(ButtonInfos[0].InputIO));
+		xMin = 0x80;
+		xMax = 0x80;
+		yMin = 0x80;
+		yMax = 0x80;
 
-    adc_select_input(0); // Xmin
-    xMin = adc_read() >> 4;
+		adc_select_input(0); // X
+    	xData = adc_read() >> 4;
 
-    clearDisplay();
-    cal_string = "yMin up";
-    putString(cal_string, 0, 0, 0x049f);
-	cal_string = "and press A";
-	putString(cal_string, 0, 1, 0x049f);
-    updateDisplay();
+    	adc_select_input(1); // Y
+    	yData = adc_read() >> 4;
 
-	sleep_ms(500);
-	while(gpio_get(ButtonInfos[0].InputIO));
+		if(xData < xMin)
+			xMin = xData;
+		if(xData > xMax)
+			xMax = xData;
+		
+		if(yData < yMin)
+			yMin = yData;
+		if(yData > yMax)
+			yMax = yData;
 
-    adc_select_input(1); // Ymin
-    yMin = adc_read() >> 4;
-
-    clearDisplay();
-    cal_string = "yMax down";
-    putString(cal_string, 0, 0, 0x049f);
-	cal_string = "and press A";
-	putString(cal_string, 0, 1, 0x049f);
-    updateDisplay();
-
-	sleep_ms(500);
-	while(gpio_get(ButtonInfos[0].InputIO));
-
-    adc_select_input(1); // Ymax
-    yMax = adc_read() >> 4;
-
-    clearDisplay();
-    cal_string = "xMax right";
-    putString(cal_string, 0, 0, 0x049f);
-	cal_string = "and press A";
-	putString(cal_string, 0, 1, 0x049f);
-    updateDisplay();
-
-	sleep_ms(500);
-	while(gpio_get(ButtonInfos[0].InputIO));
-
-    adc_select_input(0); // Xmax
-    xMax = adc_read() >> 4;
-
-	if (xMin > xMax){
-		uint temp = xMin;
-		xMin = xMax;
-		xMax = temp;
-	}
-
-	if (yMin > yMax){
-		uint temp = yMin;
-		yMin = yMax;
-		yMax= temp;
+		if((to_ms_since_boot(get_absolute_time()) - start) > 4000 && prompt){
+			prompt = false;
+			cal_string = "press A when done";
+			putString(cal_string, 0, 3, 0x049f);
+    		updateDisplay();
+		}
 	}
 
     // Write config values to flash
@@ -134,7 +111,7 @@ int sCal(menuItem *self){
     return(1);
 }
 
-int tCal(menuItem *self){
+int tCal(menu *self){
     // draw trigger calibration
 	redraw = 0; // Disable redrawMenu
 
@@ -204,17 +181,17 @@ int tCal(menuItem *self){
     return(1);
 }
 
-int sDeadzone(menuItem *self){
+int sDeadzone(menu *self){
     // draw deadzone configuration
     return(1);
 }
 
-int tDeadzone(menuItem *self){
+int tDeadzone(menu *self){
     // draw deadzone configuration
     return(1);
 }
 
-int toggleOption(menuItem *self){
+int toggleOption(menu *self){
 
 	if(!strcmp(self->name, "OLED Flip     ")){
 		if((to_ms_since_boot(get_absolute_time()) - flipLockout) > 500){
@@ -242,17 +219,17 @@ int toggleOption(menuItem *self){
     return(1);
 } 
 
-int exitToPad(menuItem *self){
+int exitToPad(menu *self){
 	// gather up flags and update them
 	updateFlags();
     return(0);
 } 
 
-int dummy(menuItem* self){
+int dummy(menu* self){
 	return(1);
 }
 
-menuItem mainMenu[6] = {
+static menu mainMenu[6] = {
     {"Button Test   ", 2, 1, 1, 1, 1, buttontest},
 	{"Stick Config  ", 0, 1, 0, 1, 1, dummy},
 	{"Trigger Config", 0, 1, 0, 1, 1, dummy},
@@ -261,8 +238,8 @@ menuItem mainMenu[6] = {
     {"Exit          ", 2, 0, 0, 1, 1, exitToPad}
 };
 
-menuItem* currentMenu = mainMenu;
-uint8_t currentNumEntries = sizeof(mainMenu)/sizeof(menuItem);
+menu* currentMenu = mainMenu;
+uint8_t currentNumEntries = sizeof(mainMenu)/sizeof(menu);
 uint8_t currentEntry = 0;
 uint8_t selectedEntry = 0;
 uint8_t firstVisibleEntry = 0;
@@ -270,14 +247,14 @@ uint8_t lastVisibleEntry = 4;
 uint8_t prevEntryModifier = 0;
 uint8_t entryModifier = 0;
 
-int mainmen(menuItem* self){
+int mainmen(menu* self){
     currentMenu = mainMenu;
-	currentNumEntries = sizeof(mainMenu)/sizeof(menuItem);
+	currentNumEntries = sizeof(mainMenu)/sizeof(menu);
 	entryModifier = prevEntryModifier;
     return(1);
 }
 
-static menuItem stickConfig[6] = {
+static menu stickConfig[6] = {
     {"Back          ", 2, 1, 0, 1, 1, mainmen}, // i.e. setCurrentMenu to mainMenu
     {"Calibration   ", 2, 1, 1, 1, 1, sCal},
     {"Deadzone Edit ", 2, 1, 0, 1, 1, sDeadzone},
@@ -286,15 +263,15 @@ static menuItem stickConfig[6] = {
     {"Swap X&Y      ", 1, 0, 0, 0, 1, toggleOption}
 };
 
-int sConfig(menuItem* self){
+int sConfig(menu* self){
     currentMenu = stickConfig;
-    currentNumEntries = sizeof(stickConfig)/sizeof(menuItem);
+    currentNumEntries = sizeof(stickConfig)/sizeof(menu);
 	prevEntryModifier = entryModifier;
 	entryModifier = 0;
     return(1);
 }
 
-static menuItem triggerConfig[6] = {
+static menu triggerConfig[6] = {
     {"Back          ", 2, 1, 0, 1, 1, mainmen},
     {"Calibration   ", 2, 1, 1, 1, 1, tCal},
 	{"Deadzone Edit ", 2, 1, 0, 1, 1, tDeadzone},
@@ -303,28 +280,28 @@ static menuItem triggerConfig[6] = {
     {"Swap L&R      ", 1, 0, 0, 0, 1, toggleOption}
 };
 
-int tConfig(menuItem* self){
+int tConfig(menu* self){
     currentMenu = triggerConfig;
-    currentNumEntries = sizeof(triggerConfig)/sizeof(menuItem);
+    currentNumEntries = sizeof(triggerConfig)/sizeof(menu);
 	prevEntryModifier = entryModifier;
 	entryModifier = 0;
     return(1);
 }
 
-static menuItem settings[8] = {
+static menu settings[8] = {
     {"Back          ", 2, 1, 0, 1, 1, mainmen},
     {"Boot Video    ", 3, 1, 1, 0, 0, toggleOption},
     {"Rumble        ", 1, 1, 0, 1, 1, toggleOption},
 	{"VMU           ", 1, 1, 0, 1, 1, toggleOption},
     {"UI Color      ", 2, 1, 0, 1, 1, paletteUI}, // ssd1331 present
-    {"OLED:  SSD1331", 3, 0, 0, 1, 0, toggleOption},
+    {"OLED:         ", 3, 0, 0, 1, 0, dummy},
 	{"OLED Flip     ", 1, 0, 0, 0, 1, toggleOption},
-    {"Firmware  1.4d", 3, 0, 0, 1, 0, dummy}
+    {"Firmware: 1.4e", 3, 0, 0, 1, 0, dummy}
 };
 
-int setting(menuItem* self){
+int setting(menu* self){
     currentMenu = settings;
-    currentNumEntries = sizeof(settings)/sizeof(menuItem);
+    currentNumEntries = sizeof(settings)/sizeof(menu);
 	prevEntryModifier = entryModifier;
 	entryModifier = 0;
     return(1);
@@ -385,9 +362,9 @@ void redrawMenu(){
 	clearDisplay();
 
 	for(uint8_t n = 0; n < currentNumEntries; n++){
-		if(currentMenu[n].visible){
+		if(currentMenu[n].visible && currentMenu[n].enabled){
 			putString(currentMenu[n].name, 0, n + entryModifier, color);
-			if(currentMenu[n].type == 1) // boolean type menuItem
+			if(currentMenu[n].type == 1) // boolean type menu
 				drawToggle(n + entryModifier, color, currentMenu[n].on);
 		}
 		drawCursor(selectedEntry + entryModifier, color);
@@ -416,7 +393,7 @@ bool rainbowCycle(struct repeating_timer *t){
 	return(true);
 }
 
-void menu(){
+void runMenu(){
 
 // Check for menu button combo (Start + Down + B)
 	
@@ -445,16 +422,16 @@ void menu(){
 			-Deadzone Adjust
 			-Invert X  ✓
 			-Invert Y  ✓
-			-Swap X and Y
+			-Swap X and Y ✓
 		-Triggers Config
 			-Back
-			-Analog/Digital
-			-Calibration, greyed out if digital selected
-			-Invert L, greyed out if digital selected
-			-Invert R, greyed out if digital selected
-			-Swap L and R
+			-Analog/Digital ✓
+			-Calibration, greyed out if digital selected ✓
+			-Invert L, greyed out if digital selected ✓
+			-Invert R, greyed out if digital selected ✓
+			-Swap L and R ✓
 		-Edit VMU Colors (greyed out if SSD1306 detected)
-			-Enters VMU Colors screen. Cycle left and right through all 8 VMU pages, and select from 8 preset colors or enter a custom RGB565 value (Press and hold B to exit)
+			-Enters VMU Palette screen. Cycle left and right through all 8 VMU pages, and select from 8 preset colors or enter a custom RGB565 value (Press and hold B to exit)
 		-Settings
 			-Back
 			-Splashscreen (on/off), gets greyed out when Boot Video is turned on
@@ -467,16 +444,23 @@ void menu(){
 		-Exit
 
 		*/
-		
-		// enter main menu
-		 // needs to be declared globally
-		//selectedEntry = ? getSelectedEntry should update this global variable ✓
 
 		mainMenu[1].run = sConfig;
 		mainMenu[2].run = tConfig;
 		mainMenu[4].run = setting;
 
 		loadFlags();
+
+		if(oledType){ // SSD1331
+			strcpy(settings[5].name, "OLED: SSD1331");
+		} else {  // SSD1306
+			strcpy(settings[5].name, "OLED: SSD1306");
+			
+			// disable color-only menu entries
+			mainMenu[3].enabled = false;
+
+		}
+			
 
 		// negative interval means the callback func is called every 10ms regardless of how long callback takes to execute
 		add_repeating_timer_ms(-10, rainbowCycle, NULL, &redrawTimer);

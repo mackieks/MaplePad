@@ -37,12 +37,13 @@
 #define swapXY flashData[19]
 #define swapLR flashData[20]
 #define oledType flashData[21]
+#define triggerMode flashData[22] // 1 = analog, 0 = digital
 
 extern ButtonInfo ButtonInfos[];
 
-typedef struct menuItem_s menuItem;
+typedef struct menu_s menu;
 
-struct menuItem_s
+struct menu_s
 {
 	char name[14];
     int type;   // 0: "folder" with submenus, 1: boolean on/off, 2: active (loads separate window), 3: inert
@@ -50,34 +51,34 @@ struct menuItem_s
     bool selected;
     bool on;
     bool enabled;   // control for greyed-out menu items (ssd1331) and hidden menu items (ssd1306)
-    int (*run)(menuItem *self);
+    int (*run)(menu *self);
 };
 
-int paletteVMU(menuItem*);
+int paletteVMU(menu*);
 
-int paletteUI(menuItem*);
+int paletteUI(menu*);
 
-int buttontest(menuItem*);
+int buttontest(menu*);
 
-int stickcal(menuItem*);
+int stickcal(menu*);
 
-int trigcal(menuItem*);
+int trigcal(menu*);
 
-int deadzone(menuItem*);
+int deadzone(menu*);
 
-int toggleOption(menuItem*);
+int toggleOption(menu*);
 
-int exitToPad(menuItem*);
+int exitToPad(menu*);
 
-int dummy(menuItem*);
+int dummy(menu*);
 
-int mainmen(menuItem*);
+int mainmen(menu*);
 
-int sconfig(menuItem*);
+int sconfig(menu*);
 
-int tconfig(menuItem*);
+int tconfig(menu*);
 
-int setting(menuItem*);
+int setting(menu*);
 
 void getSelectedElement(void);
 
@@ -89,4 +90,4 @@ void redrawMenu(void);
 
 bool rainbowCycle(struct repeating_timer*);
 
-void menu(void);
+void runMenu(void);

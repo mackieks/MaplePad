@@ -1778,7 +1778,7 @@ int main()
   SetupButtons();
 
   if(!gpio_get(ButtonInfos[3].InputIO) && !gpio_get(ButtonInfos[8].InputIO)){ // Y + Start
-    menu();
+    runMenu();
     updateFlashData();
     clearDisplay();
     updateDisplay();
