@@ -32,7 +32,7 @@ void fast_hsv2rgb_32bit(uint16_t h, uint8_t s, uint8_t v, uint8_t *r, uint8_t *g
 
 void setPixel(uint8_t x, uint8_t y, uint16_t color);
 
-void drawEllipse(int xc, int yc, int xr, int yr, int angle);
+void drawEllipse(uint8_t xc, uint8_t yc, uint8_t xr, uint8_t yr, int angle, uint16_t color, bool fill);
 
 void drawLine(int x0, int y0, int w, uint16_t color);
 

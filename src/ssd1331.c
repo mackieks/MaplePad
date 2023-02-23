@@ -820,19 +820,18 @@ void setPixelSSD1331(const uint8_t x, const uint8_t y, const uint16_t color){
   // uint8_t g = (color & 0x7E0) >> 5;
   // uint8_t b = (color & 0x1f);
 
-  //gpio_put(DC, 0);
-
   memset(&oledFB[(y*192) + (x*2)], color >> 8, sizeof(uint8_t));
   memset(&oledFB[(y*192) + (x*2) + 1], color & 0xff, sizeof(uint8_t));
 
-  // ssd1331WriteCommand(0x21);
-  // ssd1331WriteCommand(x);
-  // ssd1331WriteCommand(x);
-  // ssd1331WriteCommand(y);
-  // ssd1331WriteCommand(y);
-  // ssd1331WriteCommand(r);
-  // ssd1331WriteCommand(g);
-  // ssd1331WriteCommand(b);
+}
+
+bool getPixelSSD1331(const uint8_t x, const uint8_t y){
+  // Get Pixel
+
+  if(oledFB[(y*192) + (x*2)] == 0 && oledFB[(y*192) + (x*2) + 1] == 0)
+    return false;
+  else return true;
+
 }
 
 void updateSSD1331(){

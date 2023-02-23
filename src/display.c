@@ -185,8 +185,16 @@ void setPixel(uint8_t x, uint8_t y, uint16_t color)
     setPixelSSD1306(x + 16, y, color ? 1 : 0);
 }
 
+bool getPixel(uint8_t x, uint8_t y)
+{
+  if (oledType) // 1
+    return(getPixelSSD1331(x, y));
+  else // 0
+    return(getPixelSSD1306(x + 16, y));
+}
 
-void drawEllipse(int xc, int yc, int xr, int yr, int angle){
+
+void drawEllipse(uint8_t xc, uint8_t yc, uint8_t xr, uint8_t yr, int angle, uint16_t color, bool fill){
   int step = 120;
   float theta = 0;
   float sangle, cangle = 0;
@@ -194,6 +202,10 @@ void drawEllipse(int xc, int yc, int xr, int yr, int angle){
   float kf = 0;
   float x, y = 0;
   int xrot, yrot = 0;
+  int exmax, eymax = 0;
+  int exmin, eymin = 128;
+
+  uint8_t ellipse_start, ellipse_end = 0;
 
   rangle = angle * M_PI / 180.0;
   kf = (360 * M_PI / 180.0) / step;
@@ -206,9 +218,32 @@ void drawEllipse(int xc, int yc, int xr, int yr, int angle){
     y = yc + yr * sin32(theta);
     xrot = round(xc + (x - xc) * cangle - (y - yc) * sangle);
     yrot = round(yc + (x - xc) * sangle + (y - yc) * cangle);
-    setPixel(xrot, yrot, 0xffff);
+    setPixel(xrot, yrot, color);
+
+    // grab ellipse bounding box
+    if(xrot < exmin) exmin = xrot;
+    if(xrot > exmax) exmax = xrot;
+    if(yrot < eymin) eymin = yrot;
+    if(yrot > eymax) eymax = yrot;
+
   }
-  //updateSSD1331();
+
+  if(fill){
+    for(int j = eymin; j <= eymax; j++){
+
+      int i = 0;
+      for(i = exmin; !getPixel(i,j); i++){}
+      ellipse_start = i;
+
+      for(i = exmax; !getPixel(i,j); i--){}
+      ellipse_end = i;
+
+      for(i = ellipse_start; i <= ellipse_end; i++){
+        setPixel(i, j, color);
+      }
+    }
+
+  }
 };
 
 void drawLine(int x0, int y0, int w, uint16_t color){
