@@ -39,7 +39,7 @@ int buttontest(menu *self){
 
 	while(gpio_get(ButtonInfos[0].InputIO)){
 		
-		// joystick input copied from SendControllerStatus()
+		// joystick input copied from SendControllerStatus() --> UPDATE WITH NEW ROUTINE
 		adc_select_input(0);
 		uint8_t xRead = adc_read() >> 4;
 

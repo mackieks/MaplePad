@@ -244,7 +244,7 @@ uint8_t min(uint8_t x, uint8_t y) { return x <= y ? x : y; }
 
 uint8_t max(uint8_t x, uint8_t y) { return x >= y ? x : y; }
 
-uint8_t flashData[64] = {0}; // Persistent data (stick/trigger calibration, flags, etc.)
+uint8_t flashData[64] = {0}; // Persistent data (stick/trigger calibration, flags. See menu.h) Lives at FLASH_OFFSET * 9
 
 void readFlash()
 {
@@ -740,17 +740,25 @@ void SendControllerStatus()
   if (invertX){
     if (xRead > (xCenter - xDeadzone) && xRead < (xCenter + xDeadzone)) // inner deadzone
       ControllerPacket.Controller.JoyX = 0x80;
+    else if (xRead > (xMax - xAntiDeadzone)) // upper outer deadzone
+      ControllerPacket.Controller.JoyX = 0x00;
+    else if  (xRead < (xMin + xAntiDeadzone)) // lower outer deadzone
+      ControllerPacket.Controller.JoyX = 0xFF;
     else if (xRead < xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, xRead < xMin ? xRead : xMin, xCenter - xDeadzone, 0xFF, 0x81);
+      ControllerPacket.Controller.JoyX = map(xRead, (xRead < xMin ? xRead : xMin) + xAntiDeadzone, xCenter - xDeadzone, 0xFF, 0x81);
     else if (xRead > xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, xCenter + xDeadzone, xRead > xMax ? xRead : xMax, 0x7F, 0x00);
+      ControllerPacket.Controller.JoyX = map(xRead, xCenter + xDeadzone, (xRead > xMax ? xRead : xMax) - xAntiDeadzone, 0x7F, 0x00);
   } else {
     if (xRead > (xCenter - xDeadzone) && xRead < (xCenter + xDeadzone)) // inner deadzone
       ControllerPacket.Controller.JoyX = 0x80;
+    else if (xRead > (xMax - xAntiDeadzone)) // upper outer deadzone
+      ControllerPacket.Controller.JoyX = 0xFF;
+    else if  (xRead < (xMin + xAntiDeadzone)) // lower outer deadzone
+      ControllerPacket.Controller.JoyX = 0x00; // does one of these need to be swapped for the inverted behavior? -->TEST ON HW
     else if (xRead < xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, xRead < xMin ? xRead : xMin, xCenter - xDeadzone, 0x00, 0x7F);
+      ControllerPacket.Controller.JoyX = map(xRead, (xRead < xMin ? xRead : xMin) + xAntiDeadzone, xCenter - xDeadzone, 0x00, 0x7F);
     else if (xRead > xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, xCenter + xDeadzone, xRead > xMax ? xRead : xMax, 0x81, 0xFF);
+      ControllerPacket.Controller.JoyX = map(xRead, xCenter + xDeadzone, (xRead > xMax ? xRead : xMax) - xAntiDeadzone, 0x81, 0xFF);
   }
 
   adc_select_input(1);
@@ -758,17 +766,25 @@ void SendControllerStatus()
   if (invertY){
     if (yRead > (yCenter - yDeadzone) && yRead < (yCenter + yDeadzone)) // inner deadzone
       ControllerPacket.Controller.JoyY = 0x80;
+    else if (yRead > (yMax - yAntiDeadzone)) // upper outer deadzone
+      ControllerPacket.Controller.JoyY = 0x00;
+    else if  (yRead < (yMin + yAntiDeadzone)) // lower outer deadzone
+      ControllerPacket.Controller.JoyY = 0xFF;
     else if (yRead < yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, yRead < yMin ? yRead : yMin, yCenter - yDeadzone, 0xFF, 0x81);
+      ControllerPacket.Controller.JoyY = map(yRead, (yRead < yMin ? yRead : yMin) + yAntiDeadzone, yCenter - yDeadzone, 0xFF, 0x81); // where to add/subtract antideadzone?
     else if (yRead > yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, yCenter + yDeadzone, yRead > yMax ? yRead : yMax, 0x7F, 0x00);
+      ControllerPacket.Controller.JoyY = map(yRead, yCenter + yDeadzone, (yRead > yMax ? yRead : yMax) - yAntiDeadzone, 0x7F, 0x00);
   } else {
     if (yRead > (yCenter - yDeadzone) && yRead < (yCenter + yDeadzone)) // inner deadzone
       ControllerPacket.Controller.JoyY = 0x80;
+    else if (yRead > (yMax - yAntiDeadzone)) // upper outer deadzone
+      ControllerPacket.Controller.JoyY = 0xFF;
+    else if  (yRead < (yMin + yAntiDeadzone)) // lower outer deadzone
+      ControllerPacket.Controller.JoyY = 0x00;  // does one of these need to be swapped for the inverted behavior? -->TEST ON HW
     else if (yRead < yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, yRead < yMin ? yRead : yMin, yCenter - yDeadzone, 0x00, 0x7F);
+      ControllerPacket.Controller.JoyY = map(yRead, (yRead < yMin ? yRead : yMin) + yAntiDeadzone, yCenter - yDeadzone, 0x00, 0x7F);
     else if (yRead > yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, yCenter + yDeadzone, yRead > yMax ? yRead : yMax, 0x81, 0xFF);
+      ControllerPacket.Controller.JoyY = map(yRead, yCenter + yDeadzone, (yRead > yMax ? yRead : yMax) - yAntiDeadzone, 0x81, 0xFF);
   }
 
 
@@ -776,15 +792,19 @@ void SendControllerStatus()
   uint8_t lRead = adc_read() >> 4;
   if (invertL) // invertL
   {                                      
-    if (lRead > (lMax - lDeadzone)) // deadzone
+    if (lRead > ((lRead > lMax ? lRead : lMax) - lDeadzone)) // deadzone
       ControllerPacket.Controller.LeftTrigger = 0x00;
+    else if (lRead < ((lRead < lMin ? lRead : lMin) + lAntiDeadzone)) // upper deadzone
+      ControllerPacket.Controller.LeftTrigger = 0xFF;
     else
       ControllerPacket.Controller.LeftTrigger = map(lRead, lRead < lMin ? lRead : lMin, lRead > lMax ? lRead : lMax, 0xFF, 0x01);
   }
   else
   {
-    if (lRead < (lMin + lDeadzone)) // deadzone
+    if (lRead < ((lRead < lMin ? lRead : lMin)) + lDeadzone) // deadzone
       ControllerPacket.Controller.LeftTrigger = 0x00;
+    else if (lRead > ((lRead > lMax ? lRead : lMax) - lAntiDeadzone)) // upper deadzone
+      ControllerPacket.Controller.LeftTrigger = 0xFF;
     else
       ControllerPacket.Controller.LeftTrigger = map(lRead, lRead < lMin ? lRead : lMin, lRead > lMax ? lRead : lMax, 0x01, 0xFF);
   }
@@ -793,15 +813,19 @@ void SendControllerStatus()
   uint8_t rRead = adc_read() >> 4;
   if (invertR) // invertR
   {                                      
-    if (rRead > (rMax - rDeadzone)) // deadzone
+    if (rRead > ((rRead > rMax ? rRead : rMax) - rDeadzone)) // deadzone
       ControllerPacket.Controller.RightTrigger = 0x00;
+    else if (rRead < ((rRead < rMin ? rRead : rMin) + rAntiDeadzone)) // upper deadzone
+      ControllerPacket.Controller.RightTrigger = 0xFF;
     else
       ControllerPacket.Controller.RightTrigger = map(rRead, rRead < rMin ? rRead : rMin, rRead > rMax ? rRead : rMax, 0xFF, 0x01);
   }
   else
   {
-    if (rRead < (rMin + rDeadzone)) // deadzone
+    if (rRead < ((rRead < rMin ? rRead : rMin) + rDeadzone)) // deadzone
       ControllerPacket.Controller.RightTrigger = 0x00;
+    else if (rRead > ((rRead > rMax ? rRead : rMax) - rAntiDeadzone)) // upper deadzone
+      ControllerPacket.Controller.RightTrigger = 0xFF;
     else
       ControllerPacket.Controller.RightTrigger = map(rRead, rRead < rMin ? rRead : rMin, rRead > rMax ? rRead : rMax, 0x01, 0xFF);
   }
@@ -1743,8 +1767,9 @@ int main()
 
   lastPress = to_ms_since_boot(get_absolute_time());
 
+  // Read flags from memory
   memset(flashData, 0, sizeof(flashData));
-  memcpy(flashData, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(flashData)); // read into variable
+  memcpy(flashData, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(flashData));
 
   // Pre-format VMU pages since rumble timer interrupt interferes with on-the-fly formatting
   if(firstBoot){ // flash is 0xFF when erased!
@@ -1767,9 +1792,34 @@ int main()
       }
     }
     restore_interrupts(Interrupts);
-    firstBoot = 0; // first boot format done
     currentPage = 1;
+
+    // Also set up some reasonable analog stick + trigger defaults
+    xMin = 0x00;
+    xCenter = 0x80;
+    xMax = 0xff;
+    xDeadzone = 0x0f;
+    xAntiDeadzone = 0x04;
+
+    yMin = 0x00;
+    yCenter = 0x00;
+    yMax = 0xff;
+    yDeadzone = 0x0f;
+    yAntiDeadzone = 0x04;
+
+    lMin = 0x00;
+    lMax = 0xff;
+    lDeadzone = 0x08;
+    lAntiDeadzone = 0x04;
+
+    rMin = 0x00;
+    rMax = 0xff;
+    rDeadzone = 0x08;
+    rAntiDeadzone = 0x04;
+
     updateFlashData();
+
+    firstBoot = 0; // first boot setup done
   }
 
   // Read current VMU into memory

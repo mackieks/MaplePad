@@ -39,9 +39,13 @@
 #define oledType flashData[21]
 #define triggerMode flashData[22] // 1 = analog, 0 = digital
 #define xDeadzone flashData[23]
-#define yDeadzone flashData[24]
-#define lDeadzone flashData[25]
-#define rDeadzone flashData[26]
+#define xAntiDeadzone flashData[24]
+#define yDeadzone flashData[25]
+#define yAntiDeadzone flashData[26]
+#define lDeadzone flashData[27]
+#define lAntiDeadzone flashData[28]
+#define rDeadzone flashData[29]
+#define rAntiDeadzone flashData[30]
 
 extern ButtonInfo ButtonInfos[];
 
