@@ -241,11 +241,23 @@ int tCal(menu *self){
 
 int sDeadzone(menu *self){
     // draw deadzone configuration
+
+	xDeadzone = 0x0F;
+	yDeadzone = 0x0F;
+
+	updateFlashData();
+
     return(1);
 }
 
 int tDeadzone(menu *self){
     // draw deadzone configuration
+
+	lDeadzone = 0x08;
+	rDeadzone = 0x08;
+
+	updateFlashData();
+
     return(1);
 }
 

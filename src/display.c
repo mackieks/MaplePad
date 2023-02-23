@@ -228,6 +228,7 @@ void drawEllipse(uint8_t xc, uint8_t yc, uint8_t xr, uint8_t yr, int angle, uint
 
   }
 
+  // ...there must be a faster way to do this 😖
   if(fill){
     for(int j = eymin; j <= eymax; j++){
 

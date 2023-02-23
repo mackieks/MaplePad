@@ -38,6 +38,10 @@
 #define swapLR flashData[20]
 #define oledType flashData[21]
 #define triggerMode flashData[22] // 1 = analog, 0 = digital
+#define xDeadzone flashData[23]
+#define yDeadzone flashData[24]
+#define lDeadzone flashData[25]
+#define rDeadzone flashData[26]
 
 extern ButtonInfo ButtonInfos[];
 
