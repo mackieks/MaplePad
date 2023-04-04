@@ -39,7 +39,7 @@ Future TODOs
 
 <img src="images/striker3.jpg" width="250"> <img src="images/striker1.jpg" width="250"> <img src="images/striker2.jpg" width="250">
 
-*MaplePad Arcade Controller with VMU by GamesCare ([link](https://gamescare.com.br/produto/controle-arcade-dreamcast-tela-de-vmu-e-8-vmus-virtuais-na-placa-maple-board/))*
+*MaplePad Arcade Controller with VMU by GamesCare ([link](https://gamescare.com.br/produto/controle-arcade-dreamcast-tela-de-vmu-e-8-vmus-virtuais-na-placa-maple-board/), [video](https://www.youtube.com/watch?v=b0IbSASR3B4/))*
 
 <img src="images/IMG_20221216_191824_896.jpg" height="190"> <img src="images/20221206_124644.jpg" height="190">
 
