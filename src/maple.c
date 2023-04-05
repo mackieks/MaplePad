@@ -738,53 +738,37 @@ void SendControllerStatus()
   uint8_t xRead = adc_read() >> 4;
 
   if (invertX){
-    if (xRead > (xCenter - xDeadzone) && xRead < (xCenter + xDeadzone)) // inner deadzone
+    if (xRead > (xCenter - 0x0F) && xRead < (xCenter + 0x0F)) // deadzone
       ControllerPacket.Controller.JoyX = 0x80;
-    else if (xRead > (xMax - xAntiDeadzone)) // upper outer deadzone
-      ControllerPacket.Controller.JoyX = 0x00;
-    else if  (xRead < (xMin + xAntiDeadzone)) // lower outer deadzone
-      ControllerPacket.Controller.JoyX = 0xFF;
     else if (xRead < xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, (xRead < xMin ? xRead : xMin) + xAntiDeadzone, xCenter - xDeadzone, 0xFF, 0x81);
+      ControllerPacket.Controller.JoyX = map(xRead, xMin - 0x04, xCenter - 0x0F, 0xFF, 0x81);
     else if (xRead > xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, xCenter + xDeadzone, (xRead > xMax ? xRead : xMax) - xAntiDeadzone, 0x7F, 0x00);
+      ControllerPacket.Controller.JoyX = map(xRead, xCenter + 0x0F, xMax + 0x04, 0x7F, 0x00);
   } else {
-    if (xRead > (xCenter - xDeadzone) && xRead < (xCenter + xDeadzone)) // inner deadzone
+    if (xRead > (xCenter - 0x0F) && xRead < (xCenter + 0x0F)) // deadzone
       ControllerPacket.Controller.JoyX = 0x80;
-    else if (xRead > (xMax - xAntiDeadzone)) // upper outer deadzone
-      ControllerPacket.Controller.JoyX = 0xFF;
-    else if  (xRead < (xMin + xAntiDeadzone)) // lower outer deadzone
-      ControllerPacket.Controller.JoyX = 0x00; // does one of these need to be swapped for the inverted behavior? -->TEST ON HW
     else if (xRead < xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, (xRead < xMin ? xRead : xMin) + xAntiDeadzone, xCenter - xDeadzone, 0x00, 0x7F);
+      ControllerPacket.Controller.JoyX = map(xRead, xMin - 0x04, xCenter - 0x0F, 0x00, 0x7F);
     else if (xRead > xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, xCenter + xDeadzone, (xRead > xMax ? xRead : xMax) - xAntiDeadzone, 0x81, 0xFF);
+      ControllerPacket.Controller.JoyX = map(xRead, xCenter + 0x0F, xMax + 0x04, 0x81, 0xFF);
   }
 
   adc_select_input(1);
   uint8_t yRead = adc_read() >> 4;
   if (invertY){
-    if (yRead > (yCenter - yDeadzone) && yRead < (yCenter + yDeadzone)) // inner deadzone
+    if (yRead > (yCenter - 0x0F) && yRead < (yCenter + 0x0F)) // deadzone
       ControllerPacket.Controller.JoyY = 0x80;
-    else if (yRead > (yMax - yAntiDeadzone)) // upper outer deadzone
-      ControllerPacket.Controller.JoyY = 0x00;
-    else if  (yRead < (yMin + yAntiDeadzone)) // lower outer deadzone
-      ControllerPacket.Controller.JoyY = 0xFF;
     else if (yRead < yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, (yRead < yMin ? yRead : yMin) + yAntiDeadzone, yCenter - yDeadzone, 0xFF, 0x81); // where to add/subtract antideadzone?
+      ControllerPacket.Controller.JoyY = map(yRead, yMin - 0x04, yCenter - 0x0F, 0xFF, 0x81);
     else if (yRead > yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, yCenter + yDeadzone, (yRead > yMax ? yRead : yMax) - yAntiDeadzone, 0x7F, 0x00);
+      ControllerPacket.Controller.JoyY = map(yRead, yCenter + 0x0F, yMax + 0x04, 0x7F, 0x00);
   } else {
-    if (yRead > (yCenter - yDeadzone) && yRead < (yCenter + yDeadzone)) // inner deadzone
+    if (yRead > (yCenter - 0x0F) && yRead < (yCenter + 0x0F)) // deadzone
       ControllerPacket.Controller.JoyY = 0x80;
-    else if (yRead > (yMax - yAntiDeadzone)) // upper outer deadzone
-      ControllerPacket.Controller.JoyY = 0xFF;
-    else if  (yRead < (yMin + yAntiDeadzone)) // lower outer deadzone
-      ControllerPacket.Controller.JoyY = 0x00;  // does one of these need to be swapped for the inverted behavior? -->TEST ON HW
     else if (yRead < yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, (yRead < yMin ? yRead : yMin) + yAntiDeadzone, yCenter - yDeadzone, 0x00, 0x7F);
+      ControllerPacket.Controller.JoyY = map(yRead, yMin - 0x04, yCenter - 0x0F, 0x00, 0x7F);
     else if (yRead > yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, yCenter + yDeadzone, (yRead > yMax ? yRead : yMax) - yAntiDeadzone, 0x81, 0xFF);
+      ControllerPacket.Controller.JoyY = map(yRead, yCenter + 0x0F, yMax + 0x04, 0x81, 0xFF);
   }
 
 
@@ -792,42 +776,34 @@ void SendControllerStatus()
   uint8_t lRead = adc_read() >> 4;
   if (invertL) // invertL
   {                                      
-    if (lRead > ((lRead > lMax ? lRead : lMax) - lDeadzone)) // deadzone
+    if (lRead > (lMax - 0x08)) // deadzone
       ControllerPacket.Controller.LeftTrigger = 0x00;
-    else if (lRead < ((lRead < lMin ? lRead : lMin) + lAntiDeadzone)) // upper deadzone
-      ControllerPacket.Controller.LeftTrigger = 0xFF;
-    else
-      ControllerPacket.Controller.LeftTrigger = map(lRead, lRead < lMin ? lRead : lMin, lRead > lMax ? lRead : lMax, 0xFF, 0x01);
+    else if (lRead <= (lMax + 0x0F) < lMax ? 0xFF : (lMax + 0x0F))
+      ControllerPacket.Controller.LeftTrigger = map(lRead, (lMin - 0x04) < 0x00 ? 0x00 : (lMin - 0x04), (lMax + 0x04) > 0xFF ? 0xFF : (lMax + 0x04), 0xFF, 0x01);
   }
   else
   {
-    if (lRead < ((lRead < lMin ? lRead : lMin)) + lDeadzone) // deadzone
+    if (lRead < (lMin + 0x08)) // deadzone
       ControllerPacket.Controller.LeftTrigger = 0x00;
-    else if (lRead > ((lRead > lMax ? lRead : lMax) - lAntiDeadzone)) // upper deadzone
-      ControllerPacket.Controller.LeftTrigger = 0xFF;
-    else
-      ControllerPacket.Controller.LeftTrigger = map(lRead, lRead < lMin ? lRead : lMin, lRead > lMax ? lRead : lMax, 0x01, 0xFF);
+    else if (lRead <= (lMax + 0x0F) < lMax ? 0xFF : (lMax + 0x0F))
+      ControllerPacket.Controller.LeftTrigger = map(lRead, (lMin - 0x04) < 0x00 ? 0x00 : (lMin - 0x04), (lMax + 0x04) > 0xFF ? 0xFF : (lMax + 0x04), 0x01, 0xFF);
   }
 
   adc_select_input(3);
   uint8_t rRead = adc_read() >> 4;
   if (invertR) // invertR
   {                                      
-    if (rRead > ((rRead > rMax ? rRead : rMax) - rDeadzone)) // deadzone
+    if (rRead > (rMax - 0x08)) // deadzone
       ControllerPacket.Controller.RightTrigger = 0x00;
-    else if (rRead < ((rRead < rMin ? rRead : rMin) + rAntiDeadzone)) // upper deadzone
-      ControllerPacket.Controller.RightTrigger = 0xFF;
-    else
-      ControllerPacket.Controller.RightTrigger = map(rRead, rRead < rMin ? rRead : rMin, rRead > rMax ? rRead : rMax, 0xFF, 0x01);
+    else if (rRead <= (rMax + 0x0F) < rMax ? 0xFF : (rMax + 0x0F))
+      ControllerPacket.Controller.RightTrigger = map(rRead, (rMin - 0x04) < 0x00 ? 0x00 : (rMin - 0x04), (rMax + 0x04) > 0xFF ? 0xFF : (rMax + 0x04), 0xFF, 0x01);
   }
   else
   {
-    if (rRead < ((rRead < rMin ? rRead : rMin) + rDeadzone)) // deadzone
+    if (rRead < (rMin + 0x08)) // deadzone
       ControllerPacket.Controller.RightTrigger = 0x00;
-    else if (rRead > ((rRead > rMax ? rRead : rMax) - rAntiDeadzone)) // upper deadzone
-      ControllerPacket.Controller.RightTrigger = 0xFF;
-    else
-      ControllerPacket.Controller.RightTrigger = map(rRead, rRead < rMin ? rRead : rMin, rRead > rMax ? rRead : rMax, 0x01, 0xFF);
+    else if (rRead <= (rMax + 0x0F) < rMax ? 0xFF : (rMax + 0x0F))
+      ControllerPacket.Controller.RightTrigger = map(rRead, (rMin - 0x04) < 0x00 ? 0x00 : (rMin - 0x04), (rMax + 0x04) > 0xFF ? 0xFF : (rMax + 0x04), 0x01, 0xFF);
   }
 
   if(swapXY){
@@ -842,7 +818,7 @@ void SendControllerStatus()
     ControllerPacket.Controller.RightTrigger = temp;
   }
 
-#endif  
+#endif    
 
   ControllerPacket.CRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
 
@@ -949,7 +925,7 @@ void PuruPuruWrite(uint Address, uint *Data, uint NumWords)
   NextPacketSend = SEND_ACK;
 }
 
-void timerWrite(uint Address, uint *Data, uint NumWords)
+void TimerWrite(uint Address, uint *Data, uint NumWords)
 {
   memcpy(dateTime, Data, NumWords * sizeof(uint));
 
@@ -1184,7 +1160,7 @@ bool ConsumePacket(uint Size)
             }
             else if (Header->NumWords >= 2 && *PacketData == __builtin_bswap32(FUNC_TIMER))
             {
-              timerWrite(__builtin_bswap32(*(PacketData + 1)), PacketData + 2, Header->NumWords - 2);
+              TimerWrite(__builtin_bswap32(*(PacketData + 1)), PacketData + 2, Header->NumWords - 2);
               return true;
             }
             break;
