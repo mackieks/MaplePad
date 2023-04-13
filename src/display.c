@@ -185,13 +185,13 @@ void setPixel(uint8_t x, uint8_t y, uint16_t color)
     setPixelSSD1306(x + 16, y, color ? 1 : 0);
 }
 
-bool getPixel(uint8_t x, uint8_t y)
-{
-  if (oledType) // 1
-    return(getPixelSSD1331(x, y));
-  else // 0
-    return(getPixelSSD1306(x + 16, y));
-}
+// bool getPixel(uint8_t x, uint8_t y)
+// {
+//   if (oledType) // 1
+//     return(getPixelSSD1331(x, y));
+//   else // 0
+//     return(getPixelSSD1306(x + 16, y));
+// }
 
 
 void drawEllipse(uint8_t xc, uint8_t yc, uint8_t xr, uint8_t yr, int angle, uint16_t color, bool fill){
@@ -229,22 +229,22 @@ void drawEllipse(uint8_t xc, uint8_t yc, uint8_t xr, uint8_t yr, int angle, uint
   }
 
   // ...there must be a faster way to do this 😖
-  if(fill){
-    for(int j = eymin; j <= eymax; j++){
+  // if(fill){
+  //   for(int j = eymin; j <= eymax; j++){
 
-      int i = 0;
-      for(i = exmin; !getPixel(i,j); i++){}
-      ellipse_start = i;
+  //     int i = 0;
+  //     for(i = exmin; !getPixel(i,j); i++){}
+  //     ellipse_start = i;
 
-      for(i = exmax; !getPixel(i,j); i--){}
-      ellipse_end = i;
+  //     for(i = exmax; !getPixel(i,j); i--){}
+  //     ellipse_end = i;
 
-      for(i = ellipse_start; i <= ellipse_end; i++){
-        setPixel(i, j, color);
-      }
-    }
+  //     for(i = ellipse_start; i <= ellipse_end; i++){
+  //       setPixel(i, j, color);
+  //     }
+  //   }
 
-  }
+  // }
 };
 
 void drawLine(int x0, int y0, int w, uint16_t color){

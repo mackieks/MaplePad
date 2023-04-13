@@ -35,65 +35,6 @@ int paletteUI(menu *self){
 
 int buttontest(menu *self){
     // draw button test
-	uint8_t joyX, joyY = 0;
-
-	while(gpio_get(ButtonInfos[0].InputIO)){
-		
-		// joystick input copied from SendControllerStatus() --> UPDATE WITH NEW ROUTINE
-		adc_select_input(0);
-		uint8_t xRead = adc_read() >> 4;
-
-		if (invertX){
-			if (xRead > (xCenter - 0x0F) && xRead < (xCenter + 0x0F)) // deadzone
-			joyX = 0x80;
-			else if (xRead < xCenter)
-			joyX = map(xRead, xMin - 0x04, xCenter - 0x0F, 0xFF, 0x81);
-			else if (xRead > xCenter)
-			joyX = map(xRead, xCenter + 0x0F, xMax + 0x04, 0x7F, 0x00);
-		} else {
-			if (xRead > (xCenter - 0x0F) && xRead < (xCenter + 0x0F)) // deadzone
-			joyX = 0x80;
-			else if (xRead < xCenter)
-			joyX = map(xRead, xMin - 0x04, xCenter - 0x0F, 0x00, 0x7F);
-			else if (xRead > xCenter)
-			joyX = map(xRead, xCenter + 0x0F, xMax + 0x04, 0x81, 0xFF);
-		}
-
-		adc_select_input(1);
-		uint8_t yRead = adc_read() >> 4;
-		if (invertY){
-			if (yRead > (yCenter - 0x0F) && yRead < (yCenter + 0x0F)) // deadzone
-			joyY = 0x80;
-			else if (yRead < yCenter)
-			joyY = map(yRead, yMin - 0x04, yCenter - 0x0F, 0xFF, 0x81);
-			else if (yRead > yCenter)
-			joyY = map(yRead, yCenter + 0x0F, yMax + 0x04, 0x7F, 0x00);
-		} else {
-			if (yRead > (yCenter - 0x0F) && yRead < (yCenter + 0x0F)) // deadzone
-			joyY = 0x80;
-			else if (yRead < yCenter)
-			joyY = map(yRead, yMin - 0x04, yCenter - 0x0F, 0x00, 0x7F);
-			else if (yRead > yCenter)
-			joyY = map(yRead, yCenter + 0x0F, yMax + 0x04, 0x81, 0xFF);
-		}
-
-	double r = sqrt(pow(joyX,2)+pow(joyY,2));
-    double div = (double)(joyY)/(double)(joyX);
-    double theta = atan66(div) * 57.2957795131;
-
-	clearSSD1331();
-	
-	if((joyX > 0x80) && (joyY < 0x80))
-		drawEllipse(map(joyX, 0x00, 0xff, 69, 27), map(joyY, 0x00, 0xff, 53, 10), map(r, 0x00, 0x80, 13, 4), 13, -theta, 0xffff, true);
-	else if((joyX < 0x80) && (joyY > 0x80))
-		drawEllipse(map(joyX, 0x00, 0xff, 69, 27), map(joyY, 0x00, 0xff, 53, 10), map(r, 0x00, 0x80, 13, 4), 13, -theta, 0xffff, true);
-	else
-		drawEllipse(map(joyX, 0x00, 0xff, 69, 27), map(joyY, 0x00, 0xff, 53, 10), map(r, 0x00, 0x80, 13, 4), 13, theta, 0xffff, true); 
-	
-	updateSSD1331();
-
-	}
-   	
 	return(1);
 }
 
