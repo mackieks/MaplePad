@@ -18,7 +18,7 @@
 
 uint32_t flipLockout;
 volatile bool redraw = 1;
-static enabledEntries[32] = {0};
+static uint8_t enabledEntries[32] = {0};
 
 struct repeating_timer redrawTimer;
 
@@ -200,7 +200,7 @@ int tCal(menu *self) {
 
 int sDeadzone(menu *self) {
   // draw deadzone configuration
-  char cal_string = "X Deadzone";
+  char* cal_string = "X Deadzone";
   char data[5];
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
@@ -310,7 +310,7 @@ int sDeadzone(menu *self) {
 int tDeadzone(menu *self) {
   // draw deadzone configuration
 
-  char cal_string = "L Deadzone";
+  char* cal_string = "L Deadzone";
   char data[5];
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
