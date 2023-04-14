@@ -195,10 +195,92 @@ int tCal(menu *self){
 
 int sDeadzone(menu *self){
     // draw deadzone configuration
+	char cal_string = "X Deadzone";
+	char data[5];
 
-	xDeadzone = 0x0F;
-	yDeadzone = 0x0F;
+	while(gpio_get(ButtonInfos[0].InputIO)){
+		clearDisplay();
+		putString(cal_string, 0, 0, 0x049f);
+		sprintf(data, "0x%02x", xDeadzone);
+		putString(data, 3, 2, 0x049f);
+		updateDisplay();
 
+		if(!gpio_get(ButtonInfos[6].InputIO))
+			if(xDeadzone < 128) xDeadzone++;
+		else if(!gpio_get(ButtonInfos[7].InputIO))
+			if(xDeadzone > 0) xDeadzone--;
+		else if(!gpio_get(ButtonInfos[8].InputIO))
+			if(xDeadzone > 7) xDeadzone = xDeadzone - 8;
+		else if(!gpio_get(ButtonInfos[9].InputIO))
+			if(xDeadzone < 121) xDeadzone = xDeadzone + 8;
+
+		sleep_ms(50);
+	}
+
+	while(gpio_get(ButtonInfos[0].InputIO)){
+		clearDisplay();
+		cal_string = "X";
+		putString(cal_string, 4, 0, 0x049f);
+		cal_string = "AntiDeadzone";
+		putString(cal_string, 0, 1, 0x049f);
+		sprintf(data, "0x%02x", xAntiDeadzone);
+		putString(data, 3, 3, 0x049f);
+		updateDisplay();
+
+		if(!gpio_get(ButtonInfos[6].InputIO))
+			if(xAntiDeadzone < 128) xAntiDeadzone++;
+		else if(!gpio_get(ButtonInfos[7].InputIO))
+			if(xAntiDeadzone > 0) xAntiDeadzone--;
+		else if(!gpio_get(ButtonInfos[8].InputIO))
+			if(xAntiDeadzone > 7) xAntiDeadzone = xAntiDeadzone - 8;
+		else if(!gpio_get(ButtonInfos[9].InputIO))
+			if(xAntiDeadzone < 121) xAntiDeadzone = xAntiDeadzone + 8;
+
+		sleep_ms(50);
+	}
+
+	while(gpio_get(ButtonInfos[0].InputIO)){
+		clearDisplay();
+		cal_string = "Y Deadzone";
+		putString(cal_string, 0, 0, 0x049f);
+		sprintf(data, "0x%02x", yDeadzone);
+		putString(data, 3, 2, 0x049f);
+		updateDisplay();
+
+		if(!gpio_get(ButtonInfos[6].InputIO))
+			if(yDeadzone < 128) yDeadzone++;
+		else if(!gpio_get(ButtonInfos[7].InputIO))
+			if(yDeadzone > 0) yDeadzone--;
+		else if(!gpio_get(ButtonInfos[8].InputIO))
+			if(yDeadzone > 7) yDeadzone = yDeadzone - 8;
+		else if(!gpio_get(ButtonInfos[9].InputIO))
+			if(yDeadzone < 121) yDeadzone = yDeadzone + 8;
+
+		sleep_ms(50);
+	}
+
+	while(gpio_get(ButtonInfos[0].InputIO)){
+		clearDisplay();
+		cal_string = "Y";
+		putString(cal_string, 4, 0, 0x049f);
+		cal_string = "AntiDeadzone";
+		putString(cal_string, 0, 1, 0x049f);
+		sprintf(data, "0x%02x", yAntiDeadzone);
+		putString(data, 3, 3, 0x049f);
+		updateDisplay();
+
+		if(!gpio_get(ButtonInfos[6].InputIO))
+			if(yAntiDeadzone < 128) yAntiDeadzone++;
+		else if(!gpio_get(ButtonInfos[7].InputIO))
+			if(yAntiDeadzone > 0) yAntiDeadzone--;
+		else if(!gpio_get(ButtonInfos[8].InputIO))
+			if(yAntiDeadzone > 7) yAntiDeadzone = yAntiDeadzone - 8;
+		else if(!gpio_get(ButtonInfos[9].InputIO))
+			if(yAntiDeadzone < 121) yAntiDeadzone = yAntiDeadzone + 8;
+
+		sleep_ms(50);
+	}
+	
 	updateFlashData();
 
     return(1);
@@ -207,8 +289,91 @@ int sDeadzone(menu *self){
 int tDeadzone(menu *self){
     // draw deadzone configuration
 
-	lDeadzone = 0x08;
-	rDeadzone = 0x08;
+	char cal_string = "L Deadzone";
+	char data[5];
+
+	while(gpio_get(ButtonInfos[0].InputIO)){
+		clearDisplay();
+		putString(cal_string, 0, 0, 0x049f);
+		sprintf(data, "0x%02x", lDeadzone);
+		putString(data, 3, 2, 0x049f);
+		updateDisplay();
+
+		if(!gpio_get(ButtonInfos[6].InputIO))
+			if(lDeadzone < 128) lDeadzone++;
+		else if(!gpio_get(ButtonInfos[7].InputIO))
+			if(lDeadzone > 0) lDeadzone--;
+		else if(!gpio_get(ButtonInfos[8].InputIO))
+			if(lDeadzone > 7) lDeadzone = lDeadzone - 8;
+		else if(!gpio_get(ButtonInfos[9].InputIO))
+			if(lDeadzone < 121) lDeadzone = lDeadzone + 8;
+
+		sleep_ms(50);
+	}
+
+	while(gpio_get(ButtonInfos[0].InputIO)){
+		clearDisplay();
+		cal_string = "L";
+		putString(cal_string, 4, 0, 0x049f);
+		cal_string = "AntiDeadzone";
+		putString(cal_string, 0, 1, 0x049f);
+		sprintf(data, "0x%02x", lAntiDeadzone);
+		putString(data, 3, 3, 0x049f);
+		updateDisplay();
+
+		if(!gpio_get(ButtonInfos[6].InputIO))
+			if(lAntiDeadzone < 128) lAntiDeadzone++;
+		else if(!gpio_get(ButtonInfos[7].InputIO))
+			if(lAntiDeadzone > 0) lAntiDeadzone--;
+		else if(!gpio_get(ButtonInfos[8].InputIO))
+			if(lAntiDeadzone > 7) lAntiDeadzone = lAntiDeadzone - 8;
+		else if(!gpio_get(ButtonInfos[9].InputIO))
+			if(lAntiDeadzone < 121) lAntiDeadzone = lAntiDeadzone + 8;
+
+		sleep_ms(50);
+	}
+
+	while(gpio_get(ButtonInfos[0].InputIO)){
+		clearDisplay();
+		cal_string = "R Deadzone";
+		putString(cal_string, 0, 0, 0x049f);
+		sprintf(data, "0x%02x", rDeadzone);
+		putString(data, 3, 2, 0x049f);
+		updateDisplay();
+
+		if(!gpio_get(ButtonInfos[6].InputIO))
+			if(rDeadzone < 128) rDeadzone++;
+		else if(!gpio_get(ButtonInfos[7].InputIO))
+			if(rDeadzone > 0) rDeadzone--;
+		else if(!gpio_get(ButtonInfos[8].InputIO))
+			if(rDeadzone > 7) rDeadzone = rDeadzone - 8;
+		else if(!gpio_get(ButtonInfos[9].InputIO))
+			if(rDeadzone < 121) rDeadzone = rDeadzone + 8;
+
+		sleep_ms(50);
+	}
+
+	while(gpio_get(ButtonInfos[0].InputIO)){
+		clearDisplay();
+		cal_string = "R";
+		putString(cal_string, 4, 0, 0x049f);
+		cal_string = "AntiDeadzone";
+		putString(cal_string, 0, 1, 0x049f);
+		sprintf(data, "0x%02x", rAntiDeadzone);
+		putString(data, 3, 3, 0x049f);
+		updateDisplay();
+
+		if(!gpio_get(ButtonInfos[6].InputIO))
+			if(rAntiDeadzone < 128) rAntiDeadzone++;
+		else if(!gpio_get(ButtonInfos[7].InputIO))
+			if(rAntiDeadzone > 0) rAntiDeadzone--;
+		else if(!gpio_get(ButtonInfos[8].InputIO))
+			if(rAntiDeadzone > 7) rAntiDeadzone = rAntiDeadzone - 8;
+		else if(!gpio_get(ButtonInfos[9].InputIO))
+			if(rAntiDeadzone < 121) rAntiDeadzone = rAntiDeadzone + 8;
+
+		sleep_ms(50);
+	}
 
 	updateFlashData();
 
