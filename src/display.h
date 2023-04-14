@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <math.h>
 #include <stdio.h>
@@ -15,7 +15,6 @@
 #include "menu.h"
 #include "font.h"
 
-
 extern tFont Font;
 
 float cos_32s(float x);
@@ -28,7 +27,7 @@ double atan_66s(double x);
 
 double atan66(double x);
 
-void fast_hsv2rgb_32bit(uint16_t h, uint8_t s, uint8_t v, uint8_t *r, uint8_t *g , uint8_t *b);
+void fast_hsv2rgb_32bit(uint16_t h, uint8_t s, uint8_t v, uint8_t *r, uint8_t *g, uint8_t *b);
 
 void setPixel(uint8_t x, uint8_t y, uint16_t color);
 
@@ -48,7 +47,7 @@ void drawToggle(int iy, uint16_t color, bool on);
 
 void putLetter(int ix, int iy, int index, uint16_t color);
 
-void putString(char* text, int ix, int iy, uint16_t color);
+void putString(char *text, int ix, int iy, uint16_t color);
 
 void updateDisplay(void);
 

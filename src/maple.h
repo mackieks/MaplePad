@@ -1,4 +1,4 @@
-#pragma once 
+#pragma once
 
 #include <math.h>
 #include <stdio.h>
@@ -116,16 +116,16 @@ typedef struct PacketControllerCondition_s {
 } PacketControllerCondition;
 
 typedef struct PacketPuruPuruCondition_s {
-  uint Func;       // Nb. Big endian
-  uint8_t Ctrl; // Vibration control
-  uint8_t Power;   // Vibration intensity
-  uint8_t Freq;    // Vibration frequency
-  uint8_t Inc;     // Vibration inclination
+  uint Func;     // Nb. Big endian
+  uint8_t Ctrl;  // Vibration control
+  uint8_t Power; // Vibration intensity
+  uint8_t Freq;  // Vibration frequency
+  uint8_t Inc;   // Vibration inclination
 } PacketPuruPuruCondition;
 
 typedef struct PacketTimerCondition_s {
-  uint Func;       // Nb. Big endian
-  uint8_t BT;      // Button data
+  uint Func;           // Nb. Big endian
+  uint8_t BT;          // Button data
   uint8_t Reserved[3]; // Reserved (0)
 } PacketTimerCondition;
 

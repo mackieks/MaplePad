@@ -159,7 +159,6 @@ void ssd1306SendCommandBuffer(uint8_t *inbuf, int len) {
 }
 
 void ssd1306_init() {
-
 uint8_t init_cmds[]=
     {0x00,
     SSD1306_DISPLAYOFF,
@@ -184,7 +183,7 @@ uint8_t init_cmds[]=
     clearSSD1306();
     updateSSD1306();
 }
-
+  
 // This copies the entire framebuffer to the display.
 void updateSSD1306() {
     i2c_write_blocking(SSD1306_I2C, SSD1306_ADDRESS, _Framebuffer, sizeof(_Framebuffer), false);

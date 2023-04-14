@@ -1,8 +1,8 @@
 /*
-    Menu 
+    Menu
 */
 
-#pragma once 
+#pragma once
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -33,7 +33,7 @@
 #define currentPage flashData[15]
 #define rumbleEnable flashData[16]
 #define vmuEnable flashData[17]
-#define oledFlip flashData[18] 
+#define oledFlip flashData[18]
 #define swapXY flashData[19]
 #define swapLR flashData[20]
 #define oledType flashData[21]
@@ -51,42 +51,41 @@ extern ButtonInfo ButtonInfos[];
 
 typedef struct menu_s menu;
 
-struct menu_s
-{
-	char name[14];
-    int type;   // 0: submenu, 1: boolean toggle, 2: function, 3: inert
-	bool visible;
-    bool selected;
-    bool on;
-    bool enabled;   // control for hidden menu items (ssd1306)
-    int (*run)(menu *self);
+struct menu_s {
+  char name[14];
+  int type; // 0: submenu, 1: boolean toggle, 2: function, 3: inert
+  bool visible;
+  bool selected;
+  bool on;
+  bool enabled; // control for hidden menu items (ssd1306)
+  int (*run)(menu *self);
 };
 
-int paletteVMU(menu*);
+int paletteVMU(menu *);
 
-int paletteUI(menu*);
+int paletteUI(menu *);
 
-int buttontest(menu*);
+int buttontest(menu *);
 
-int stickcal(menu*);
+int stickcal(menu *);
 
-int trigcal(menu*);
+int trigcal(menu *);
 
-int deadzone(menu*);
+int deadzone(menu *);
 
-int toggleOption(menu*);
+int toggleOption(menu *);
 
-int exitToPad(menu*);
+int exitToPad(menu *);
 
-int dummy(menu*);
+int dummy(menu *);
 
-int mainmen(menu*);
+int mainmen(menu *);
 
-int sconfig(menu*);
+int sconfig(menu *);
 
-int tconfig(menu*);
+int tconfig(menu *);
 
-int setting(menu*);
+int setting(menu *);
 
 void getSelectedElement(void);
 
@@ -96,6 +95,6 @@ void updateFlags(void);
 
 void redrawMenu(void);
 
-bool rainbowCycle(struct repeating_timer*);
+bool rainbowCycle(struct repeating_timer *);
 
 void runMenu(void);

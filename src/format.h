@@ -1,6 +1,5 @@
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #define CARD_BLOCKS 256
@@ -14,7 +13,7 @@ extern "C"
 
 #define BLOCK_SIZE 512
 
-uint32_t CheckFormatted(uint8_t* MemoryCard, uint32_t CurrentPage);
+uint32_t CheckFormatted(uint8_t *MemoryCard, uint32_t CurrentPage);
 
 #ifdef __cplusplus
 }
