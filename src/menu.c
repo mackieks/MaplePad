@@ -61,22 +61,24 @@ int sCal(menu *self){
     yCenter = adc_read() >> 4;
 
     clearDisplay();
-    cal_string = "move stick around";
+    cal_string = "move stick";
     putString(cal_string, 0, 0, 0x049f);
-	cal_string = "   a lot!";
+	cal_string = "  around";
     putString(cal_string, 0, 1, 0x049f);
+	cal_string = "  a lot!";
+    putString(cal_string, 0, 2, 0x049f);
     updateDisplay();
+
+	xMin = 0x80;
+	xMax = 0x80;
+	yMin = 0x80;
+	yMax = 0x80;
 	
 	uint32_t start = to_ms_since_boot(get_absolute_time());
 	while( (to_ms_since_boot(get_absolute_time()) - start) < 4000 ? true : gpio_get(ButtonInfos[0].InputIO)){
 		static bool prompt = true;		
 		static uint8_t xData = 0;
 		static uint8_t yData = 0;
-
-		xMin = 0x80;
-		xMax = 0x80;
-		yMin = 0x80;
-		yMax = 0x80;
 
 		adc_select_input(0); // X
     	xData = adc_read() >> 4;
@@ -86,19 +88,29 @@ int sCal(menu *self){
 
 		if(xData < xMin)
 			xMin = xData;
-		if(xData > xMax)
+		else if(xData > xMax)
 			xMax = xData;
 		
 		if(yData < yMin)
 			yMin = yData;
-		if(yData > yMax)
+		else if(yData > yMax)
 			yMax = yData;
+
+		// printf("\033[H\033[2J");
+		// printf("\033[36m");
+		// printf("xRaw: 0x%04x  yRaw: 0x%02x\n", xRaw, yRaw);
+		// printf("xData: 0x%02x  yData: 0x%02x\n", xData, yData);
+		// printf("xMin: 0x%02x  xMax: 0x%02x yMin: 0x%02x yMax: 0x%02x\n", xMin, xMax, yMin, yMax);
+		// sleep_ms(50);
 
 		if((to_ms_since_boot(get_absolute_time()) - start) >= 4000 && prompt){
 			prompt = false;
-			cal_string = "press A when done";
+			cal_string = "  press A";
 			putString(cal_string, 0, 3, 0x049f);
+			cal_string = "  when done";
+			putString(cal_string, 0, 4, 0x049f);
     		updateDisplay();
+			
 		}
 	}
 
@@ -373,7 +385,7 @@ void redrawMenu(){
 	clearDisplay();
 
 	for(uint8_t n = 0; n < currentNumEntries; n++){
-		if(currentMenu[n].visible && currentMenu[n].enabled){
+		if(currentMenu[n].visible){
 			putString(currentMenu[n].name, 0, n + entryModifier, color);
 			if(currentMenu[n].type == 1) // boolean type menu
 				drawToggle(n + entryModifier, color, currentMenu[n].on);
