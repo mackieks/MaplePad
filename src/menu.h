@@ -54,11 +54,11 @@ typedef struct menu_s menu;
 struct menu_s
 {
 	char name[14];
-    int type;   // 0: "folder" with submenus, 1: boolean on/off, 2: active (loads separate window), 3: inert
+    int type;   // 0: submenu, 1: boolean toggle, 2: function, 3: inert
 	bool visible;
     bool selected;
     bool on;
-    bool enabled;   // control for greyed-out menu items (ssd1331) and hidden menu items (ssd1306)
+    bool enabled;   // control for hidden menu items (ssd1306)
     int (*run)(menu *self);
 };
 

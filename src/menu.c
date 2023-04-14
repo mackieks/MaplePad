@@ -18,6 +18,7 @@
 
 uint32_t flipLockout;
 volatile bool redraw = 1;
+static enabledEntries[32] = {0};
 
 struct repeating_timer redrawTimer;
 
@@ -45,7 +46,7 @@ int sCal(menu *self){
 	while(!gpio_get(ButtonInfos[0].InputIO));
 
     clearDisplay();
-    char *cal_string = "center stick,";
+    char *cal_string = "Center stick,";
     putString(cal_string, 0, 0, 0x049f);
 	cal_string = "then press A!";
 	putString(cal_string, 0, 1, 0x049f);
@@ -61,7 +62,7 @@ int sCal(menu *self){
     yCenter = adc_read() >> 4;
 
     clearDisplay();
-    cal_string = "move stick";
+    cal_string = "Move stick";
     putString(cal_string, 0, 0, 0x049f);
 	cal_string = "  around";
     putString(cal_string, 0, 1, 0x049f);
@@ -105,9 +106,9 @@ int sCal(menu *self){
 
 		if((to_ms_since_boot(get_absolute_time()) - start) >= 4000 && prompt){
 			prompt = false;
-			cal_string = "  press A";
+			cal_string = "  Press A";
 			putString(cal_string, 0, 3, 0x049f);
-			cal_string = "  when done";
+			cal_string = " when done!";
 			putString(cal_string, 0, 4, 0x049f);
     		updateDisplay();
 			
@@ -312,14 +313,14 @@ int tConfig(menu* self){
 }
 
 static menu settings[8] = {
-    {"Back          ", 2, 1, 0, 1, 1, mainmen},
-    {"Boot Video    ", 3, 1, 1, 0, 0, toggleOption},
+    {"Back          ", 2, 1, 1, 1, 1, mainmen},
+    {"Boot Video    ", 3, 1, 0, 0, 1, dummy},
     {"Rumble        ", 1, 1, 0, 1, 1, toggleOption},
 	{"VMU           ", 1, 1, 0, 1, 1, toggleOption},
     {"UI Color      ", 2, 1, 0, 1, 1, paletteUI}, // ssd1331 present
-    {"OLED:         ", 3, 0, 0, 1, 0, dummy},
-	{"OLED Flip     ", 1, 0, 0, 0, 1, toggleOption},
-    {"Firmware: 1.4e", 3, 0, 0, 1, 0, dummy}
+    {"OLED:         ", 3, 0, 0, 1, 1, dummy},
+	{"OLED Flip     ", 1, 0, 0, 1, 1, toggleOption},
+    {"FW:    1.5beta", 3, 0, 0, 1, 1, dummy}
 };
 
 int setting(menu* self){
@@ -365,7 +366,7 @@ void getSelectedEntry(){
 
 void getFirstVisibleEntry(){
 	for(int i = 0; i < currentNumEntries; i++){
-		if(currentMenu[i].visible){
+		if(currentMenu[enabledEntries[i]].visible){
 			firstVisibleEntry = i;
 			break;
 		}
@@ -374,7 +375,7 @@ void getFirstVisibleEntry(){
 
 void getLastVisibleEntry(){
 	for(int i = currentNumEntries - 1; i >= 0; i--){
-		if(currentMenu[i].visible){
+		if(currentMenu[enabledEntries[i]].visible){
 			lastVisibleEntry = i;
 			break;
 		}
@@ -384,11 +385,20 @@ void getLastVisibleEntry(){
 void redrawMenu(){
 	clearDisplay();
 
+	int i = 0;
+
 	for(uint8_t n = 0; n < currentNumEntries; n++){
-		if(currentMenu[n].visible){
-			putString(currentMenu[n].name, 0, n + entryModifier, color);
-			if(currentMenu[n].type == 1) // boolean type menu
-				drawToggle(n + entryModifier, color, currentMenu[n].on);
+		if(currentMenu[n].enabled){
+			enabledEntries[i] = n;
+			i++;
+		}
+	}
+
+	for(uint8_t n = 0; n < currentNumEntries; n++){
+		if(currentMenu[enabledEntries[n]].visible){
+			putString(currentMenu[enabledEntries[n]].name, 0, n + entryModifier, color);
+			if(currentMenu[enabledEntries[n]].type == 1) // boolean type menu
+				drawToggle(n + entryModifier, color, currentMenu[enabledEntries[n]].on);
 		}
 		drawCursor(selectedEntry + entryModifier, color);
 	}
@@ -481,7 +491,13 @@ void runMenu(){
 			
 			// disable color-only menu entries
 			mainMenu[3].enabled = false;
+			settings[4].enabled = false;
 
+			// update entry visibility
+			mainMenu[3].visible = false;
+			mainMenu[5].visible = true;
+			settings[4].visible = false;
+			settings[5].visible = true;
 		}
 			
 
@@ -505,18 +521,21 @@ void runMenu(){
 			sleep_ms(75); // Wait out switch bounce + rate-limiting
 
 			if(!gpio_get(ButtonInfos[4].InputIO)){ // Up
-				// check currently selected element
-				// if element is not the top one, deselect current element 
-				// and select element above it
+				/* check currently selected entry
+				if element is not the top one, deselect current entry 
+				and select the first enabled entry above it */
 				if(selectedEntry){  // i.e. not 0
-					currentMenu[selectedEntry].selected = 0;
-					currentMenu[selectedEntry - 1].selected = 1;
+					currentMenu[selectedEntry].selected = false;
+
+					int n = 1;
+					while(!currentMenu[selectedEntry - n].enabled) n++;
+					currentMenu[selectedEntry - n].selected = true;
 				
 
 				getFirstVisibleEntry();
 				if((selectedEntry == firstVisibleEntry) && (firstVisibleEntry)){
-					currentMenu[firstVisibleEntry + 4].visible = 0;
-					currentMenu[firstVisibleEntry - 1].visible = 1;
+					currentMenu[enabledEntries[firstVisibleEntry + 4]].visible = false;
+					currentMenu[enabledEntries[firstVisibleEntry - 1]].visible = true;
 					entryModifier++;
 				}
 
@@ -525,18 +544,21 @@ void runMenu(){
 			}
 
 			else if(!gpio_get(ButtonInfos[5].InputIO)){ // Down
-				// check currently selected element
-				// if element is not the bottom one, deselect current element
-				// and select element below it
+				/* check currently selected entry
+				if entry is not the bottom one, deselect current entry
+				and select first enabled entry below it */ 
 				if(selectedEntry < currentNumEntries - 1)
 				{
-					currentMenu[selectedEntry].selected = 0;
-					currentMenu[selectedEntry + 1].selected = 1;
+					currentMenu[selectedEntry].selected = false;
+
+					int n = 1;
+					while(!currentMenu[selectedEntry + n].enabled) n++;
+					currentMenu[selectedEntry + n].selected = true;
 
 				getLastVisibleEntry();
 				if((selectedEntry == lastVisibleEntry) && (lastVisibleEntry < currentNumEntries)){
-					currentMenu[lastVisibleEntry - 4].visible = 0;
-					currentMenu[lastVisibleEntry + 1].visible = 1;
+					currentMenu[enabledEntries[lastVisibleEntry - 4]].visible = false;
+					currentMenu[enabledEntries[lastVisibleEntry + 1]].visible = true;
 					entryModifier--;
 				}
 
@@ -544,14 +566,14 @@ void runMenu(){
 			}
 
 			else if(!gpio_get(ButtonInfos[0].InputIO)){ // A
-				// check currently selected element
-				// if element is enabled, run element's function
-				// element functions should set currentMenu if they enter a submenu.
+				/* check currently selected entry
+				if entry is enabled, run entry's function
+				entry functions should set currentMenu if they enter a submenu. */
 				if(currentMenu[selectedEntry].enabled)
 					if(!currentMenu[selectedEntry].run(&currentMenu[selectedEntry])) break;
 			}
-			// The elements' functions should all return 1 except for mainMenu.exitToPad,  
-			// which should return 0 and result in a break from this while loop.
+			/* Entrys' functions should all return 1 except for mainMenu.exitToPad,  
+			which should return 0 and result in a break from this while loop. */
 		}
 	cancel_repeating_timer(&redrawTimer);
 }

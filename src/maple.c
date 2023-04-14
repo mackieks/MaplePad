@@ -741,16 +741,16 @@ void SendControllerStatus()
     if (xRead > (xCenter - 0x0F) && xRead < (xCenter + 0x0F)) // deadzone
       ControllerPacket.Controller.JoyX = 0x80;
     else if (xRead < xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, xMin - 0x04, xCenter - 0x0F, 0xFF, 0x81);
+      ControllerPacket.Controller.JoyX = map(xRead, xMin, xCenter - 0x0F, 0xFF, 0x81);
     else if (xRead > xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, xCenter + 0x0F, xMax + 0x04, 0x7F, 0x00);
+      ControllerPacket.Controller.JoyX = map(xRead, xCenter + 0x0F, xMax, 0x7F, 0x00);
   } else {
     if (xRead > (xCenter - 0x0F) && xRead < (xCenter + 0x0F)) // deadzone
       ControllerPacket.Controller.JoyX = 0x80;
     else if (xRead < xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, xMin - 0x04, xCenter - 0x0F, 0x00, 0x7F);
+      ControllerPacket.Controller.JoyX = map(xRead, xMin, xCenter - 0x0F, 0x00, 0x7F);
     else if (xRead > xCenter)
-      ControllerPacket.Controller.JoyX = map(xRead, xCenter + 0x0F, xMax + 0x04, 0x81, 0xFF);
+      ControllerPacket.Controller.JoyX = map(xRead, xCenter + 0x0F, xMax, 0x81, 0xFF);
   }
 
   adc_select_input(1);
@@ -759,22 +759,22 @@ void SendControllerStatus()
     if (yRead > (yCenter - 0x0F) && yRead < (yCenter + 0x0F)) // deadzone
       ControllerPacket.Controller.JoyY = 0x80;
     else if (yRead < yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, yMin - 0x04, yCenter - 0x0F, 0xFF, 0x81);
+      ControllerPacket.Controller.JoyY = map(yRead, yMin, yCenter - 0x0F, 0xFF, 0x81);
     else if (yRead > yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, yCenter + 0x0F, yMax + 0x04, 0x7F, 0x00);
+      ControllerPacket.Controller.JoyY = map(yRead, yCenter + 0x0F, yMax, 0x7F, 0x00);
   } else {
     if (yRead > (yCenter - 0x0F) && yRead < (yCenter + 0x0F)) // deadzone
       ControllerPacket.Controller.JoyY = 0x80;
     else if (yRead < yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, yMin - 0x04, yCenter - 0x0F, 0x00, 0x7F);
+      ControllerPacket.Controller.JoyY = map(yRead, yMin, yCenter - 0x0F, 0x00, 0x7F);
     else if (yRead > yCenter)
-      ControllerPacket.Controller.JoyY = map(yRead, yCenter + 0x0F, yMax + 0x04, 0x81, 0xFF);
+      ControllerPacket.Controller.JoyY = map(yRead, yCenter + 0x0F, yMax, 0x81, 0xFF);
   }
 
 
   adc_select_input(2);
   uint8_t lRead = adc_read() >> 4;
-  if (invertL) // invertL
+  if (invertL) 
   {                                      
     if (lRead > (lMax - 0x08)) // deadzone
       ControllerPacket.Controller.LeftTrigger = 0x00;
@@ -791,7 +791,7 @@ void SendControllerStatus()
 
   adc_select_input(3);
   uint8_t rRead = adc_read() >> 4;
-  if (invertR) // invertR
+  if (invertR)
   {                                      
     if (rRead > (rMax - 0x08)) // deadzone
       ControllerPacket.Controller.RightTrigger = 0x00;
