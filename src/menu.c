@@ -220,7 +220,7 @@ int sDeadzone(menu *self){
 	while(gpio_get(ButtonInfos[0].InputIO)){
 		clearDisplay();
 		cal_string = "X";
-		putString(cal_string, 4, 0, 0x049f);
+		putString(cal_string, 5, 0, 0x049f);
 		cal_string = "AntiDeadzone";
 		putString(cal_string, 0, 1, 0x049f);
 		sprintf(data, "0x%02x", xAntiDeadzone);
@@ -262,7 +262,7 @@ int sDeadzone(menu *self){
 	while(gpio_get(ButtonInfos[0].InputIO)){
 		clearDisplay();
 		cal_string = "Y";
-		putString(cal_string, 4, 0, 0x049f);
+		putString(cal_string, 5, 0, 0x049f);
 		cal_string = "AntiDeadzone";
 		putString(cal_string, 0, 1, 0x049f);
 		sprintf(data, "0x%02x", yAntiDeadzone);
@@ -314,7 +314,7 @@ int tDeadzone(menu *self){
 	while(gpio_get(ButtonInfos[0].InputIO)){
 		clearDisplay();
 		cal_string = "L";
-		putString(cal_string, 4, 0, 0x049f);
+		putString(cal_string, 5, 0, 0x049f);
 		cal_string = "AntiDeadzone";
 		putString(cal_string, 0, 1, 0x049f);
 		sprintf(data, "0x%02x", lAntiDeadzone);
@@ -356,7 +356,7 @@ int tDeadzone(menu *self){
 	while(gpio_get(ButtonInfos[0].InputIO)){
 		clearDisplay();
 		cal_string = "R";
-		putString(cal_string, 4, 0, 0x049f);
+		putString(cal_string, 5, 0, 0x049f);
 		cal_string = "AntiDeadzone";
 		putString(cal_string, 0, 1, 0x049f);
 		sprintf(data, "0x%02x", rAntiDeadzone);
