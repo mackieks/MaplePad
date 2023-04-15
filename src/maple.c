@@ -43,7 +43,7 @@
 // Memory Card
 #define PHASE_SIZE (BLOCK_SIZE / 4)
 #define FLASH_WRITE_DELAY 16      // About quarter of a second if polling once a frame
-#define FLASH_OFFSET (128 * 1024) // How far into Flash to store the memory card data. We only have around 100kB of code so assuming this will be fine
+#define FLASH_OFFSET (128 * 1024) // How far into flash to store the memory card data. Check maplepad.bin for real code size
 
 #if PICO
 #define PAGE_BUTTON 21 // Pull GP21 low for Page Cycle. Avoid page cycling for ~10s after saving or copying VMU data to avoid data corruption

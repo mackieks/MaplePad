@@ -18,7 +18,6 @@
 
 uint32_t flipLockout;
 volatile bool redraw = 1;
-static uint8_t enabledEntries[32] = {0};
 
 struct repeating_timer redrawTimer;
 
@@ -43,8 +42,7 @@ int sCal(menu *self) {
   // draw stick calibration
   redraw = 0; // Disable redrawMenu
 
-  while (!gpio_get(ButtonInfos[0].InputIO))
-    ;
+  while (!gpio_get(ButtonInfos[0].InputIO));
 
   clearDisplay();
   char *cal_string = "Center stick,";
@@ -54,8 +52,7 @@ int sCal(menu *self) {
   updateDisplay();
 
   sleep_ms(50);
-  while (gpio_get(ButtonInfos[0].InputIO))
-    ;
+  while (gpio_get(ButtonInfos[0].InputIO));
 
   adc_select_input(0); // X
   xCenter = adc_read() >> 4;
@@ -200,31 +197,38 @@ int tCal(menu *self) {
 
 int sDeadzone(menu *self) {
   // draw deadzone configuration
+
+  redraw = 0;
+
   char* cal_string = "X Deadzone";
-  char data[5];
+  char sdata[5] = {0};
+
+  while(!gpio_get(ButtonInfos[0].InputIO));
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
     putString(cal_string, 0, 0, 0x049f);
-    sprintf(data, "0x%02x", xDeadzone);
-    putString(data, 3, 2, 0x049f);
+    sprintf(sdata, "0x%02x", xDeadzone);
+    putString(sdata, 3, 2, 0x049f);
     updateDisplay();
 
-    if (!gpio_get(ButtonInfos[6].InputIO))
+    if (!gpio_get(ButtonInfos[4].InputIO)){
       if (xDeadzone < 128)
-        xDeadzone++;
-      else if (!gpio_get(ButtonInfos[7].InputIO))
-        if (xDeadzone > 0)
-          xDeadzone--;
-        else if (!gpio_get(ButtonInfos[8].InputIO))
-          if (xDeadzone > 7)
-            xDeadzone = xDeadzone - 8;
-          else if (!gpio_get(ButtonInfos[9].InputIO))
-            if (xDeadzone < 121)
-              xDeadzone = xDeadzone + 8;
+        xDeadzone++;}
+    else if (!gpio_get(ButtonInfos[5].InputIO)){
+      if (xDeadzone > 0)
+        xDeadzone--;}
+    else if (!gpio_get(ButtonInfos[6].InputIO)){
+      if (xDeadzone > 7)
+        xDeadzone = xDeadzone - 8;}
+    else if (!gpio_get(ButtonInfos[7].InputIO)){
+      if (xDeadzone < 121)
+        xDeadzone = xDeadzone + 8;}
 
     sleep_ms(50);
   }
+
+  while(!gpio_get(ButtonInfos[0].InputIO));
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
@@ -232,49 +236,53 @@ int sDeadzone(menu *self) {
     putString(cal_string, 5, 0, 0x049f);
     cal_string = "AntiDeadzone";
     putString(cal_string, 0, 1, 0x049f);
-    sprintf(data, "0x%02x", xAntiDeadzone);
-    putString(data, 3, 3, 0x049f);
+    sprintf(sdata, "0x%02x", xAntiDeadzone);
+    putString(sdata, 3, 3, 0x049f);
     updateDisplay();
 
-    if (!gpio_get(ButtonInfos[6].InputIO))
+    if (!gpio_get(ButtonInfos[4].InputIO)){
       if (xAntiDeadzone < 128)
-        xAntiDeadzone++;
-      else if (!gpio_get(ButtonInfos[7].InputIO))
-        if (xAntiDeadzone > 0)
-          xAntiDeadzone--;
-        else if (!gpio_get(ButtonInfos[8].InputIO))
-          if (xAntiDeadzone > 7)
-            xAntiDeadzone = xAntiDeadzone - 8;
-          else if (!gpio_get(ButtonInfos[9].InputIO))
-            if (xAntiDeadzone < 121)
-              xAntiDeadzone = xAntiDeadzone + 8;
+        xAntiDeadzone++;}
+    else if (!gpio_get(ButtonInfos[5].InputIO)){
+      if (xAntiDeadzone > 0)
+        xAntiDeadzone--;}
+    else if (!gpio_get(ButtonInfos[6].InputIO)){
+      if (xAntiDeadzone > 7)
+        xAntiDeadzone = xAntiDeadzone - 8;}
+    else if (!gpio_get(ButtonInfos[7].InputIO)){
+      if (xAntiDeadzone < 121)
+        xAntiDeadzone = xAntiDeadzone + 8;}
 
     sleep_ms(50);
   }
+
+  while(!gpio_get(ButtonInfos[0].InputIO));
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
     cal_string = "Y Deadzone";
     putString(cal_string, 0, 0, 0x049f);
-    sprintf(data, "0x%02x", yDeadzone);
-    putString(data, 3, 2, 0x049f);
+    sprintf(sdata, "0x%02x", yDeadzone);
+    putString(sdata, 3, 2, 0x049f);
     updateDisplay();
 
-    if (!gpio_get(ButtonInfos[6].InputIO))
+    if (!gpio_get(ButtonInfos[4].InputIO)){
       if (yDeadzone < 128)
-        yDeadzone++;
-      else if (!gpio_get(ButtonInfos[7].InputIO))
-        if (yDeadzone > 0)
-          yDeadzone--;
-        else if (!gpio_get(ButtonInfos[8].InputIO))
-          if (yDeadzone > 7)
-            yDeadzone = yDeadzone - 8;
-          else if (!gpio_get(ButtonInfos[9].InputIO))
-            if (yDeadzone < 121)
-              yDeadzone = yDeadzone + 8;
+        yDeadzone++;}
+    else if (!gpio_get(ButtonInfos[5].InputIO)){
+      if (yDeadzone > 0)
+        yDeadzone--;}
+    else if (!gpio_get(ButtonInfos[6].InputIO)){
+      if (yDeadzone > 7)
+        yDeadzone = yDeadzone - 8;}
+    else if (!gpio_get(ButtonInfos[7].InputIO)){
+      if (yDeadzone < 121)
+        yDeadzone = yDeadzone + 8;}
 
     sleep_ms(50);
   }
+
+  while(!gpio_get(ButtonInfos[0].InputIO));
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
@@ -282,27 +290,31 @@ int sDeadzone(menu *self) {
     putString(cal_string, 5, 0, 0x049f);
     cal_string = "AntiDeadzone";
     putString(cal_string, 0, 1, 0x049f);
-    sprintf(data, "0x%02x", yAntiDeadzone);
-    putString(data, 3, 3, 0x049f);
+    sprintf(sdata, "0x%02x", yAntiDeadzone);
+    putString(sdata, 3, 3, 0x049f);
     updateDisplay();
 
-    if (!gpio_get(ButtonInfos[6].InputIO))
+    if (!gpio_get(ButtonInfos[4].InputIO)){
       if (yAntiDeadzone < 128)
-        yAntiDeadzone++;
-      else if (!gpio_get(ButtonInfos[7].InputIO))
-        if (yAntiDeadzone > 0)
-          yAntiDeadzone--;
-        else if (!gpio_get(ButtonInfos[8].InputIO))
-          if (yAntiDeadzone > 7)
-            yAntiDeadzone = yAntiDeadzone - 8;
-          else if (!gpio_get(ButtonInfos[9].InputIO))
-            if (yAntiDeadzone < 121)
-              yAntiDeadzone = yAntiDeadzone + 8;
+        yAntiDeadzone++;}
+    else if (!gpio_get(ButtonInfos[5].InputIO)){
+      if (yAntiDeadzone > 0)
+        yAntiDeadzone--;}
+    else if (!gpio_get(ButtonInfos[6].InputIO)){
+      if (yAntiDeadzone > 7)
+        yAntiDeadzone = yAntiDeadzone - 8;}
+    else if (!gpio_get(ButtonInfos[7].InputIO)){
+      if (yAntiDeadzone < 121)
+        yAntiDeadzone = yAntiDeadzone + 8;}
 
     sleep_ms(50);
   }
 
   updateFlashData();
+
+  clearDisplay();
+  
+  redraw = 1;
 
   return (1);
 }
@@ -310,31 +322,37 @@ int sDeadzone(menu *self) {
 int tDeadzone(menu *self) {
   // draw deadzone configuration
 
+  redraw = 0;
+
   char* cal_string = "L Deadzone";
-  char data[5];
+  char tdata[5];
+
+  while(!gpio_get(ButtonInfos[0].InputIO));
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
     putString(cal_string, 0, 0, 0x049f);
-    sprintf(data, "0x%02x", lDeadzone);
-    putString(data, 3, 2, 0x049f);
+    sprintf(tdata, "0x%02x", lDeadzone);
+    putString(tdata, 3, 2, 0x049f);
     updateDisplay();
 
-    if (!gpio_get(ButtonInfos[6].InputIO))
+    if (!gpio_get(ButtonInfos[4].InputIO)){
       if (lDeadzone < 128)
-        lDeadzone++;
-      else if (!gpio_get(ButtonInfos[7].InputIO))
-        if (lDeadzone > 0)
-          lDeadzone--;
-        else if (!gpio_get(ButtonInfos[8].InputIO))
-          if (lDeadzone > 7)
-            lDeadzone = lDeadzone - 8;
-          else if (!gpio_get(ButtonInfos[9].InputIO))
-            if (lDeadzone < 121)
-              lDeadzone = lDeadzone + 8;
+        lDeadzone++;}
+    else if (!gpio_get(ButtonInfos[5].InputIO)){
+      if (lDeadzone > 0)
+        lDeadzone--;}
+    else if (!gpio_get(ButtonInfos[6].InputIO)){
+      if (lDeadzone > 7)
+        lDeadzone = lDeadzone - 8;}
+    else if (!gpio_get(ButtonInfos[7].InputIO)){
+      if (lDeadzone < 121)
+        lDeadzone = lDeadzone + 8;}
 
     sleep_ms(50);
   }
+
+  while(!gpio_get(ButtonInfos[0].InputIO));
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
@@ -342,49 +360,53 @@ int tDeadzone(menu *self) {
     putString(cal_string, 5, 0, 0x049f);
     cal_string = "AntiDeadzone";
     putString(cal_string, 0, 1, 0x049f);
-    sprintf(data, "0x%02x", lAntiDeadzone);
-    putString(data, 3, 3, 0x049f);
+    sprintf(tdata, "0x%02x", lAntiDeadzone);
+    putString(tdata, 3, 3, 0x049f);
     updateDisplay();
 
-    if (!gpio_get(ButtonInfos[6].InputIO))
+    if (!gpio_get(ButtonInfos[4].InputIO)){
       if (lAntiDeadzone < 128)
-        lAntiDeadzone++;
-      else if (!gpio_get(ButtonInfos[7].InputIO))
-        if (lAntiDeadzone > 0)
-          lAntiDeadzone--;
-        else if (!gpio_get(ButtonInfos[8].InputIO))
-          if (lAntiDeadzone > 7)
-            lAntiDeadzone = lAntiDeadzone - 8;
-          else if (!gpio_get(ButtonInfos[9].InputIO))
-            if (lAntiDeadzone < 121)
-              lAntiDeadzone = lAntiDeadzone + 8;
+        lAntiDeadzone++;}
+    else if (!gpio_get(ButtonInfos[5].InputIO)){
+      if (lAntiDeadzone > 0)
+        lAntiDeadzone--;}
+    else if (!gpio_get(ButtonInfos[6].InputIO)){
+      if (lAntiDeadzone > 7)
+        lAntiDeadzone = lAntiDeadzone - 8;}
+    else if (!gpio_get(ButtonInfos[7].InputIO)){
+      if (lAntiDeadzone < 121)
+        lAntiDeadzone = lAntiDeadzone + 8;}
 
     sleep_ms(50);
   }
+
+  while(!gpio_get(ButtonInfos[0].InputIO));
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
     cal_string = "R Deadzone";
     putString(cal_string, 0, 0, 0x049f);
-    sprintf(data, "0x%02x", rDeadzone);
-    putString(data, 3, 2, 0x049f);
+    sprintf(tdata, "0x%02x", rDeadzone);
+    putString(tdata, 3, 2, 0x049f);
     updateDisplay();
 
-    if (!gpio_get(ButtonInfos[6].InputIO))
+    if (!gpio_get(ButtonInfos[4].InputIO)){
       if (rDeadzone < 128)
-        rDeadzone++;
-      else if (!gpio_get(ButtonInfos[7].InputIO))
-        if (rDeadzone > 0)
-          rDeadzone--;
-        else if (!gpio_get(ButtonInfos[8].InputIO))
-          if (rDeadzone > 7)
-            rDeadzone = rDeadzone - 8;
-          else if (!gpio_get(ButtonInfos[9].InputIO))
-            if (rDeadzone < 121)
-              rDeadzone = rDeadzone + 8;
+        rDeadzone++;}
+    else if (!gpio_get(ButtonInfos[5].InputIO)){
+      if (rDeadzone > 0)
+        rDeadzone--;}
+    else if (!gpio_get(ButtonInfos[6].InputIO)){
+      if (rDeadzone > 7)
+        rDeadzone = rDeadzone - 8;}
+    else if (!gpio_get(ButtonInfos[7].InputIO)){
+      if (rDeadzone < 121)
+        rDeadzone = rDeadzone + 8;}
 
     sleep_ms(50);
   }
+
+  while(!gpio_get(ButtonInfos[0].InputIO));
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
@@ -392,27 +414,30 @@ int tDeadzone(menu *self) {
     putString(cal_string, 5, 0, 0x049f);
     cal_string = "AntiDeadzone";
     putString(cal_string, 0, 1, 0x049f);
-    sprintf(data, "0x%02x", rAntiDeadzone);
-    putString(data, 3, 3, 0x049f);
+    sprintf(tdata, "0x%02x", rAntiDeadzone);
+    putString(tdata, 3, 3, 0x049f);
     updateDisplay();
 
-    if (!gpio_get(ButtonInfos[6].InputIO))
+    if (!gpio_get(ButtonInfos[4].InputIO)){
       if (rAntiDeadzone < 128)
-        rAntiDeadzone++;
-      else if (!gpio_get(ButtonInfos[7].InputIO))
-        if (rAntiDeadzone > 0)
-          rAntiDeadzone--;
-        else if (!gpio_get(ButtonInfos[8].InputIO))
-          if (rAntiDeadzone > 7)
-            rAntiDeadzone = rAntiDeadzone - 8;
-          else if (!gpio_get(ButtonInfos[9].InputIO))
-            if (rAntiDeadzone < 121)
-              rAntiDeadzone = rAntiDeadzone + 8;
+        rAntiDeadzone++;}
+    else if (!gpio_get(ButtonInfos[5].InputIO)){
+      if (rAntiDeadzone > 0)
+        rAntiDeadzone--;}
+    else if (!gpio_get(ButtonInfos[6].InputIO)){
+      if (rAntiDeadzone > 7)
+        rAntiDeadzone = rAntiDeadzone - 8;}
+    else if (!gpio_get(ButtonInfos[7].InputIO)){
+      if (rAntiDeadzone < 121)
+        rAntiDeadzone = rAntiDeadzone + 8;}
 
     sleep_ms(50);
   }
 
   updateFlashData();
+
+  clearDisplay();
+  redraw = 1;
 
   return (1);
 }
@@ -454,8 +479,14 @@ int exitToPad(menu *self) {
 
 int dummy(menu *self) { return (1); }
 
-static menu mainMenu[6] = {{"Button Test   ", 2, 1, 1, 1, 1, buttontest}, {"Stick Config  ", 0, 1, 0, 1, 1, dummy},    {"Trigger Config", 0, 1, 0, 1, 1, dummy}, {"Edit VMU Color", 2, 1, 0, 1, 1, paletteVMU}, // ssd1331 present
-                           {"Settings      ", 0, 1, 0, 1, 1, dummy},      {"Exit          ", 2, 0, 0, 1, 1, exitToPad}};
+static menu mainMenu[6] = {
+  {"Button Test   ", 2, 1, 1, 1, 1, buttontest},
+  {"Stick Config  ", 0, 1, 0, 1, 1, dummy},
+  {"Trigger Config", 0, 1, 0, 1, 1, dummy},
+  {"Edit VMU Color", 2, 1, 0, 1, 1, paletteVMU}, // ssd1331 present
+  {"Settings      ", 0, 1, 0, 1, 1, dummy},
+  {"Exit          ", 2, 0, 0, 1, 1, exitToPad}
+};
 
 menu *currentMenu = mainMenu;
 uint8_t currentNumEntries = sizeof(mainMenu) / sizeof(menu);
@@ -473,8 +504,14 @@ int mainmen(menu *self) {
   return (1);
 }
 
-static menu stickConfig[6] = {{"Back          ", 2, 1, 0, 1, 1, mainmen}, // i.e. setCurrentMenu to mainMenu
-                              {"Calibration   ", 2, 1, 1, 1, 1, sCal},    {"Deadzone Edit ", 2, 1, 0, 1, 1, sDeadzone}, {"Invert X      ", 1, 1, 0, 0, 1, toggleOption}, {"Invert Y      ", 1, 1, 0, 0, 1, toggleOption}, {"Swap X&Y      ", 1, 0, 0, 0, 1, toggleOption}};
+static menu stickConfig[6] = {
+  {"Back          ", 2, 1, 0, 1, 1, mainmen}, // i.e. setCurrentMenu to mainMenu
+  {"Calibration   ", 2, 1, 1, 1, 1, sCal},
+  {"Deadzone Edit ", 2, 1, 0, 1, 1, sDeadzone},
+  {"Invert X      ", 1, 1, 0, 0, 1, toggleOption},
+  {"Invert Y      ", 1, 1, 0, 0, 1, toggleOption},
+  {"Swap X&Y      ", 1, 0, 0, 0, 1, toggleOption}
+};
 
 int sConfig(menu *self) {
   currentMenu = stickConfig;
@@ -484,7 +521,14 @@ int sConfig(menu *self) {
   return (1);
 }
 
-static menu triggerConfig[6] = {{"Back          ", 2, 1, 0, 1, 1, mainmen}, {"Calibration   ", 2, 1, 1, 1, 1, tCal}, {"Deadzone Edit ", 2, 1, 0, 1, 1, tDeadzone}, {"Invert L      ", 1, 1, 0, 0, 1, toggleOption}, {"Invert R      ", 1, 1, 0, 0, 1, toggleOption}, {"Swap L&R      ", 1, 0, 0, 0, 1, toggleOption}};
+static menu triggerConfig[6] = {
+  {"Back          ", 2, 1, 0, 1, 1, mainmen}, 
+  {"Calibration   ", 2, 1, 1, 1, 1, tCal}, 
+  {"Deadzone Edit ", 2, 1, 0, 1, 1, tDeadzone}, 
+  {"Invert L      ", 1, 1, 0, 0, 1, toggleOption}, 
+  {"Invert R      ", 1, 1, 0, 0, 1, toggleOption}, 
+  {"Swap L&R      ", 1, 0, 0, 0, 1, toggleOption}
+};
 
 int tConfig(menu *self) {
   currentMenu = triggerConfig;
@@ -494,8 +538,16 @@ int tConfig(menu *self) {
   return (1);
 }
 
-static menu settings[8] = {{"Back          ", 2, 1, 1, 1, 1, mainmen}, {"Boot Video    ", 3, 1, 0, 0, 1, dummy},        {"Rumble        ", 1, 1, 0, 1, 1, toggleOption}, {"VMU           ", 1, 1, 0, 1, 1, toggleOption}, {"UI Color      ", 2, 1, 0, 1, 1, paletteUI}, // ssd1331 present
-                           {"OLED:         ", 3, 0, 0, 1, 1, dummy},   {"OLED Flip     ", 1, 0, 0, 1, 1, toggleOption}, {"FW:    1.5beta", 3, 0, 0, 1, 1, dummy}};
+static menu settings[8] = {
+  {"Back          ", 2, 1, 1, 1, 1, mainmen}, 
+  {"Boot Video    ", 3, 1, 0, 1, 1, dummy},        
+  {"Rumble        ", 1, 1, 0, 1, 1, toggleOption}, 
+  {"VMU           ", 1, 1, 0, 1, 1, toggleOption}, 
+  {"UI Color      ", 2, 1, 0, 1, 1, paletteUI}, // ssd1331 present
+  {"OLED:         ", 3, 0, 0, 1, 1, dummy},
+  {"OLED Flip     ", 1, 0, 0, 1, 1, toggleOption}, 
+  {"FW:    1.5beta", 3, 0, 0, 1, 1, dummy}
+};
 
 int setting(menu *self) {
   currentMenu = settings;
@@ -540,7 +592,7 @@ void getSelectedEntry() {
 
 void getFirstVisibleEntry() {
   for (int i = 0; i < currentNumEntries; i++) {
-    if (currentMenu[enabledEntries[i]].visible) {
+    if (currentMenu[i].visible) {
       firstVisibleEntry = i;
       break;
     }
@@ -549,7 +601,7 @@ void getFirstVisibleEntry() {
 
 void getLastVisibleEntry() {
   for (int i = currentNumEntries - 1; i >= 0; i--) {
-    if (currentMenu[enabledEntries[i]].visible) {
+    if (currentMenu[i].visible) {
       lastVisibleEntry = i;
       break;
     }
@@ -562,17 +614,10 @@ void redrawMenu() {
   int i = 0;
 
   for (uint8_t n = 0; n < currentNumEntries; n++) {
-    if (currentMenu[n].enabled) {
-      enabledEntries[i] = n;
-      i++;
-    }
-  }
-
-  for (uint8_t n = 0; n < currentNumEntries; n++) {
-    if (currentMenu[enabledEntries[n]].visible) {
-      putString(currentMenu[enabledEntries[n]].name, 0, n + entryModifier, color);
-      if (currentMenu[enabledEntries[n]].type == 1) // boolean type menu
-        drawToggle(n + entryModifier, color, currentMenu[enabledEntries[n]].on);
+    if (currentMenu[n].visible) {
+      putString(currentMenu[n].name, 0, n + entryModifier, color);
+      if (currentMenu[n].type == 1) // boolean type menu
+        drawToggle(n + entryModifier, color, currentMenu[n].on);
     }
     drawCursor(selectedEntry + entryModifier, color);
   }
@@ -668,11 +713,6 @@ void runMenu() {
     mainMenu[3].enabled = false;
     settings[4].enabled = false;
 
-    // update entry visibility
-    mainMenu[3].visible = false;
-    mainMenu[5].visible = true;
-    settings[4].visible = false;
-    settings[5].visible = true;
   }
 
   // negative interval means the callback func is called every 10ms regardless of how long callback takes to execute
@@ -701,16 +741,12 @@ void runMenu() {
       and select the first enabled entry above it */
       if (selectedEntry) { // i.e. not 0
         currentMenu[selectedEntry].selected = false;
-
-        int n = 1;
-        while (!currentMenu[selectedEntry - n].enabled)
-          n++;
-        currentMenu[selectedEntry - n].selected = true;
+        currentMenu[selectedEntry - 1].selected = true;
 
         getFirstVisibleEntry();
         if ((selectedEntry == firstVisibleEntry) && (firstVisibleEntry)) {
-          currentMenu[enabledEntries[firstVisibleEntry + 4]].visible = false;
-          currentMenu[enabledEntries[firstVisibleEntry - 1]].visible = true;
+          currentMenu[firstVisibleEntry + 4].visible = false;
+          currentMenu[firstVisibleEntry - 1].visible = true;
           entryModifier++;
         }
       }
@@ -723,16 +759,12 @@ void runMenu() {
       and select first enabled entry below it */
       if (selectedEntry < currentNumEntries - 1) {
         currentMenu[selectedEntry].selected = false;
-
-        int n = 1;
-        while (!currentMenu[selectedEntry + n].enabled)
-          n++;
-        currentMenu[selectedEntry + n].selected = true;
+        currentMenu[selectedEntry + 1].selected = true;
 
         getLastVisibleEntry();
         if ((selectedEntry == lastVisibleEntry) && (lastVisibleEntry < currentNumEntries)) {
-          currentMenu[enabledEntries[lastVisibleEntry - 4]].visible = false;
-          currentMenu[enabledEntries[lastVisibleEntry + 1]].visible = true;
+          currentMenu[lastVisibleEntry - 4].visible = false;
+          currentMenu[lastVisibleEntry + 1].visible = true;
           entryModifier--;
         }
       }
