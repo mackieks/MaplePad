@@ -39,17 +39,15 @@ Future TODOs
 
 <img src="images/striker3.jpg" width="250"> <img src="images/striker1.jpg" width="250"> <img src="images/striker2.jpg" width="250">
 
-*MaplePad Arcade Controller with VMU by GamesCare ([link](https://gamescare.com.br/produto/controle-arcade-dreamcast-tela-de-vmu-e-8-vmus-virtuais-na-placa-maple-board/), [video](https://www.youtube.com/watch?v=b0IbSASR3B4/))*
+*MaplePad Arcade Controller with VMU by GamesCare. [link](https://gamescare.com.br/produto/controle-arcade-dreamcast-tela-de-vmu-e-8-vmus-virtuais-na-placa-maple-board/), [video](https://www.youtube.com/watch?v=b0IbSASR3B4/)*
 
 <img src="images/IMG_20221216_191824_896.jpg" height="190"> <img src="images/20221206_124644.jpg" height="190">
 
-*Various JAMMA Dreamcast adapters available on AliExpress ([link 1](https://www.aliexpress.us/item/3256805216279752.html), [link 2](https://www.aliexpress.us/item/3256804674679708.html))*
+*Various JAMMA Dreamcast adapters available on AliExpress. [link 1](https://www.aliexpress.us/item/3256805216279752.html), [link 2](https://www.aliexpress.us/item/3256804674679708.html), [video](https://www.youtube.com/shorts/UciW3vM-KWo) (flashing lights warning!)*
 
-<img src="images/jamma_adapter_lcd.jpg" height="190"> <img src="images/jamma_adapter_basic.jpg" height="190"> 
+<img src="images/jamma_adapter_lcd.jpg" height="190"> <img src="images/jamma_adapter.jpg" height="190"> <img src="images/jamma_adapter_basic.jpg" height="190"> 
 
-https://github.com/mackieks/MaplePad/assets/49252894/b35da1a2-8516-476f-b833-18ce2730558b
-
-*Giant Dreamcast VMU + Arcade Stick by CrazyJojo (code modified, [video](https://www.youtube.com/watch?v=bEA_On7P_g8))*
+*Giant Dreamcast VMU + Arcade Stick by CrazyJojo (code modified). [video](https://www.youtube.com/watch?v=bEA_On7P_g8)*
 
 <img src="images/主机演示2[00_05_12][20221030-111434].png" height="170"> <img src="images/从机演示2生化[00_08_05][20221030-111628].png" height="170"> <img src="images/从机演示4[00_01_19][20221030-111601].png" height="170"> 
 
