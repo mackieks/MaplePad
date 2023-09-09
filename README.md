@@ -45,7 +45,9 @@ Future TODOs
 
 *Various JAMMA Dreamcast adapters available on AliExpress ([link 1](https://www.aliexpress.us/item/3256805216279752.html), [link 2](https://www.aliexpress.us/item/3256804674679708.html))*
 
-<img src="images/jamma_adapter_lcd.jpg" height="190"> <img src="images/jamma_adapter_basic.jpg" height="190">
+<img src="images/jamma_adapter_lcd.jpg" height="190"> <img src="images/jamma_adapter_basic.jpg" height="190"> 
+
+https://github.com/mackieks/MaplePad/assets/49252894/b35da1a2-8516-476f-b833-18ce2730558b
 
 *Giant Dreamcast VMU + Arcade Stick by CrazyJojo (code modified, [video](https://www.youtube.com/watch?v=bEA_On7P_g8))*
 
