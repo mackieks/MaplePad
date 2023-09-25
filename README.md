@@ -1,6 +1,6 @@
 # MaplePad🍁<br/>
 
-<img style="border-width:0" src="images/maplepad_logo_shadow.png" width="500">
+<img style="border-width:0" src="images/maplepad_logo_shadow.png" width="300">
 
 MaplePad is an all-in-one Dreamcast controller, VMU, and Purupuru (rumble pack) emulator for Dreamcast portables and custom Dreamcast controllers. It runs on RP2040 and is usable with the Raspberry Pi Pico as well as custom MaplePad PCBs. See the [hardware folder](https://github.com/mackieks/MaplePad/tree/main/hardware) for a wiring diagram.
 
