@@ -43,6 +43,10 @@ Future TODOs
 
 <img src="images/IMG_20221216_191824_896.jpg" height="190"> <img src="images/20221206_124644.jpg" height="190">
 
+*Mini plug'n'play virtual memory card by jounge. [link](https://tieba.baidu.com/p/8465994390)*
+
+<img src="images/mem1.jpg" height="150"> <img src="images/mem2.jpg" height="150"> <img src="images/mem3.jpg" height="150">
+
 *Various JAMMA Dreamcast adapters available on AliExpress. [link 1](https://www.aliexpress.us/item/3256805216279752.html), [link 2](https://www.aliexpress.us/item/3256804674679708.html), [video](https://www.youtube.com/shorts/UciW3vM-KWo) (flashing lights warning!)*
 
 <img src="images/jamma_adapter_lcd.jpg" height="190"> <img src="images/jamma_adapter.jpg" height="190"> <img src="images/jamma_adapter_basic.jpg" height="190"> 
