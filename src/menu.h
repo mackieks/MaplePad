@@ -10,6 +10,7 @@
 #include <math.h>
 #include <time.h>
 
+#include "sh8601.h"
 #include "ssd1331.h"
 #include "ssd1306.h"
 

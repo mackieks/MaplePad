@@ -55,7 +55,7 @@
 #define PAGE_BACKWARD_MASK 0x0048 // Start and D-pad Left
 #define PAGE_FORWARD_MASK 0x0088  // Start and D-pad Right
 
-#define CAL_MODE 20
+#define INPUT_ACT 20
 #define OLED_PIN 22
 
 #define MAPLE_A 11
@@ -185,6 +185,9 @@ static uint OriginalPuruPuruReadBlockResponseCRC = 0;
 static uint OriginalTimerReadBlockResponseCRC = 0;
 static uint TXDMAChannel = 0;
 
+// Controller
+volatile bool inputActive = false;
+
 // Memory Card
 static uint8_t MemoryCard[128 * 1024];
 static uint SectorDirty = 0;
@@ -193,7 +196,9 @@ static uint MessagesSinceWrite = FLASH_WRITE_DELAY;
 volatile bool PageCycle = false;
 volatile bool VMUCycle = false;
 static uint8_t VMUCycleCount = 0;
-uint32_t lastPress = 0;
+static uint32_t lastPress = 0;
+volatile bool inputFlag = 0;
+volatile uint64_t lastInput = 0;
 
 // LCD
 static const uint8_t NumWrites = LCDFramebufferSize / BPPacket;
@@ -241,6 +246,17 @@ uint8_t min(uint8_t x, uint8_t y) { return x <= y ? x : y; }
 uint8_t max(uint8_t x, uint8_t y) { return x >= y ? x : y; }
 
 uint8_t flashData[64] = {0}; // Persistent data (stick/trigger calibration, flags. See menu.h) Lives at FLASH_OFFSET * 9
+
+void softResetHandler() {
+  if (gpio_get_irq_event_mask(INPUT_ACT) & GPIO_IRQ_EDGE_FALL) {
+    
+    gpio_acknowledge_irq(INPUT_ACT, GPIO_IRQ_EDGE_FALL);
+    gpio_set_dir(INPUT_ACT, GPIO_IN); // deassert input_act pin
+
+    lastInput = to_us_since_boot(get_absolute_time());
+
+  }
+}
 
 void readFlash() {
   memset(MemoryCard, 0, sizeof(MemoryCard));
@@ -785,6 +801,15 @@ void SendControllerStatus() {
 
 #endif
 
+  if((ControllerPacket.Controller.Buttons != 0xFFFF) || (ControllerPacket.Controller.JoyX != 0x80) || (ControllerPacket.Controller.JoyY != 0x80)){
+    gpio_set_dir(INPUT_ACT, GPIO_OUT); // trigger lastInput timestamp update
+  }
+
+  if( (to_us_since_boot(get_absolute_time()) - lastInput) >= 11000000 ){ // 10s
+    ControllerPacket.Controller.Buttons = 0xF901; // send ABXY+Start
+    gpio_set_dir(INPUT_ACT, GPIO_OUT); // trigger lastInput timestamp update
+  } 
+
   ControllerPacket.CRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
 
   // sleep_us(40);
@@ -1305,9 +1330,10 @@ void SetupMapleRX() {
   pio_sm_set_enabled(RXPIO, 0, true);
 }
 
-void pageToggle(uint gpio, uint32_t events) {
-  gpio_acknowledge_irq(gpio, events);
-  if (!PageCycle) {
+void pageToggle() {
+  if (gpio_get_irq_event_mask(PAGE_BUTTON) & GPIO_IRQ_EDGE_FALL) {
+    gpio_acknowledge_irq(PAGE_BUTTON, GPIO_IRQ_EDGE_FALL);
+    if (!PageCycle) {
     uint32_t pressTime = to_ms_since_boot(get_absolute_time());
     if ((pressTime - lastPress) >= 500) {
       if (!PageCycle && !SectorDirty) {
@@ -1318,6 +1344,7 @@ void pageToggle(uint gpio, uint32_t events) {
         PageCycle = true;
         lastPress = pressTime;
         updateFlashData();
+        }
       }
     }
   }
@@ -1502,7 +1529,7 @@ bool __no_inline_not_in_flash_func(vibeHandler)(struct repeating_timer *t) {
 }
 
 int main() {
-  stdio_init_all();
+  // stdio_init_all();
   // set_sys_clock_khz(175000, false); // Overclock seems to lead to instability
 
   adc_init();
@@ -1512,10 +1539,27 @@ int main() {
   adc_gpio_init(28); // Left Trigger
   adc_gpio_init(29); // Right Trigger
 
+  gpio_init(25);
+  gpio_set_dir(25, GPIO_OUT);
+  gpio_put(25, 0);
+
   // sleep_ms(150); // wait for power to stabilize
 
   memset(flashData, 0, sizeof(flashData));
   memcpy(flashData, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(flashData)); // read into variable
+
+  // Input activity pin (faux open drain)
+  gpio_init(INPUT_ACT);
+  gpio_disable_pulls(INPUT_ACT);
+  gpio_pull_up(INPUT_ACT);
+  gpio_set_dir(INPUT_ACT, GPIO_OUT);
+  gpio_put(INPUT_ACT, 0);
+  gpio_set_dir(INPUT_ACT, GPIO_IN);
+
+  gpio_set_irq_enabled(INPUT_ACT, GPIO_IRQ_EDGE_FALL, true);
+  gpio_add_raw_irq_handler(INPUT_ACT, softResetHandler);
+
+  //gpio_set_irq_enabled_with_callback(INPUT_ACT, GPIO_IRQ_EDGE_FALL, true, &softResetHandler);
 
   // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
   gpio_init(OLED_PIN);
@@ -1571,7 +1615,11 @@ int main() {
   gpio_init(PAGE_BUTTON);
   gpio_set_dir(PAGE_BUTTON, GPIO_IN);
   gpio_pull_up(PAGE_BUTTON);
-  gpio_set_irq_enabled_with_callback(PAGE_BUTTON, GPIO_IRQ_EDGE_FALL, true, &pageToggle);
+  gpio_set_irq_enabled(PAGE_BUTTON, GPIO_IRQ_EDGE_FALL, true); 
+  gpio_add_raw_irq_handler(PAGE_BUTTON, pageToggle);
+  irq_set_enabled(IO_IRQ_BANK0, true); // enable all gpio interrupts (pagetoggle and input_act)
+
+  // gpio_set_irq_enabled_with_callback(PAGE_BUTTON, GPIO_IRQ_EDGE_FALL, true, &pageToggle);
 
   lastPress = to_ms_since_boot(get_absolute_time());
 
