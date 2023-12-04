@@ -22,7 +22,7 @@ With MaplePad you can cycle through 8 200-block internal VMUs with custom icons 
 - [x] Basic menu on SSD1306 and SSD1331 OLED for configuring MaplePad behavior (WIP)
 
 ### To-do: 
-Release v1.5 is gated by the following TODOs
+Release v1.6 is gated by the following TODOs
 - [ ] Finish menu (button test, VMU palette editor, misc. bugs)
 - [ ] Address issues with non-CE games (Crazy Taxi, Blue Stinger, Powerstone 2)
 - [ ] Finish FT<sub>8</sub> (vibration) continuous vibration and AST
