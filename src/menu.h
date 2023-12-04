@@ -47,6 +47,9 @@
 #define lAntiDeadzone flashData[28]
 #define rDeadzone flashData[29]
 #define rAntiDeadzone flashData[30]
+#define autoResetEnable flashData[31]
+#define autoResetTimer flashData[32] // units are 2s, max value 8.5 minutes
+#define version flashData[33]
 
 extern ButtonInfo ButtonInfos[];
 

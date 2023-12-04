@@ -25,14 +25,30 @@
 #include "pico/time.h"
 #include "state_machine.h"
 
-#define HKT7700 1 // "Seed" (standard controller)
-#define HKT7300 0 // Arcade stick
+#define HKT7700 0 // "Seed" (standard controller)
+#define HKT7300 1 // Arcade stick
 
 #if HKT7700
 #define NUM_BUTTONS 9
 #elif HKT7300
 #define NUM_BUTTONS 11
 #endif
+
+#define CURRENT_FW_VERSION VER_1_5
+
+#define VER_1_0 0x00
+#define VER_1_1 0x01
+#define VER_1_2 0x02
+#define VER_1_3 0x03
+#define VER_1_3b 0x04
+#define VER_1_4 0x05
+#define VER_1_4b 0x06
+#define VER_1_4c 0x07
+#define VER_1_4d 0x08
+#define VER_1_4e 0x09
+#define VER_1_5 0x0A
+#define VER_1_6 0x0B
+#define VER_1_7 0x0C
 
 extern uint8_t flashData[];
 

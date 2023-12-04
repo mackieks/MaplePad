@@ -204,6 +204,7 @@ volatile uint64_t lastInput = 0;
 static const uint8_t NumWrites = LCDFramebufferSize / BPPacket;
 static uint8_t LCDFramebuffer[LCDFramebufferSize] = {0};
 volatile bool LCDUpdated = false;
+volatile bool endSplash = true;
 
 // Timer
 static uint8_t dateTime[8] = {0};
@@ -801,14 +802,16 @@ void SendControllerStatus() {
 
 #endif
 
-  if((ControllerPacket.Controller.Buttons != 0xFFFF) || (ControllerPacket.Controller.JoyX != 0x80) || (ControllerPacket.Controller.JoyY != 0x80)){
-    gpio_set_dir(INPUT_ACT, GPIO_OUT); // trigger lastInput timestamp update
-  }
-
-  if( (to_us_since_boot(get_absolute_time()) - lastInput) >= 11000000 ){ // 10s
-    ControllerPacket.Controller.Buttons = 0xF901; // send ABXY+Start
-    gpio_set_dir(INPUT_ACT, GPIO_OUT); // trigger lastInput timestamp update
-  } 
+  if(autoResetEnable){
+    if((ControllerPacket.Controller.Buttons != 0xFFFF) || (ControllerPacket.Controller.JoyX != 0x80) || (ControllerPacket.Controller.JoyY != 0x80)){
+      gpio_set_dir(INPUT_ACT, GPIO_OUT); // trigger lastInput timestamp update
+    }
+    
+    if( (to_us_since_boot(get_absolute_time()) - lastInput) >= autoResetTimer * 2 * 1000000 ){ // autoResetTimer has units of 2s
+      ControllerPacket.Controller.Buttons = 0xF901; // send ABXY+Start
+      gpio_set_dir(INPUT_ACT, GPIO_OUT); // trigger lastInput timestamp update
+    } 
+  }  
 
   ControllerPacket.CRC = CalcCRC((uint *)&ControllerPacket.Header, sizeof(ControllerPacket) / sizeof(uint) - 2);
 
@@ -1556,10 +1559,65 @@ int main() {
   gpio_put(INPUT_ACT, 0);
   gpio_set_dir(INPUT_ACT, GPIO_IN);
 
-  gpio_set_irq_enabled(INPUT_ACT, GPIO_IRQ_EDGE_FALL, true);
-  gpio_add_raw_irq_handler(INPUT_ACT, softResetHandler);
+    // Pre-format VMU pages since rumble timer interrupt interferes with on-the-fly formatting
+  if (firstBoot || version != CURRENT_FW_VERSION) { // flash is 0xFF when erased! also run if FW version is different (post-update)
+    uint Interrupts = save_and_disable_interrupts();
 
-  //gpio_set_irq_enabled_with_callback(INPUT_ACT, GPIO_IRQ_EDGE_FALL, true, &softResetHandler);
+    for (int page = 1; page <= 8; page++) {
+      currentPage = page;
+
+      readFlash(); // includes checkFormatted
+
+      while (SectorDirty) {
+        uint Sector = 31 - __builtin_clz(SectorDirty);
+        SectorDirty &= ~(1 << Sector);
+        uint SectorOffset = Sector * FLASH_SECTOR_SIZE;
+
+        flash_range_erase((FLASH_OFFSET * currentPage) + SectorOffset, FLASH_SECTOR_SIZE);
+        flash_range_program((FLASH_OFFSET * currentPage) + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
+      }
+    }
+    restore_interrupts(Interrupts);
+    currentPage = 1;
+
+    // Also set up some reasonable analog stick, trigger and flag defaults
+    xMin = 0x00;
+    xCenter = 0x80;
+    xMax = 0xff;
+    xDeadzone = 0x0f;
+    xAntiDeadzone = 0x04;
+    invertX = 0;
+
+    yMin = 0x00;
+    yCenter = 0x00;
+    yMax = 0xff;
+    yDeadzone = 0x0f;
+    yAntiDeadzone = 0x04;
+    invertY = 0;
+
+    lMin = 0x00;
+    lMax = 0xff;
+    lDeadzone = 0x00;
+    lAntiDeadzone = 0x04;
+    invertL = 0;
+
+    rMin = 0x00;
+    rMax = 0xff;
+    rDeadzone = 0x00;
+    rAntiDeadzone = 0x04;
+    invertR = 0;
+
+    oledFlip = 0;
+    swapXY = 0;
+    swapLR = 0;
+    autoResetEnable = 0;
+    autoResetTimer = 0x5A; // 180s
+    version = CURRENT_FW_VERSION;
+
+    firstBoot = 0; // first boot setup done
+
+    updateFlashData();    
+  }
 
   // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
   gpio_init(OLED_PIN);
@@ -1619,65 +1677,7 @@ int main() {
   gpio_add_raw_irq_handler(PAGE_BUTTON, pageToggle);
   irq_set_enabled(IO_IRQ_BANK0, true); // enable all gpio interrupts (pagetoggle and input_act)
 
-  // gpio_set_irq_enabled_with_callback(PAGE_BUTTON, GPIO_IRQ_EDGE_FALL, true, &pageToggle);
-
   lastPress = to_ms_since_boot(get_absolute_time());
-
-  // Read flags from memory
-  memset(flashData, 0, sizeof(flashData));
-  memcpy(flashData, (uint8_t *)XIP_BASE + (FLASH_OFFSET * 9), sizeof(flashData));
-
-  // Pre-format VMU pages since rumble timer interrupt interferes with on-the-fly formatting
-  if (firstBoot) { // flash is 0xFF when erased!
-    uint Interrupts = save_and_disable_interrupts();
-
-    for (int page = 1; page <= 8; page++) {
-      currentPage = page;
-
-      readFlash();
-
-      while (SectorDirty) {
-        uint Sector = 31 - __builtin_clz(SectorDirty);
-        SectorDirty &= ~(1 << Sector);
-        uint SectorOffset = Sector * FLASH_SECTOR_SIZE;
-
-        flash_range_erase((FLASH_OFFSET * currentPage) + SectorOffset, FLASH_SECTOR_SIZE);
-        flash_range_program((FLASH_OFFSET * currentPage) + SectorOffset, &MemoryCard[SectorOffset], FLASH_SECTOR_SIZE);
-      }
-    }
-    restore_interrupts(Interrupts);
-    currentPage = 1;
-
-    // Also set up some reasonable analog stick + trigger defaults
-    xMin = 0x00;
-    xCenter = 0x80;
-    xMax = 0xff;
-    xDeadzone = 0x0f;
-    xAntiDeadzone = 0x04;
-
-    yMin = 0x00;
-    yCenter = 0x00;
-    yMax = 0xff;
-    yDeadzone = 0x0f;
-    yAntiDeadzone = 0x04;
-
-    lMin = 0x00;
-    lMax = 0xff;
-    lDeadzone = 0x08;
-    lAntiDeadzone = 0x04;
-
-    rMin = 0x00;
-    rMax = 0xff;
-    rDeadzone = 0x08;
-    rAntiDeadzone = 0x04;
-
-    updateFlashData();
-
-    firstBoot = 0; // first boot setup done
-  }
-
-  // Read current VMU into memory
-  readFlash();
 
   SetupButtons();
 
@@ -1686,6 +1686,14 @@ int main() {
     updateFlashData();
     clearDisplay();
     updateDisplay();
+  }
+
+  // Read current VMU into memory
+  if(vmuEnable) readFlash();
+
+  if(autoResetEnable){
+    gpio_set_irq_enabled(INPUT_ACT, GPIO_IRQ_EDGE_FALL, true);
+    gpio_add_raw_irq_handler(INPUT_ACT, softResetHandler);
   }
 
   // Start Core1 Maple RX
@@ -1771,34 +1779,28 @@ int main() {
             MessagesSinceWrite++;
           }
           if (LCDUpdated) {
-            if (!oledType) // clear SSD1306 128x64 splashscreen
+            if (!oledType && endSplash){ // clear SSD1306 128x64 splashscreen
               clearDisplay();
-
-            for (int fb = 0; fb < LCDFramebufferSize; fb++) { // iterate through LCD framebuffer
-              for (int bb = 0; bb <= 7; bb++) {               // iterate through bits of each LCD data byte
-                if (LCD_Width == 48 && LCD_Height == 32)      // Standard LCD
-                {
-                  if (((LCDFramebuffer[fb] >> bb) & 0x01)) {                                                                   // if bit is set...
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, palette[currentPage - 1]);       // set corresponding OLED pixels!
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, palette[currentPage - 1]); // Each VMU dot corresponds to 4 OLED pixels.
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1]);
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, palette[currentPage - 1]);
-                  } else {
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, 0); // ...otherwise, clear the four OLED pixels.
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, 0);
-                    setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, 0);
-                    setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, 0);
-                  }
-                } // else // 128x64 Experimental Mode
-                // {
-                //   if (((LCDFramebuffer[fb] >> bb) & 0x01)) {
-                //     setPixel1306(((fb % LCD_NumCols) * 8 + (7 - bb)), (fb / LCD_NumCols), true);
-                //   } else {
-                //     setPixel1306(((fb % LCD_NumCols) * 8 + (7 - bb)), (fb / LCD_NumCols), false);
-                //   }
-                // }
-              }
+              endSplash = false;
             }
+
+            // thanks, gpt-4! :D
+            int x, y, pixel, bb;
+            for (int fb = 0; fb < LCDFramebufferSize; fb++) {
+                y = (fb / LCD_NumCols) * 2;
+                int mod = (fb % LCD_NumCols) * 16;
+                for (bb = 0; bb <= 7; bb++) {
+                    x = mod + (14 - bb * 2);
+                    pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[currentPage - 1];
+                    if (LCD_Width == 48 && LCD_Height == 32) {
+                        setPixel(x, y, pixel);
+                        setPixel(x + 1, y, pixel);
+                        setPixel(x, y + 1, pixel);
+                        setPixel(x + 1, y + 1, pixel);
+                    }
+                }
+            }
+
             updateDisplay();
             LCDUpdated = false;
           }

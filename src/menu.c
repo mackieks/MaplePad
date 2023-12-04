@@ -46,9 +46,9 @@ int sCal(menu *self) {
 
   clearDisplay();
   char *cal_string = "Center stick,";
-  putString(cal_string, 0, 0, 0x049f);
+  putString(cal_string, 0, 0, color);
   cal_string = "then press A!";
-  putString(cal_string, 0, 1, 0x049f);
+  putString(cal_string, 0, 1, color);
   updateDisplay();
 
   sleep_ms(50);
@@ -62,11 +62,11 @@ int sCal(menu *self) {
 
   clearDisplay();
   cal_string = "Move stick";
-  putString(cal_string, 0, 0, 0x049f);
+  putString(cal_string, 0, 0, color);
   cal_string = "  around";
-  putString(cal_string, 0, 1, 0x049f);
+  putString(cal_string, 0, 1, color);
   cal_string = "  a lot!";
-  putString(cal_string, 0, 2, 0x049f);
+  putString(cal_string, 0, 2, color);
   updateDisplay();
 
   xMin = 0x80;
@@ -106,9 +106,9 @@ int sCal(menu *self) {
     if ((to_ms_since_boot(get_absolute_time()) - start) >= 4000 && prompt) {
       prompt = false;
       cal_string = "  Press A";
-      putString(cal_string, 0, 3, 0x049f);
+      putString(cal_string, 0, 3, color);
       cal_string = " when done!";
-      putString(cal_string, 0, 4, 0x049f);
+      putString(cal_string, 0, 4, color);
       updateDisplay();
     }
   }
@@ -130,11 +130,11 @@ int tCal(menu *self) {
 
   clearDisplay();
   char *cal_string = "leave";
-  putString(cal_string, 0, 0, 0x049f);
+  putString(cal_string, 0, 0, color);
   cal_string = "triggers idle";
-  putString(cal_string, 0, 1, 0x049f);
+  putString(cal_string, 0, 1, color);
   cal_string = "and press A";
-  putString(cal_string, 0, 2, 0x049f);
+  putString(cal_string, 0, 2, color);
   updateDisplay();
 
   sleep_ms(500);
@@ -149,9 +149,9 @@ int tCal(menu *self) {
 
   clearDisplay();
   cal_string = "hold lMax";
-  putString(cal_string, 0, 0, 0x049f);
+  putString(cal_string, 0, 0, color);
   cal_string = "and press A";
-  putString(cal_string, 0, 1, 0x049f);
+  putString(cal_string, 0, 1, color);
   updateDisplay();
 
   sleep_ms(500);
@@ -163,9 +163,9 @@ int tCal(menu *self) {
 
   clearDisplay();
   cal_string = "hold rMax";
-  putString(cal_string, 0, 0, 0x049f);
+  putString(cal_string, 0, 0, color);
   cal_string = "and press A";
-  putString(cal_string, 0, 1, 0x049f);
+  putString(cal_string, 0, 1, color);
   updateDisplay();
 
   sleep_ms(500);
@@ -207,9 +207,9 @@ int sDeadzone(menu *self) {
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
-    putString(cal_string, 0, 0, 0x049f);
+    putString(cal_string, 0, 0, color);
     sprintf(sdata, "0x%02x", xDeadzone);
-    putString(sdata, 3, 2, 0x049f);
+    putString(sdata, 3, 2, color);
     updateDisplay();
 
     if (!gpio_get(ButtonInfos[4].InputIO)){
@@ -225,7 +225,7 @@ int sDeadzone(menu *self) {
       if (xDeadzone < 121)
         xDeadzone = xDeadzone + 8;}
 
-    sleep_ms(50);
+    sleep_ms(60);
   }
 
   while(!gpio_get(ButtonInfos[0].InputIO));
@@ -233,11 +233,11 @@ int sDeadzone(menu *self) {
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
     cal_string = "X";
-    putString(cal_string, 5, 0, 0x049f);
+    putString(cal_string, 5, 0, color);
     cal_string = "AntiDeadzone";
-    putString(cal_string, 0, 1, 0x049f);
+    putString(cal_string, 0, 1, color);
     sprintf(sdata, "0x%02x", xAntiDeadzone);
-    putString(sdata, 3, 3, 0x049f);
+    putString(sdata, 3, 3, color);
     updateDisplay();
 
     if (!gpio_get(ButtonInfos[4].InputIO)){
@@ -253,7 +253,7 @@ int sDeadzone(menu *self) {
       if (xAntiDeadzone < 121)
         xAntiDeadzone = xAntiDeadzone + 8;}
 
-    sleep_ms(50);
+    sleep_ms(60);
   }
 
   while(!gpio_get(ButtonInfos[0].InputIO));
@@ -261,9 +261,9 @@ int sDeadzone(menu *self) {
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
     cal_string = "Y Deadzone";
-    putString(cal_string, 0, 0, 0x049f);
+    putString(cal_string, 0, 0, color);
     sprintf(sdata, "0x%02x", yDeadzone);
-    putString(sdata, 3, 2, 0x049f);
+    putString(sdata, 3, 2, color);
     updateDisplay();
 
     if (!gpio_get(ButtonInfos[4].InputIO)){
@@ -279,7 +279,7 @@ int sDeadzone(menu *self) {
       if (yDeadzone < 121)
         yDeadzone = yDeadzone + 8;}
 
-    sleep_ms(50);
+    sleep_ms(60);
   }
 
   while(!gpio_get(ButtonInfos[0].InputIO));
@@ -287,11 +287,11 @@ int sDeadzone(menu *self) {
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
     cal_string = "Y";
-    putString(cal_string, 5, 0, 0x049f);
+    putString(cal_string, 5, 0, color);
     cal_string = "AntiDeadzone";
-    putString(cal_string, 0, 1, 0x049f);
+    putString(cal_string, 0, 1, color);
     sprintf(sdata, "0x%02x", yAntiDeadzone);
-    putString(sdata, 3, 3, 0x049f);
+    putString(sdata, 3, 3, color);
     updateDisplay();
 
     if (!gpio_get(ButtonInfos[4].InputIO)){
@@ -307,7 +307,7 @@ int sDeadzone(menu *self) {
       if (yAntiDeadzone < 121)
         yAntiDeadzone = yAntiDeadzone + 8;}
 
-    sleep_ms(50);
+    sleep_ms(60);
   }
 
   updateFlashData();
@@ -331,9 +331,9 @@ int tDeadzone(menu *self) {
 
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
-    putString(cal_string, 0, 0, 0x049f);
+    putString(cal_string, 0, 0, color);
     sprintf(tdata, "0x%02x", lDeadzone);
-    putString(tdata, 3, 2, 0x049f);
+    putString(tdata, 3, 2, color);
     updateDisplay();
 
     if (!gpio_get(ButtonInfos[4].InputIO)){
@@ -349,7 +349,7 @@ int tDeadzone(menu *self) {
       if (lDeadzone < 121)
         lDeadzone = lDeadzone + 8;}
 
-    sleep_ms(50);
+    sleep_ms(60);
   }
 
   while(!gpio_get(ButtonInfos[0].InputIO));
@@ -357,11 +357,11 @@ int tDeadzone(menu *self) {
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
     cal_string = "L";
-    putString(cal_string, 5, 0, 0x049f);
+    putString(cal_string, 5, 0, color);
     cal_string = "AntiDeadzone";
-    putString(cal_string, 0, 1, 0x049f);
+    putString(cal_string, 0, 1, color);
     sprintf(tdata, "0x%02x", lAntiDeadzone);
-    putString(tdata, 3, 3, 0x049f);
+    putString(tdata, 3, 3, color);
     updateDisplay();
 
     if (!gpio_get(ButtonInfos[4].InputIO)){
@@ -377,7 +377,7 @@ int tDeadzone(menu *self) {
       if (lAntiDeadzone < 121)
         lAntiDeadzone = lAntiDeadzone + 8;}
 
-    sleep_ms(50);
+    sleep_ms(60);
   }
 
   while(!gpio_get(ButtonInfos[0].InputIO));
@@ -385,9 +385,9 @@ int tDeadzone(menu *self) {
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
     cal_string = "R Deadzone";
-    putString(cal_string, 0, 0, 0x049f);
+    putString(cal_string, 0, 0, color);
     sprintf(tdata, "0x%02x", rDeadzone);
-    putString(tdata, 3, 2, 0x049f);
+    putString(tdata, 3, 2, color);
     updateDisplay();
 
     if (!gpio_get(ButtonInfos[4].InputIO)){
@@ -403,7 +403,7 @@ int tDeadzone(menu *self) {
       if (rDeadzone < 121)
         rDeadzone = rDeadzone + 8;}
 
-    sleep_ms(50);
+    sleep_ms(60);
   }
 
   while(!gpio_get(ButtonInfos[0].InputIO));
@@ -411,11 +411,11 @@ int tDeadzone(menu *self) {
   while (gpio_get(ButtonInfos[0].InputIO)) {
     clearDisplay();
     cal_string = "R";
-    putString(cal_string, 5, 0, 0x049f);
+    putString(cal_string, 5, 0, color);
     cal_string = "AntiDeadzone";
-    putString(cal_string, 0, 1, 0x049f);
+    putString(cal_string, 0, 1, color);
     sprintf(tdata, "0x%02x", rAntiDeadzone);
-    putString(tdata, 3, 3, 0x049f);
+    putString(tdata, 3, 3, color);
     updateDisplay();
 
     if (!gpio_get(ButtonInfos[4].InputIO)){
@@ -431,8 +431,51 @@ int tDeadzone(menu *self) {
       if (rAntiDeadzone < 121)
         rAntiDeadzone = rAntiDeadzone + 8;}
 
-    sleep_ms(50);
+    sleep_ms(60);
   }
+
+  updateFlashData();
+
+  clearDisplay();
+  redraw = 1;
+
+  return (1);
+}
+
+int timerAdjust(menu *self) {
+  // draw deadzone configuration
+
+  redraw = 0;
+
+  char* cal_string = "Autoreset";
+  char tdata[5];
+
+  while(!gpio_get(ButtonInfos[0].InputIO));
+
+  while (gpio_get(ButtonInfos[0].InputIO)) {
+    clearDisplay();
+    putString(cal_string, 0, 0, color);
+    sprintf(tdata, "%03d seconds", autoResetTimer * 2);
+    putString(tdata, 0, 2, color);
+    updateDisplay();
+
+    if (!gpio_get(ButtonInfos[4].InputIO)){
+      if (autoResetTimer < 255)
+        autoResetTimer++;}
+    else if (!gpio_get(ButtonInfos[5].InputIO)){
+      if (autoResetTimer > 0)
+        autoResetTimer--;}
+    else if (!gpio_get(ButtonInfos[6].InputIO)){
+      if (autoResetTimer > 7)
+        autoResetTimer = autoResetTimer - 8;}
+    else if (!gpio_get(ButtonInfos[7].InputIO)){
+      if (autoResetTimer < 248)
+        autoResetTimer = autoResetTimer + 8;}
+
+    sleep_ms(60);
+  }
+
+  while(!gpio_get(ButtonInfos[0].InputIO));
 
   updateFlashData();
 
@@ -456,7 +499,9 @@ int toggleOption(menu *self) {
       updateFlags();
       updateFlashData();
 
-      ssd1331_init();
+      if(oledType)
+        ssd1331_init();
+      else ssd1306_init();
       sleep_ms(100);
 
       add_repeating_timer_ms(-10, rainbowCycle, NULL, &redrawTimer);
@@ -538,15 +583,24 @@ int tConfig(menu *self) {
   return (1);
 }
 
-static menu settings[8] = {
+static menu settings[11] = {
   {"Back          ", 2, 1, 1, 1, 1, mainmen}, 
   {"Boot Video    ", 3, 1, 0, 1, 1, dummy},        
   {"Rumble        ", 1, 1, 0, 1, 1, toggleOption}, 
   {"VMU           ", 1, 1, 0, 1, 1, toggleOption}, 
   {"UI Color      ", 2, 1, 0, 1, 1, paletteUI}, // ssd1331 present
   {"OLED:         ", 3, 0, 0, 1, 1, dummy},
-  {"OLED Flip     ", 1, 0, 0, 1, 1, toggleOption}, 
-  {"FW:    1.5beta", 3, 0, 0, 1, 1, dummy}
+  {"OLED Flip     ", 1, 0, 0, 0, 1, toggleOption},
+  {"Autoreset     ", 1, 0, 0, 0, 1, toggleOption},
+  {"Adjust Timeout", 2, 0, 0, 1, 1, timerAdjust},
+
+  #if HKT7700 
+  {"Dev:  HKT-7700", 3, 0, 0, 1, 1, dummy},
+  #elif HKT7300 
+  {"Dev:  HKT-7300", 3, 0, 0, 1, 1, dummy},
+  #endif
+  
+  {"FW:        1.5", 3, 0, 0, 1, 1, dummy}
 };
 
 int setting(menu *self) {
@@ -567,6 +621,7 @@ void loadFlags() {
   settings[2].on = rumbleEnable;
   settings[3].on = vmuEnable;
   settings[6].on = oledFlip;
+  settings[7].on = autoResetEnable;
 }
 
 void updateFlags() {
@@ -579,6 +634,7 @@ void updateFlags() {
   rumbleEnable = settings[2].on;
   vmuEnable = settings[3].on;
   oledFlip = settings[6].on;
+  autoResetEnable = settings[7].on;
 }
 
 void getSelectedEntry() {
@@ -710,8 +766,8 @@ void runMenu() {
     strcpy(settings[5].name, "OLED: SSD1306");
 
     // disable color-only menu entries
-    mainMenu[3].enabled = false;
-    settings[4].enabled = false;
+    //mainMenu[3].enabled = false;
+    //settings[4].enabled = false;
 
   }
 
@@ -723,8 +779,7 @@ void runMenu() {
     // redrawMenu(); // called by redrawTimer
 
     // Wait for A button release (submenu rate-limit)
-    while (!gpio_get(ButtonInfos[0].InputIO))
-      ;
+    while (!gpio_get(ButtonInfos[0].InputIO));
 
     uint8_t pressed = 0;
     do {
