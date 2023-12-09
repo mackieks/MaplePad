@@ -39,9 +39,13 @@ Future TODOs
 
 <img src="images/striker3.jpg" width="250"> <img src="images/striker1.jpg" width="250"> <img src="images/striker2.jpg" width="250">
 
-*MaplePad Arcade Controller with VMU by GamesCare. [link](https://gamescare.com.br/produto/controle-arcade-dreamcast-tela-de-vmu-e-8-vmus-virtuais-na-placa-maple-board/), [video](https://www.youtube.com/watch?v=b0IbSASR3B4/)*
+*MaplePad Arcade Controller with VMU de GamesCare. [link](https://gamescare.com.br/produto/controle-arcade-dreamcast-tela-de-vmu-e-8-vmus-virtuais-na-placa-maple-board/), [video](https://www.youtube.com/watch?v=b0IbSASR3B4/)*
 
 <img src="images/IMG_20221216_191824_896.jpg" height="190"> <img src="images/20221206_124644.jpg" height="190">
+
+*Mini Arcade Stick de Mundo Yakara Colombia. Excellent video that showcases MaplePad v1.5 features! [video](https://www.youtube.com/watch?v=jbHO3rEyzZU)*
+
+<img src="https://img.youtube.com/vi/jbHO3rEyzZU/0.jpg" height="210"> <img src="images/yakara.png" height="210">
 
 *Mini plug'n'play virtual memory card by jounge. [link](https://tieba.baidu.com/p/8465994390)*
 
