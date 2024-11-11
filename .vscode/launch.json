@@ -1,28 +1,29 @@
 {
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Pico Debug",
-            "type":"cortex-debug",
-            "cwd": "${workspaceRoot}",
-            "executable": "${command:cmake.launchTargetPath}",
+            "name": "Debug Test",
+            "type": "cppdbg",
             "request": "launch",
-            "servertype": "external",
-            // This may need to be arm-none-eabi-gdb depending on your system
-            "gdbpath" : "arm-none-eabi-gdb",
-            // Connect to an already running OpenOCD instance
-            "gdbTarget": "localhost:3333",
-            "svdFile": "${env:PICO_SDK_PATH}/src/rp2040/hardware_regs/rp2040.svd",
-            "runToMain": true,
-            // Work around for stopping at main on restart
-            "postRestartCommands": [
-                "break main",
-                "continue"
-            ]
-            // Try not to stop at all
-            //"postLaunchCommands": [
-            //    "continue"
-            //]
-        }
+            "program": "${workspaceFolder}/build-test/src/test/testExe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "miDebuggerPath": "/usr/bin/gdb",
+            "setupCommands": [
+              {
+                "description": "Enable pretty-printing for gdb",
+                "text": "-enable-pretty-printing",
+                "ignoreFailures": true
+              }
+            ],
+            "preLaunchTask": "Build Tests"
+          }
     ]
 }

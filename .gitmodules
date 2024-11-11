@@ -1,0 +1,3 @@
+[submodule "lib/pico-sdk"]
+	path = ext/pico-sdk
+	url = https://github.com/OrangeFox86/pico-sdk.git

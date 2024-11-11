@@ -1,0 +1,188 @@
+; maple_out notes:
+; - It is up to the system to ensure open line before activating this (no overcurrent protection)
+; - Since bytes are shifted out "to the left" in order to shift out the most significant bit of each
+;   byte first, the most significant byte comes out first too. This means byte order will need to be
+;   swapped before feeding into this.
+
+.program maple_out
+.side_set 2 opt
+
+.define public MASK_A 0x1
+.define public MASK_B 0x2
+.define public MASK_AB 0x3
+
+; must be even - minimum number of ticks per edge
+; 3 bits are used for sideset, so 4 is the max here
+; The logic in this file is tightly coupled to the value of 4 (do not change)
+.define public DOUBLE_PHASE_TICKS 4
+.define public SINGLE_PHASE_TICKS (DOUBLE_PHASE_TICKS / 2)
+
+maple_out_start:
+
+; Stalls until first word; first word is how many bits this will send
+; The following must be true about x: (x - 8) % 32 == 0 && x >= 40
+out x, 32 side MASK_AB
+
+
+
+; send out the start sequence
+start_sequence:
+; First, set pins as output and with A and B set HIGH
+set pindirs MASK_AB side MASK_AB [DOUBLE_PHASE_TICKS - 1]
+; Bing A LOW for a cycle then toggle B LOW then HIGH 3 times
+set y, 3 side MASK_B [DOUBLE_PHASE_TICKS - 1]
+start_b_toggle_loop:
+nop side 0 [DOUBLE_PHASE_TICKS - 1]
+nop side MASK_B [DOUBLE_PHASE_TICKS - 2]
+jmp y-- start_b_toggle_loop
+; Bring A back HIGH and decrement x in preparation of the first bit
+jmp x--, first_clock_a_data_b side MASK_AB
+
+; Don't want to bring B low unless the first bit is 0, so this is a special check
+first_clock_a_data_b:
+out y, 1 side MASK_AB
+jmp !y, clock_a_data_b_zero side MASK_AB
+jmp first_clock_a_data_b_one side MASK_AB
+
+
+
+; send out packet data
+; x scratch register contains how many bits left to send
+; y scratch register contains the current bit
+clock_a_data_b:
+out y, 1 side MASK_A [SINGLE_PHASE_TICKS - 2]
+jmp !y clock_a_data_b_zero
+; else: fall through to clock_a_data_b_one
+
+clock_a_data_b_one:
+nop side MASK_AB [SINGLE_PHASE_TICKS - 1]
+first_clock_a_data_b_one:
+jmp x-- clock_b_data_a side MASK_B [SINGLE_PHASE_TICKS - 1]
+; jmp end_sequence ; should never reach here anyway (saves an instruction)
+
+clock_a_data_b_zero:
+nop side MASK_A [SINGLE_PHASE_TICKS - 1]
+jmp x-- clock_b_data_a side 0 [SINGLE_PHASE_TICKS - 1] ; just need to decrement x
+; jmp end_sequence ; should never reach here anyway (saves an instruction)
+
+clock_b_data_a:
+out y, 1 side MASK_B [SINGLE_PHASE_TICKS - 2]
+jmp !y clock_b_data_a_zero
+; else: fall through to clock_b_data_a_one
+
+clock_b_data_a_one:
+nop side MASK_AB [SINGLE_PHASE_TICKS - 1]
+jmp x-- clock_a_data_b side MASK_A [SINGLE_PHASE_TICKS - 1]
+
+; using wrap as a free jmp command to end_sequence
+.wrap
+
+clock_b_data_a_zero:
+nop side MASK_B [SINGLE_PHASE_TICKS - 1]
+jmp x-- clock_a_data_b side 0 [SINGLE_PHASE_TICKS - 1]
+; Else: fall through to end sequence
+
+.wrap_target
+
+; send out the end sequence
+end_sequence:
+out y, 24 side MASK_A [SINGLE_PHASE_TICKS - 1] ; last word only has crc byte to send; purge last 24 bits
+nop side MASK_AB [DOUBLE_PHASE_TICKS - 1]
+nop side MASK_A [DOUBLE_PHASE_TICKS - 1]
+nop side 0 [DOUBLE_PHASE_TICKS - 1]
+nop side MASK_A [DOUBLE_PHASE_TICKS - 1]
+nop side 0 [DOUBLE_PHASE_TICKS - 1]
+
+; Wait for IRQ to be handled before continuing
+irq wait 0 rel side MASK_A
+
+; Allow the application to transition AB back HIGH when it's ready to "submit" the data.
+; See MapleOutStateMachine::stop()
+
+
+% c-sdk {
+#include "hardware/gpio.h"
+#include "hardware/pio.h"
+#include "PioProgram.hpp"
+
+#define MAPLE_OUT_PIO pio0
+
+class MapleOutStateMachine
+{
+    public:
+        inline MapleOutStateMachine(uint sys_freq_khz, uint ns_per_bit, uint pin_a) :
+            mProgram(getMapleOutProgram()),
+            mPinA(pin_a),
+            mPinB(pin_a + 1),
+            mMaskAB(3 << pin_a),
+            mSmIdx(pio_claim_unused_sm(mProgram.mPio, true))
+        {
+            // Initialize the two pins as inputs with pullups
+            gpio_set_dir_in_masked(mMaskAB);
+            gpio_set_pulls(mPinA, true, false);
+            gpio_set_pulls(mPinB, true, false);
+
+            pio_sm_config c = maple_out_program_get_default_config(mProgram.mProgramOffset);
+            sm_config_set_sideset_pins(&c, mPinA);
+            sm_config_set_set_pins(&c, mPinA, 2); // just for set pindirs
+
+            // Shift to left, autopull enabled, 32 bits at a time
+            sm_config_set_out_shift(&c, false, true, 32);
+
+            sm_config_set_clkdiv(
+                &c, (sys_freq_khz * (ns_per_bit / 3 * 2)) / maple_out_DOUBLE_PHASE_TICKS / 1000000.0);
+
+            // Load our configuration, and jump to the start of the program
+            pio_sm_init(mProgram.mPio, mSmIdx, mProgram.mProgramOffset, &c);
+        }
+
+        inline void start() const
+        {
+            // Reset pointers
+            pio_sm_clear_fifos(mProgram.mPio, mSmIdx);
+            pio_sm_restart(mProgram.mPio, mSmIdx);
+            pio_sm_clkdiv_restart(mProgram.mPio, mSmIdx);
+            pio_sm_exec(mProgram.mPio, mSmIdx, pio_encode_jmp(mProgram.mProgramOffset));
+            // Pin direction starts as input
+            pio_sm_set_consecutive_pindirs(mProgram.mPio, mSmIdx, mPinA, 2, false);
+            // Set this pin's GPIO function (connect PIO to the pad)
+            pio_gpio_init(mProgram.mPio, mPinA);
+            pio_gpio_init(mProgram.mPio, mPinB);
+            // Set the state machine running
+            pio_sm_set_enabled(mProgram.mPio, mSmIdx, true);
+        }
+
+        inline void stop(bool hardstop) const
+        {
+            pio_sm_set_enabled(mProgram.mPio, mSmIdx, false);
+            if (hardstop)
+            {
+                // Reset the pins' function to standard I/O, transitioning back HIGH before setting to input
+                gpio_set_mask(mMaskAB);
+                gpio_set_dir_out_masked(mMaskAB);
+            }
+            else
+            {
+                // Allow pull-up to continue to keep B low
+                gpio_set_pulls(mPinB, false, true);
+            }
+            gpio_set_dir_in_masked(mMaskAB);
+            gpio_set_function(mPinB, GPIO_FUNC_SIO);
+            gpio_set_function(mPinA, GPIO_FUNC_SIO);
+        }
+
+        inline static const PioProgram& getMapleOutProgram()
+        {
+            static const PioProgram program(MAPLE_OUT_PIO, &maple_out_program);
+            return program;
+        }
+
+    public:
+        const PioProgram& mProgram;
+        const uint mPinA;
+        const uint mPinB;
+        const uint mMaskAB;
+        const uint mSmIdx;
+};
+
+%}

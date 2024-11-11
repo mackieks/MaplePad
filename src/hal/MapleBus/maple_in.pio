@@ -1,0 +1,174 @@
+.program maple_in
+
+; Wait for start sequence
+wait_start:
+
+mov y, ~NULL ; This sets y to 0xFFFFFFFF
+
+b_toggle_loop:
+jmp pin check_toggle_count ; Once A goes HIGH, check how much B toggled
+; `mov x, pins` wouldn't work because I just want the first 2 pins
+mov osr, pins ; copy pin values into output shift register
+out x 2 ; put A and B into register x (should either be 0b01 or 0b00)
+jmp x-- b_toggle_loop ; keep waiting if B is high
+; else: fall through
+
+wait 1 pin 1 ; wait for B to go back HIGH
+jmp pin wait_start ; if A went HIGH before B, try again
+jmp y-- b_toggle_loop ; toggle detected; decrement do another wait
+; The above should normally jump unless the count overloaded
+
+check_toggle_count:
+mov y, ~y ; This converts the negative count to a positive count
+set x, 4 ; We are looking for 4 B toggles
+jmp x!=y wait_start ; If 4 B toggles haven't been detected, continue waiting
+; else: fall through
+
+
+data_start:
+; The first IRQ tells application that start sequence detected
+irq set 0 rel
+
+; Wait for A to go low then fall through to first end detect phase (which should cause sample of B)
+wait 0 pin 0
+
+
+.wrap_target
+data_loop:
+
+; wait for B to toggle HIGH then LOW or for A go LOW
+set y, 1
+end_detect_b_toggle:
+mov osr, pins ; copy pin values into output shift register
+out x 1
+jmp !x sample_b_from_osr ; if A went low before B went high, then sample B now
+out x 1
+jmp !y end_detect_b_to_low ; if y is 0 then we are waiting for B to be low
+end_detect_b_to_high:
+jmp !x end_detect_b_toggle ; if B is still LOW, try again
+jmp y-- end_detect_b_toggle ; B just went HIGH, so decrement y and sample again
+end_detect_b_to_low:
+jmp x-- end_detect_b_toggle ; if B is still HIGH, try again
+; otherwise, fall through to next end detect phase
+
+; Warning: the full end sequence is not sampled for simplicity
+; Either end is actually there or there was a glitch (rely on len and CRC of packet data in that case)
+end_detected:
+in null 24 ; shift out the crc byte
+; Wait for IRQ to be handled before continuing
+irq wait 0 rel
+; Application should kill the state machine before reaching this point
+
+
+sample_b_from_osr:
+in osr 1 ; shift in B value
+
+sample_a:
+; wait for B to be high
+wait 1 pin 1
+; wait for B to be low
+wait 0 pin 1
+; shift in A value
+in pins 1
+
+; wait for A to be high
+wait 1 pin 0
+
+.wrap
+
+% c-sdk {
+#include "hardware/gpio.h"
+#include "hardware/pio.h"
+#include "PioProgram.hpp"
+
+#define MAPLE_IN_PIO pio1
+
+class MapleInStateMachine
+{
+    public:
+        inline MapleInStateMachine(uint pin_a) :
+            mProgram(getMapleInProgram()),
+            mPinA(pin_a),
+            mPinB(pin_a + 1),
+            mMaskAB(3 << pin_a),
+            mSmIdx(pio_claim_unused_sm(mProgram.mPio, true)),
+            mPrestarted(false)
+        {
+            // Initialize the two pins as inputs with pullups
+            gpio_set_dir_in_masked(mMaskAB);
+            gpio_set_pulls(mPinA, true, false);
+            gpio_set_pulls(mPinB, true, false);
+
+            pio_sm_config c = maple_in_program_get_default_config(mProgram.mProgramOffset);
+            sm_config_set_in_pins(&c, mPinA);
+
+            // jmp pin checks pin A
+            sm_config_set_jmp_pin(&c, mPinA);
+
+            // Shift to right, autopull disabled, 32 bits at a time
+            sm_config_set_out_shift(&c, true, false, 32);
+            // Shift to left, autopush enabled, 32 bits at a time
+            sm_config_set_in_shift(&c, false, true, 32);
+
+            // Sample as fast as possible
+            sm_config_set_clkdiv(&c, 1);
+
+            // Load our configuration, and jump to the start of the program
+            pio_sm_init(mProgram.mPio, mSmIdx, mProgram.mProgramOffset, &c);
+        }
+
+        inline void prestart()
+        {
+            // Reset pointers
+            pio_sm_clear_fifos(mProgram.mPio, mSmIdx);
+            pio_sm_restart(mProgram.mPio, mSmIdx);
+            pio_sm_clkdiv_restart(mProgram.mPio, mSmIdx);
+            pio_sm_exec(mProgram.mPio, mSmIdx, pio_encode_jmp(mProgram.mProgramOffset));
+            // Pin direction starts as input
+            pio_sm_set_consecutive_pindirs(mProgram.mPio, mSmIdx, mPinA, 2, false);
+
+            mPrestarted = true;
+        }
+
+        inline void start()
+        {
+            if (!mPrestarted)
+            {
+                prestart();
+            }
+            mPrestarted = false;
+
+            // Set this pin's GPIO function (connect PIO to the pad)
+            pio_gpio_init(mProgram.mPio, mPinA);
+            pio_gpio_init(mProgram.mPio, mPinB);
+            // Set the state machine running
+            pio_sm_set_enabled(mProgram.mPio, mSmIdx, true);
+        }
+
+        inline void stop() const
+        {
+            pio_sm_set_enabled(mProgram.mPio, mSmIdx, false);
+
+            // Reset the pins' function to standard I/O with pullups
+            gpio_set_dir_in_masked(mMaskAB);
+            gpio_set_function(mPinA, GPIO_FUNC_SIO);
+            gpio_set_function(mPinB, GPIO_FUNC_SIO);
+        }
+
+    private:
+        inline static const PioProgram& getMapleInProgram()
+        {
+            static const PioProgram program(MAPLE_IN_PIO, &maple_in_program);
+            return program;
+        }
+
+    public:
+        const PioProgram& mProgram;
+        const uint mPinA;
+        const uint mPinB;
+        const uint mMaskAB;
+        const uint mSmIdx;
+        bool mPrestarted;
+};
+
+%}

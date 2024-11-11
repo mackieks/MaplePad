@@ -1,0 +1,1 @@
+This directory contains measurements taken with Saleae software. Download the software at https://www.saleae.com/downloads/ in order to view contents of .sal files.
