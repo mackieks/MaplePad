@@ -64,16 +64,17 @@ std::shared_ptr<NonVolatilePicoSystemMemory> mem =
         client::DreamcastStorage::MEMORY_SIZE_BYTES);
 
 // Second Core Process
+// TODO Free this up to do more activities
 void core1()
 {
     set_sys_clock_khz(CPU_FREQ_KHZ, true);
 
-    usb_init();
+    //usb_init();
 
     while (true)
     {
         usb_task(time_us_64());
-        mem->process();
+        mem->process(); //Writes vmu storage to pico flash, this could probably be considered housekeeping
     }
 }
 
@@ -83,7 +84,7 @@ void core0()
     set_sys_clock_khz(CPU_FREQ_KHZ, true);
 
     // Startup tone
-    buzzer.buzz({.priority=1, .frequency=2732.0, .seconds=1.0});
+    //buzzer.buzz({.priority=1, .frequency=2732.0, .seconds=1.0});
 
     // Create the bus for client-mode operation
     std::shared_ptr<MapleBusInterface> bus = create_maple_bus(P1_BUS_START_PIN, P1_DIR_PIN, DIR_OUT_HIGH);
@@ -101,7 +102,7 @@ void core0()
     std::shared_ptr<client::DreamcastController> controller =
         std::make_shared<client::DreamcastController>();
     set_gamepad_host(controller.get());
-    mainPeripheral.addFunction(controller);
+    mainPeset_gamepad_hostripheral.addFunction(controller);
 
     // First sub peripheral (address of 0x01) with 1 function: memory
     std::shared_ptr<client::DreamcastPeripheral> subPeripheral1 =
@@ -147,13 +148,13 @@ void core0()
     while(true)
     {
         mainPeripheral.task(time_us_64());
-        led_task(mem->getLastActivityTime());
+        //led_task(mem->getLastActivityTime());
     }
 }
 
 int main()
 {
-    led_init();
+    //led_init();
     core0();
     return 0;
 }

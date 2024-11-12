@@ -38,18 +38,18 @@
 
 // The pin which sets IO direction for each player (-1 to disable)
 #define P1_DIR_PIN 6
-#define P2_DIR_PIN 7
-#define P3_DIR_PIN 26
-#define P4_DIR_PIN 27
+//#define P2_DIR_PIN -1
+//#define P3_DIR_PIN -1
+//#define P4_DIR_PIN -1
 
 // True if DIR pin is HIGH for output and LOW for input; false if opposite
 #define DIR_OUT_HIGH true
 
 // The start pin of the two-pin bus for each player
-#define P1_BUS_START_PIN 10
-#define P2_BUS_START_PIN 12
-#define P3_BUS_START_PIN 18
-#define P4_BUS_START_PIN 20
+#define P1_BUS_START_PIN 11
+//#define P2_BUS_START_PIN 12
+//#define P3_BUS_START_PIN 18
+//#define P4_BUS_START_PIN 20
 
 // LED pin number for USB activity or -1 to disable
 // When USB connected:
@@ -64,5 +64,33 @@
 // LED pin number for simple USB activity or -1 to disable
 // ON when USB connected; OFF when disconnected
 #define SIMPLE_USB_LED_PIN -1
+
+// Set to true if using HKT-7300, otherwise false
+#define HKT_7300_ENABLED false
+
+// "wired" controller GPIOs for MaplePad
+#define CTRL_PIN_A 0
+#define CTRL_PIN_B 1
+#define CTRL_PIN_X 4
+#define CTRL_PIN_Y 5
+#define CTRL_PIN_DU 6
+#define CTRL_PIN_DD 7
+#define CTRL_PIN_DL 8
+#define CTRL_PIN_DR 9
+#define CTRL_PIN_START 10
+#define CTRL_PIN_RUMBLE 15
+#define CTRL_PIN_SX 26
+#define CTRL_PIN_SY 27
+#define CTRL_PIN_LT 28
+#define CTRL_PIN_RT 29 //Reserved for temp sensor ADC, needs to be bypassed on official picos
+
+#if HKT_7300_ENABLED
+#  define CTRL_PIN_Z 17
+#  define CTRL_PIN_C 16
+#endif
+
+// GPIOs for screen paging
+#define OLED_SEL_PIN 22
+#define OLED_PAGE_CYCLE_PIN 21
 
 #endif // __CONFIGURATION_H__

@@ -9,7 +9,7 @@ DreamcastController::DreamcastController() :
         .enLeftD = true,
         .enRightD = false,
         .enLeftA = true,
-        .enRightA = true,
+        .enRightA = false,
         .enL = true,
         .enR = true,
         .enStart = true,
