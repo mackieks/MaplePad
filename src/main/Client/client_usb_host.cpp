@@ -45,6 +45,18 @@ void setTimeCb(const client::DreamcastTimer::SetTime& setTime)
     // TODO: Fill in
 }
 
+void storageCb(uint32_t state)
+{
+    // Push blocking waits until data can be written to FIFO. Since we don't want to stall the core
+    // which would result in dropped packets, we check to see if we can write to the FIFO (non-blocking)
+    // and only write to it if it's available. Since this is being used for a very limited purpose, we
+    // shouldn't be concerned that it will fill, this is just my paranoia coming out.
+    if(multicore_fifo_wready())
+    {
+        multicore_fifo_push_blocking(state);
+    }
+}
+
 void setPwmFn(uint8_t width, uint8_t down)
 {
     if (width == 0 || down == 0)
@@ -56,6 +68,24 @@ void setPwmFn(uint8_t width, uint8_t down)
         buzzer.stop(2);
         buzzer.buzzRaw({.priority=2, .wrapCount=width, .highCount=(width-down)});
     }
+}
+
+void runStartupTasks()
+{
+    //TODO move this to gamepad setup? Don't forget to add ADC library
+    adc_init();
+
+    adc_set_clkdiv(0);
+    adc_gpio_init(CTRL_PIN_SX); // Stick X
+    adc_gpio_init(CTRL_PIN_SY); // Stick Y
+    adc_gpio_init(CTRL_PIN_LT);  // Left Trigger
+    adc_gpio_init(CTRL_PIN_RT);  // Right Trigger
+
+    //TODO implement screen type in the DreamcastScreen class
+    // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
+    gpio_init(OLED_SEL_PIN);
+    gpio_set_dir(OLED_SEL_PIN, GPIO_IN);
+    gpio_pull_up(OLED_SEL_PIN);
 }
 
 std::shared_ptr<NonVolatilePicoSystemMemory> mem =
@@ -73,8 +103,21 @@ void core1()
 
     while (true)
     {
-        usb_task(time_us_64());
-        mem->process(); //Writes vmu storage to pico flash, this could probably be considered housekeeping
+        //This handles vibration updates. The observer updates the rumble values and this task updates in set intervals adjusting to those set values.
+        //usb_task(time_us_64());
+
+        //Only write to flash if a successful write block occurred. Set by a callback function
+        //from DreamcastStorage. Pop blocking does what it says, blocks until something is ready
+        //to be read. Since we don't want to stall this core, we first check to see if there is something
+        //to read. If not, it goes about its way.
+        if(multicore_fifo_rvalid())
+        {
+            uint32_t write_ack = multicore_fifo_pop_blocking();
+            if(write_ack == 7) //TODO This is sloppy, clean it up
+            {
+                mem->process(); //Writes vmu storage to pico flash, this could probably be considered housekeeping
+            }
+        }
     }
 }
 
@@ -115,7 +158,7 @@ void core0()
             12.4,
             13.0);
     std::shared_ptr<client::DreamcastStorage> dreamcastStorage =
-        std::make_shared<client::DreamcastStorage>(mem, 0);
+        std::make_shared<client::DreamcastStorage>(mem, 0, storageCb);
     subPeripheral1->addFunction(dreamcastStorage);
     std::shared_ptr<client::DreamcastScreen> dreamcastScreen =
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
@@ -148,14 +191,18 @@ void core0()
     while(true)
     {
         mainPeripheral.task(time_us_64());
-        //led_task(mem->getLastActivityTime());
+        led_task(mem->getLastActivityTime());
     }
 }
 
 int main()
 {
-    //led_init();
+    led_init();
+
+    runStartupTasks();
+
     core0();
+
     return 0;
 }
 

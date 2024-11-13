@@ -8,11 +8,12 @@
 #define U16_TO_UPPER_HALF_WORD(val) ((static_cast<uint32_t>(val) << 24) | ((static_cast<uint32_t>(val) << 8) & 0x00FF0000))
 #define U16_TO_LOWER_HALF_WORD(val) (((static_cast<uint32_t>(val) << 8) & 0x0000FF00) | ((static_cast<uint32_t>(val) >> 8) & 0x000000FF))
 
-client::DreamcastStorage::DreamcastStorage(std::shared_ptr<SystemMemory> systemMemory, uint32_t memoryOffset) :
+client::DreamcastStorage::DreamcastStorage(std::shared_ptr<SystemMemory> systemMemory, uint32_t memoryOffset, StorageFn callback) :
     DreamcastPeripheralFunction(DEVICE_FN_STORAGE),
     mSystemMemory(systemMemory),
     mMemoryOffset(memoryOffset),
-    mDataBlock{}
+    mDataBlock{},
+    mCallback(callback)
 {}
 
 const uint8_t* client::DreamcastStorage::readBlock(uint16_t blockNum)
@@ -254,6 +255,11 @@ bool client::DreamcastStorage::handlePacket(const MaplePacket& in, MaplePacket& 
                     }
 
                     out.frame.command = COMMAND_RESPONSE_ACK;
+                    if (mCallback)
+                    {
+                        //Callback to notify of successful write
+                        mCallback(out.frame.command);
+                    }
                 }
                 return true;
             }

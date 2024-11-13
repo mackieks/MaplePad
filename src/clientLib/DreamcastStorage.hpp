@@ -17,24 +17,29 @@ namespace client
 class DreamcastStorage : public DreamcastPeripheralFunction
 {
 public:
+  typedef void (*StorageFn)(uint32_t state);
+
+public:
     //! Default constructor
-    DreamcastStorage(std::shared_ptr<SystemMemory> systemMemory, uint32_t memoryOffset);
+  DreamcastStorage(std::shared_ptr<SystemMemory> systemMemory,
+                   uint32_t memoryOffset, StorageFn callback);
 
-    //! Formats the storage
-    //! @returns true iff format writes completed
-    bool format();
+  //! Formats the storage
+  //! @returns true iff format writes completed
+  bool format();
 
-    //! Handle packet meant for this peripheral function
-    //! @param[in] in  The packet read from the Maple Bus
-    //! @param[out] out  The packet to write to the Maple Bus when true is returned
-    //! @returns true iff the packet was handled
-    virtual bool handlePacket(const MaplePacket& in, MaplePacket& out) final;
+  //! Handle packet meant for this peripheral function
+  //! @param[in] in  The packet read from the Maple Bus
+  //! @param[out] out  The packet to write to the Maple Bus when true is
+  //! returned
+  //! @returns true iff the packet was handled
+  virtual bool handlePacket(const MaplePacket& in, MaplePacket& out) final;
 
-    //! Called when player index changed or timeout occurred
-    virtual void reset() final;
+  //! Called when player index changed or timeout occurred
+  virtual void reset() final;
 
-    //! @returns the function definition for this peripheral function
-    virtual uint32_t getFunctionDefinition() final;
+  //! @returns the function definition for this peripheral function
+  virtual uint32_t getFunctionDefinition() final;
 
 private:
     //! Sets 16-bit address value into FAT area and decrements pointer, when necessary
@@ -65,6 +70,9 @@ private:
     //! @param[in] infoOffset  Media info word offset
     //! @param[in] infoLen  Number of media info words to copy
     void setDefaultMediaInfoFlipped(uint32_t* out, uint8_t infoOffset = 0, uint8_t infoLen = 6);
+
+    //! Callback function for notifying when a write block has completed successfully
+    StorageFn mCallback;
 
     //! Flips the endianness of a word
     //! @param[in] word  Input word
