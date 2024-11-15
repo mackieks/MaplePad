@@ -136,6 +136,7 @@ bool DreamcastController::handlePacket(const MaplePacket& in, MaplePacket& out)
     const uint8_t cmd = in.frame.command;
     if (cmd == COMMAND_GET_CONDITION)
     {
+        setControls(); //Hopefully this works and doesn't cause any problems...
         ++mConditionSamples;
         out.frame.command = COMMAND_RESPONSE_DATA_XFER;
         out.reservePayload(3);
@@ -181,72 +182,35 @@ void DreamcastController::setCondition(controller_condition_t condition)
 }
 
 //TODO jam control inputs into here then watch the maplebus roll in!
-void DreamcastController::setControls(const Controls& controls)
+void DreamcastController::setControls()
 {
     controller_condition_t condition;
-    condition.l = controls.l2;
-    condition.r = controls.r2;
-    condition.a = !controls.south;
-    condition.b = !controls.east;
-    condition.c = !controls.r1;
-    condition.x = !controls.west;
-    condition.y = !controls.north;
-    condition.z = !controls.l1;
-    condition.d = !controls.l3;
-    condition.start = !controls.start;
+    //left/right triggers, configure with adc
+    //condition.l = controls.l2;
+    //condition.r = controls.r2;
 
-    condition.up = 1;
-    condition.down = 1;
-    condition.left = 1;
-    condition.right = 1;
-    switch(controls.hat)
-    {
-        case Hat::UP_LEFT:
-            condition.up = 0;
-            condition.left = 0;
-            break;
+    condition.a = gpio_get(CTRL_PIN_A);
+    condition.b = gpio_get(CTRL_PIN_B);
+    condition.c = gpio_get(CTRL_PIN_C);
+    condition.x = gpio_get(CTRL_PIN_X);
+    condition.y = gpio_get(CTRL_PIN_Y);
+    condition.z = gpio_get(CTRL_PIN_Z);
+    condition.d = 1; //D for disabled
+    condition.start = gpio_get(CTRL_PIN_START);
 
-        case Hat::UP_RIGHT:
-            condition.up = 0;
-            condition.right = 0;
-            break;
+    //Dpad
+    condition.up = gpio_get(CTRL_PIN_DU);
+    condition.down = gpio_get(CTRL_PIN_DD);
+    condition.left = gpio_get(CTRL_PIN_DL);
+    condition.right = gpio_get(CTRL_PIN_DR);
 
-        case Hat::UP:
-            condition.up = 0;
-            break;
+    //TODO disable right analog for now, limited by ADC
+    condition.rAnalogUD = 0;
+    condition.rAnalogLR = 0;
 
-        case Hat::DOWN_LEFT:
-            condition.down = 0;
-            condition.left = 0;
-            break;
-
-        case Hat::DOWN_RIGHT:
-            condition.down = 0;
-            condition.right = 0;
-            break;
-
-        case Hat::DOWN:
-            condition.down = 0;
-            break;
-
-        case Hat::LEFT:
-            condition.left = 0;
-            break;
-
-        case Hat::RIGHT:
-            condition.right = 0;
-            break;
-
-        case Hat::NEUTRAL:
-        default:
-            // Neutral
-            break;
-    }
-
-    condition.rAnalogUD = controls.ry;
-    condition.rAnalogLR = controls.rx;
-    condition.lAnalogUD = controls.ly;
-    condition.lAnalogLR = controls.lx;
+    //TODO Check ADC and add deadzone checks
+    //condition.lAnalogUD = controls.ly;
+    //condition.lAnalogLR = controls.lx;
 
     // No secondary D-pad
     condition.upb = 1;

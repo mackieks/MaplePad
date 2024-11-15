@@ -4,6 +4,9 @@
 #include "dreamcast_constants.h"
 #include "dreamcast_structures.h"
 #include "GamepadHost.hpp"
+#include "pico/stdlib.h"
+#include "hardware/adc.h"
+#include "pico_configurations.h"
 
 namespace client
 {
@@ -56,7 +59,7 @@ public:
     void setCondition(controller_condition_t condition);
 
     //! Sets the standard set of gamepad controls to the controller condition
-    virtual void setControls(const Controls& controls) final;
+    virtual void setControls() final;
 
     //! @returns the number of condition samples made
     uint32_t getConditionSamples();

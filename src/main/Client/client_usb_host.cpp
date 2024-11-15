@@ -62,7 +62,7 @@ void setPwmFn(uint8_t width, uint8_t down)
     }
 }
 
-void setupGPIO()
+void gpio_init()
 {
     // Configure ADC for triggers and stick
     adc_init();
@@ -85,65 +85,6 @@ void setupGPIO()
         gpio_init(ButtonInfos[i].pin);
         gpio_set_dir(ButtonInfos[i].pin, false);
         gpio_pull_up(ButtonInfos[i].pin);
-    }
-}
-
-//TODO Move this to DreamcastController
-void configureControls(GamepadHost* ctrlr)
-{
-    if (ctrlr != nullptr)
-    {
-      GamepadHost::Controls condition = {};
-      condition.l2 = adc_select_input(2); //!< 0: fully released; 255: fully pressed
-      condition.r2 = adc_select_input(3); //!< 0: fully released; 255: fully pressed
-      condition.south = gpio_get(CTRL_PIN_A);        // A
-      condition.east = gpio_get(CTRL_PIN_B);         // B
-      condition.west = gpio_get(CTRL_PIN_X);         // X
-      condition.north = gpio_get(CTRL_PIN_Y);        // Y
-      condition.r1 = gpio_get(CTRL_PIN_C);           // C
-      condition.l1 = gpio_get(CTRL_PIN_Z);           // Z
-      condition.l3 = 1; //D
-
-      condition.start = gpio_get(CTRL_PIN_START); // START
-      condition.menu = 1; //Disable
-
-      //HAT = Dpad, why? don't ask me, i just work here
-      switch(ds4_report.dpad)
-      {
-        case 0:
-          condition.hat = GamepadHost::Hat::UP;
-          break;
-        case 1:
-          condition.hat = GamepadHost::Hat::UP_RIGHT;
-          break;
-        case 2:
-          condition.hat = GamepadHost::Hat::RIGHT;
-          break;
-        case 3:
-          condition.hat = GamepadHost::Hat::DOWN_RIGHT;
-          break;
-        case 4:
-          condition.hat = GamepadHost::Hat::DOWN;
-          break;
-        case 5:
-          condition.hat = GamepadHost::Hat::DOWN_LEFT;
-          break;
-        case 6:
-          condition.hat = GamepadHost::Hat::LEFT;
-          break;
-        case 7:
-          condition.hat = GamepadHost::Hat::UP_LEFT;
-          break;
-        default:
-          condition.hat = GamepadHost::Hat::NEUTRAL;
-          break;
-      }
-      condition.ry = adc_select_input(1); //DISABLE Right Analog up/down
-      condition.rx = adc_select_input(0); // DISABLE Right Analog left/right
-      condition.ly = 128; //Left Analog up/down
-      condition.lx = 128; //Left Analog left/right
-
-      ctrlr->setControls(condition);
     }
 }
 
@@ -183,9 +124,6 @@ void core1()
 void core0()
 {
     set_sys_clock_khz(CPU_FREQ_KHZ, true);
-
-    // Startup tone
-    //buzzer.buzz({.priority=1, .frequency=2732.0, .seconds=1.0});
 
     // Create the bus for client-mode operation
     std::shared_ptr<MapleBusInterface> bus = create_maple_bus(P1_BUS_START_PIN, P1_DIR_PIN, DIR_OUT_HIGH);
@@ -256,7 +194,7 @@ int main()
 {
     led_init();
 
-    setupGPIO();
+    gpio_init();
 
     core0();
 
