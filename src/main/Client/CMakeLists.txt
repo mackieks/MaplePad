@@ -12,7 +12,6 @@ target_link_libraries(client-with-usb-host
     pico_multicore
     hal-MapleBus
     hal-System
-    hal-Usb-Host
     clientLib
     pico_stdlib
 )

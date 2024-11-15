@@ -5,6 +5,7 @@
 #include "pico/platform.h"
 
 #include "configuration.h"
+#include "pico_configurations.h"
 
 #include "CriticalSectionMutex.hpp"
 #include "Mutex.hpp"
@@ -12,10 +13,7 @@
 #include "NonVolatilePicoSystemMemory.hpp"
 
 #include "hal/System/LockGuard.hpp"
-#include "PassiveBuzzer.hpp"
 #include "hal/MapleBus/MapleBusInterface.hpp"
-#include "hal/Usb/host_usb_interface.hpp"
-#include "GamepadHost.hpp"
 
 #include "DreamcastMainPeripheral.hpp"
 #include "DreamcastController.hpp"
@@ -28,12 +26,6 @@
 
 #include <memory>
 #include <algorithm>
-
-#define BUZZER_PIN 21
-
-PassiveBuzzer buzzer(BUZZER_PIN, 2, CPU_FREQ_KHZ * 1000, 1000000.0);
-
-void hid_set_controller(client::DreamcastController* ctrlr);
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
@@ -70,9 +62,9 @@ void setPwmFn(uint8_t width, uint8_t down)
     }
 }
 
-void runStartupTasks()
+void setupGPIO()
 {
-    //TODO move this to gamepad setup? Don't forget to add ADC library
+    // Configure ADC for triggers and stick
     adc_init();
 
     adc_set_clkdiv(0);
@@ -84,8 +76,75 @@ void runStartupTasks()
     //TODO implement screen type in the DreamcastScreen class
     // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
     gpio_init(OLED_SEL_PIN);
-    gpio_set_dir(OLED_SEL_PIN, GPIO_IN);
+    gpio_set_dir(OLED_SEL_PIN, false);
     gpio_pull_up(OLED_SEL_PIN);
+
+    //TODO implement page button?
+
+    for (int i = 0; i < NUM_BUTTONS; i++) {
+        gpio_init(ButtonInfos[i].pin);
+        gpio_set_dir(ButtonInfos[i].pin, false);
+        gpio_pull_up(ButtonInfos[i].pin);
+    }
+}
+
+//TODO Move this to DreamcastController
+void configureControls(GamepadHost* ctrlr)
+{
+    if (ctrlr != nullptr)
+    {
+      GamepadHost::Controls condition = {};
+      condition.l2 = adc_select_input(2); //!< 0: fully released; 255: fully pressed
+      condition.r2 = adc_select_input(3); //!< 0: fully released; 255: fully pressed
+      condition.south = gpio_get(CTRL_PIN_A);        // A
+      condition.east = gpio_get(CTRL_PIN_B);         // B
+      condition.west = gpio_get(CTRL_PIN_X);         // X
+      condition.north = gpio_get(CTRL_PIN_Y);        // Y
+      condition.r1 = gpio_get(CTRL_PIN_C);           // C
+      condition.l1 = gpio_get(CTRL_PIN_Z);           // Z
+      condition.l3 = 1; //D
+
+      condition.start = gpio_get(CTRL_PIN_START); // START
+      condition.menu = 1; //Disable
+
+      //HAT = Dpad, why? don't ask me, i just work here
+      switch(ds4_report.dpad)
+      {
+        case 0:
+          condition.hat = GamepadHost::Hat::UP;
+          break;
+        case 1:
+          condition.hat = GamepadHost::Hat::UP_RIGHT;
+          break;
+        case 2:
+          condition.hat = GamepadHost::Hat::RIGHT;
+          break;
+        case 3:
+          condition.hat = GamepadHost::Hat::DOWN_RIGHT;
+          break;
+        case 4:
+          condition.hat = GamepadHost::Hat::DOWN;
+          break;
+        case 5:
+          condition.hat = GamepadHost::Hat::DOWN_LEFT;
+          break;
+        case 6:
+          condition.hat = GamepadHost::Hat::LEFT;
+          break;
+        case 7:
+          condition.hat = GamepadHost::Hat::UP_LEFT;
+          break;
+        default:
+          condition.hat = GamepadHost::Hat::NEUTRAL;
+          break;
+      }
+      condition.ry = adc_select_input(1); //DISABLE Right Analog up/down
+      condition.rx = adc_select_input(0); // DISABLE Right Analog left/right
+      condition.ly = 128; //Left Analog up/down
+      condition.lx = 128; //Left Analog left/right
+
+      ctrlr->setControls(condition);
+    }
 }
 
 std::shared_ptr<NonVolatilePicoSystemMemory> mem =
@@ -94,7 +153,6 @@ std::shared_ptr<NonVolatilePicoSystemMemory> mem =
         client::DreamcastStorage::MEMORY_SIZE_BYTES);
 
 // Second Core Process
-// TODO Free this up to do more activities
 void core1()
 {
     set_sys_clock_khz(CPU_FREQ_KHZ, true);
@@ -144,8 +202,7 @@ void core0()
         50.0);
     std::shared_ptr<client::DreamcastController> controller =
         std::make_shared<client::DreamcastController>();
-    set_gamepad_host(controller.get());
-    mainPeset_gamepad_hostripheral.addFunction(controller);
+    mainPeripheral.addFunction(controller);
 
     // First sub peripheral (address of 0x01) with 1 function: memory
     std::shared_ptr<client::DreamcastPeripheral> subPeripheral1 =
@@ -171,7 +228,7 @@ void core0()
     mainPeripheral.addSubPeripheral(subPeripheral1);
 
     // Second sub peripheral (address of 0x02) with 1 function: vibration
-    std::shared_ptr<client::DreamcastPeripheral> subPeripheral2 =
+    /*std::shared_ptr<client::DreamcastPeripheral> subPeripheral2 =
         std::make_shared<client::DreamcastPeripheral>(
             0x02,
             0xFF,
@@ -184,7 +241,7 @@ void core0()
         std::make_shared<client::DreamcastVibration>();
     dreamcastVibration->setObserver(get_usb_vibration_observer());
     subPeripheral2->addFunction(dreamcastVibration);
-    mainPeripheral.addSubPeripheral(subPeripheral2);
+    mainPeripheral.addSubPeripheral(subPeripheral2);*/
 
     multicore_launch_core1(core1);
 
@@ -199,7 +256,7 @@ int main()
 {
     led_init();
 
-    runStartupTasks();
+    setupGPIO();
 
     core0();
 

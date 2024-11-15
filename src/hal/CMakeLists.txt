@@ -4,4 +4,3 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 add_subdirectory(MapleBus)
 add_subdirectory(System)
-add_subdirectory(Usb)

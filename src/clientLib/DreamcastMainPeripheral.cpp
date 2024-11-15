@@ -265,6 +265,7 @@ void DreamcastMainPeripheral::task(uint64_t currentTimeUs)
             }
             else
             {
+                //dispensePacket() calls the peripherals handlePacket()
                 writeIt = dispensePacket(mPacketIn, mPacketOut);
             }
 

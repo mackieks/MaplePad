@@ -65,32 +65,4 @@
 // ON when USB connected; OFF when disconnected
 #define SIMPLE_USB_LED_PIN -1
 
-// Set to true if using HKT-7300, otherwise false
-#define HKT_7300_ENABLED false
-
-// "wired" controller GPIOs for MaplePad
-#define CTRL_PIN_A 0
-#define CTRL_PIN_B 1
-#define CTRL_PIN_X 4
-#define CTRL_PIN_Y 5
-#define CTRL_PIN_DU 6
-#define CTRL_PIN_DD 7
-#define CTRL_PIN_DL 8
-#define CTRL_PIN_DR 9
-#define CTRL_PIN_START 10
-#define CTRL_PIN_RUMBLE 15
-#define CTRL_PIN_SX 26
-#define CTRL_PIN_SY 27
-#define CTRL_PIN_LT 28
-#define CTRL_PIN_RT 29 //Reserved for temp sensor ADC, needs to be bypassed on official picos
-
-#if HKT_7300_ENABLED
-#  define CTRL_PIN_Z 17
-#  define CTRL_PIN_C 16
-#endif
-
-// GPIOs for screen paging
-#define OLED_SEL_PIN 22
-#define OLED_PAGE_CYCLE_PIN 21
-
 #endif // __CONFIGURATION_H__

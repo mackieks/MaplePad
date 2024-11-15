@@ -181,12 +181,17 @@ bool DreamcastPeripheral::handlePacket(const MaplePacket& in, MaplePacket& out)
             case COMMAND_GET_LAST_ERROR: // FALL THROUGH
             case COMMAND_SET_CONDITION:
             {
+                //Pulls device function codes (byte commands) based off the set command received from maplebus
                 const uint32_t& fnCode = in.payload[0];
+
+                // Get the device function from the map based off the function
+                // code (example, 0x00000001 for controller)
                 std::map<uint32_t, std::shared_ptr<DreamcastPeripheralFunction>>::iterator iter =
                     mDevices.find(fnCode);
 
                 if (iter != mDevices.end())
                 {
+                    //Should be calling the specific peripherals handlePacket method.
                     status = iter->second->handlePacket(in, out);
                 }
                 else

@@ -15,11 +15,11 @@ DreamcastController::DreamcastController() :
         .enStart = true,
         .enA = true,
         .enB = true,
-        .enC = true,
-        .enD = true,
+        .enC = false,
+        .enD = false,
         .enX = true,
         .enY = true,
-        .enZ = true
+        .enZ = false
     })
 {}
 
@@ -180,6 +180,7 @@ void DreamcastController::setCondition(controller_condition_t condition)
     }
 }
 
+//TODO jam control inputs into here then watch the maplebus roll in!
 void DreamcastController::setControls(const Controls& controls)
 {
     controller_condition_t condition;
