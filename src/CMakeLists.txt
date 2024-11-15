@@ -9,5 +9,4 @@ else()
     add_subdirectory(main)
 endif()
 
-add_subdirectory(hostLib)
 add_subdirectory(clientLib)
