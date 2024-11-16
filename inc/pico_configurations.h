@@ -23,12 +23,14 @@
 #define CTRL_PIN_LT 28
 #define CTRL_PIN_RT 29 // Reserved for temp sensor ADC, needs to be bypassed on official picos
 
+#define NUM_BUTTONS 11
+
 typedef struct ButtonInfo_s {
     int pin;
     int buttonMask;
 } ButtonInfo;
 
-static ButtonInfo ButtonInfos[NUM_BUTTONS] = {
+static const ButtonInfo ButtonInfos[NUM_BUTTONS] = {
     {0, 0x0004}, // A - 0
     {1, 0x0002}, // B - 1
     {4, 0x0400}, // X - 2

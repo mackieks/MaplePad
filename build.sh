@@ -10,7 +10,7 @@ GPP="/usr/bin/arm-none-eabi-g++"
 rm ${BUILD_DIR}/src/*/*/*.elf
 rm ${BUILD_DIR}/src/*/*/*.uf2
 
-"C:/Program Files/CMake/bin/cmake" \
+/usr/bin/cmake \
     --no-warn-unused-cli \
     -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE \
     -DCMAKE_BUILD_TYPE:STRING=Debug \
@@ -28,7 +28,7 @@ if [ $STATUS -ne 0 ]; then
     exit $STATUS
 fi
 
-"C:/Program Files/CMake/bin/cmake" \
+/usr/bin/cmake \
     --build ${BUILD_DIR} \
     --config Debug \
     --target all \

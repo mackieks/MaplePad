@@ -53,12 +53,12 @@ void setPwmFn(uint8_t width, uint8_t down)
 {
     if (width == 0 || down == 0)
     {
-        buzzer.stop(2);
+        //buzzer.stop(2);
     }
     else
     {
-        buzzer.stop(2);
-        buzzer.buzzRaw({.priority=2, .wrapCount=width, .highCount=(width-down)});
+        //buzzer.stop(2);
+        //buzzer.buzzRaw({.priority=2, .wrapCount=width, .highCount=(width-down)});
     }
 }
 

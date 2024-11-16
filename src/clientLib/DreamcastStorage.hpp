@@ -71,9 +71,6 @@ private:
     //! @param[in] infoLen  Number of media info words to copy
     void setDefaultMediaInfoFlipped(uint32_t* out, uint8_t infoOffset = 0, uint8_t infoLen = 6);
 
-    //! Callback function for notifying when a write block has completed successfully
-    StorageFn mCallback;
-
     //! Flips the endianness of a word
     //! @param[in] word  Input word
     //! @returns output word
@@ -82,7 +79,7 @@ private:
         return MaplePacket::flipWordBytes(word);
     }
 
-public:
+  public:
     static const uint16_t NUMBER_OF_PARTITIONS = 1;
     static const uint16_t BYTES_PER_BLOCK = 512;
     static const uint8_t WORD_SIZE = sizeof(uint32_t);
@@ -113,5 +110,8 @@ protected:
     uint32_t mMemoryOffset;
     //! Storage for a single block of data for read or write purposes
     uint8_t mDataBlock[BYTES_PER_BLOCK];
+    //! Callback function for notifying when a write block has completed
+    //! successfully
+    StorageFn mCallback;
 };
 }

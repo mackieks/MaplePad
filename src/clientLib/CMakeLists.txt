@@ -10,6 +10,8 @@ target_link_libraries(clientLib
   PRIVATE
     # TODO: move this to HAL
     hardware_flash
+    pico_stdlib
+    hardware_adc
 )
 
 if(NOT ENABLE_UNIT_TEST)

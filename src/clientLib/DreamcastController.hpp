@@ -10,7 +10,7 @@
 
 namespace client
 {
-class DreamcastController : public DreamcastPeripheralFunction, public GamepadHost
+class DreamcastController : public DreamcastPeripheralFunction
 {
 public:
     struct EnabledControls
@@ -58,9 +58,6 @@ public:
     //! Sets the raw controller condition
     void setCondition(controller_condition_t condition);
 
-    //! Sets the standard set of gamepad controls to the controller condition
-    virtual void setControls() final;
-
     //! @returns the number of condition samples made
     uint32_t getConditionSamples();
 
@@ -68,7 +65,10 @@ private:
     //! Updates mConditionAndMask and mConditionOrMask based on mEnabledControls
     void updateConditionMasks();
 
-private:
+    //! Sets the standard set of gamepad controls to the controller condition
+    void setControls();
+
+  private:
     //! All controls reported as enabled to the host
     EnabledControls mEnabledControls;
     //! AND mask to apply to newly set condition

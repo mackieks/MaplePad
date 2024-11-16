@@ -14,6 +14,7 @@ target_link_libraries(client-with-usb-host
     hal-System
     clientLib
     pico_stdlib
+    hardware_adc
 )
 target_compile_options(client-with-usb-host PRIVATE
   -Wall

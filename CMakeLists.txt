@@ -14,13 +14,14 @@ if(NOT ENABLE_UNIT_TEST)
     message(FATAL_ERROR "PICO_SDK_PATH not defined; either execute:\ngit submodule update --recursive --init\nor set PICO_SDK_PATH in environment")
   endif ()
 
-  include("${PICO_SDK_PATH}/external/pico_sdk_import.cmake")
+  include(pico_sdk_import.cmake)
+  #include("${PICO_SDK_PATH}/external/pico_sdk_import.cmake")
 
   pico_sdk_init()
 else()
   add_definitions(-DUNITTEST)
 endif()
 
-project(DreamcastControllerUsbPico)
+project(MaplePad)
 
 add_subdirectory(src)
