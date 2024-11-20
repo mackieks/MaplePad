@@ -43,10 +43,11 @@ void storageCb(uint32_t state)
     // which would result in dropped packets, we check to see if we can write to the FIFO (non-blocking)
     // and only write to it if it's available. Since this is being used for a very limited purpose, we
     // shouldn't be concerned that it will fill, this is just my paranoia coming out.
-    if(multicore_fifo_wready())
+    /*if(multicore_fifo_wready())
     {
-        multicore_fifo_push_blocking(state);
-    }
+        
+    }*/
+    //multicore_fifo_push_blocking(state);
 }
 
 void setPwmFn(uint8_t width, uint8_t down)
@@ -98,25 +99,10 @@ void core1()
 {
     set_sys_clock_khz(CPU_FREQ_KHZ, true);
 
-    //usb_init();
-
     while (true)
     {
-        //This handles vibration updates. The observer updates the rumble values and this task updates in set intervals adjusting to those set values.
-        //usb_task(time_us_64());
-
-        //Only write to flash if a successful write block occurred. Set by a callback function
-        //from DreamcastStorage. Pop blocking does what it says, blocks until something is ready
-        //to be read. Since we don't want to stall this core, we first check to see if there is something
-        //to read. If not, it goes about its way.
-        if(multicore_fifo_rvalid())
-        {
-            uint32_t write_ack = multicore_fifo_pop_blocking();
-            if(write_ack == 7) //TODO This is sloppy, clean it up
-            {
-                mem->process(); //Writes vmu storage to pico flash, this could probably be considered housekeeping
-            }
-        }
+      // Writes vmu storage to pico flash
+      mem->process();
     }
 }
 
@@ -155,6 +141,11 @@ void core0()
     std::shared_ptr<client::DreamcastStorage> dreamcastStorage =
         std::make_shared<client::DreamcastStorage>(mem, 0, storageCb);
     subPeripheral1->addFunction(dreamcastStorage);
+
+    //TODO add logic to check firmware version, format memory, and store it here
+    //Format makes a call to store to flash so processing memory not necessary
+    //dreamcastStorage->format();
+
     std::shared_ptr<client::DreamcastScreen> dreamcastScreen =
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
     subPeripheral1->addFunction(dreamcastScreen);

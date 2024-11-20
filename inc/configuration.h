@@ -37,7 +37,7 @@
 #define MAPLE_INTER_WORD_READ_TIMEOUT_US 300
 
 // The pin which sets IO direction for each player (-1 to disable)
-#define P1_DIR_PIN 6
+#define P1_DIR_PIN -1
 //#define P2_DIR_PIN -1
 //#define P3_DIR_PIN -1
 //#define P4_DIR_PIN -1
@@ -64,5 +64,8 @@
 // LED pin number for simple USB activity or -1 to disable
 // ON when USB connected; OFF when disconnected
 #define SIMPLE_USB_LED_PIN -1
+
+// The current firmware version
+#define CURRENT_FW_VERSION VER_2
 
 #endif // __CONFIGURATION_H__

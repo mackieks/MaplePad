@@ -68,6 +68,18 @@ private:
     //! Sets the standard set of gamepad controls to the controller condition
     void setControls();
 
+    //! @returns the value constrained by the params
+    uint8_t map(uint8_t x, uint8_t in_min, uint8_t in_max, uint8_t out_min, uint8_t out_max);
+
+    //! Reads and returns the selected ADC input for the trigger
+    //! @returns the value read from ADC constrained by the params
+    uint8_t getTriggerADCInput(uint8_t adcSelect, uint8_t min, uint8_t max, uint8_t deadzone, uint8_t antiDeadzone, bool invert);
+
+    //! Reads and returns the selected ADC input for the joystick
+    //! @returns the value read from ADC constrained by the params
+    uint8_t getJoystickADCInput(uint8_t adcSelect, uint8_t min, uint8_t max, uint8_t deadzone, uint8_t antiDeadzone, uint8_t center, bool invert);
+
+    
   private:
     //! All controls reported as enabled to the host
     EnabledControls mEnabledControls;
