@@ -74,7 +74,6 @@ void gpio_init()
     adc_gpio_init(CTRL_PIN_LT);  // Left Trigger
     adc_gpio_init(CTRL_PIN_RT);  // Right Trigger
 
-    //TODO implement screen type in the DreamcastScreen class
     // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
     gpio_init(OLED_SEL_PIN);
     gpio_set_dir(OLED_SEL_PIN, false);
