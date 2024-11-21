@@ -11,6 +11,7 @@
 #include "Mutex.hpp"
 #include "Clock.hpp"
 #include "NonVolatilePicoSystemMemory.hpp"
+#include "SSD1331.hpp"
 
 #include "hal/System/LockGuard.hpp"
 #include "hal/MapleBus/MapleBusInterface.hpp"
@@ -29,7 +30,7 @@
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
-    // TODO: Fill in
+
 }
 
 void setTimeCb(const client::DreamcastTimer::SetTime& setTime)
@@ -86,6 +87,12 @@ void gpio_init()
         gpio_set_dir(ButtonInfos[i].pin, false);
         gpio_pull_up(ButtonInfos[i].pin);
     }
+
+    //Configure OLED SPI
+    spi_init(SSD1331_SPI, SSD1331_SPEED);
+    spi_set_format(spi0, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
+    gpio_set_function(SCK, GPIO_FUNC_SPI);
+    gpio_set_function(MOSI, GPIO_FUNC_SPI);
 }
 
 std::shared_ptr<NonVolatilePicoSystemMemory> mem =
@@ -148,6 +155,11 @@ void core0()
     std::shared_ptr<client::DreamcastScreen> dreamcastScreen =
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
     subPeripheral1->addFunction(dreamcastScreen);
+    
+    std::shared_ptr<display::SSD1331> ssd1331 = 
+        std::make_shared<display::SSD1331>();
+    ssd1331->splashScreen();
+
     Clock clock;
     std::shared_ptr<client::DreamcastTimer> dreamcastTimer =
         std::make_shared<client::DreamcastTimer>(clock, setTimeCb, setPwmFn);

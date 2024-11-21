@@ -27,19 +27,18 @@
 
 typedef struct ButtonInfo_s {
     int pin;
-    int buttonMask;
 } ButtonInfo;
 
 static const ButtonInfo ButtonInfos[NUM_BUTTONS] = {
-    {0, 0x0004}, // A - 0
-    {1, 0x0002}, // B - 1
-    {4, 0x0400}, // X - 2
-    {5, 0x0200}, // Y - 3
-    {6, 0x0010}, // Up - 4
-    {7, 0x0020}, // Down - 5
-    {8, 0x0040}, // Left - 6
-    {9, 0x0080}, // Right - 7
-    {10, 0x0008}, // Start - 8
-    {16, 0x0001}, // C - 9
-    {17, 0x0100}  // Z - 10
+    {CTRL_PIN_A}, // A - 0
+    {CTRL_PIN_B}, // B - 1
+    {CTRL_PIN_X}, // X - 2
+    {CTRL_PIN_Y}, // Y - 3
+    {CTRL_PIN_DU}, // Up - 4
+    {CTRL_PIN_DD}, // Down - 5
+    {CTRL_PIN_DL}, // Left - 6
+    {CTRL_PIN_DR}, // Right - 7
+    {CTRL_PIN_START}, // Start - 8
+    {CTRL_PIN_C}, // C - 9
+    {CTRL_PIN_Z}  // Z - 10
 };
