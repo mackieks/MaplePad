@@ -3,9 +3,10 @@
 namespace display
 {
     SSD1331::SSD1331() :
-        mDmaWriteChannel(dma_claim_unused_channel(true))
+        mDmaWriteChannel(dma_claim_unused_channel(true)),
+        mConfig(dma_channel_get_default_config(mDmaWriteChannel))
     {
-        init();
+        
     }
 
     void SSD1331::clear()
@@ -31,7 +32,27 @@ namespace display
 
         gpio_put(DC, 1);
 
-        dma_channel_transfer_from_buffer_now(mDmaWriteChannel, screen, len);
+        memcpy(mOledFB, screen, len);
+
+        if (!(dma_channel_is_busy(mDmaWriteChannel)))
+        {
+            dma_channel_configure(mDmaWriteChannel, &mConfig,
+                                    &spi_get_hw(SSD1331_SPI)->dr,          // write address
+                                    mOledFB,         // read address
+                                    sizeof(mOledFB), // element count (each element is of size transfer_data_size)
+                                    true);                                 // start
+        }
+    }
+
+    void SSD1331::setPixel(const uint8_t x, const uint8_t y, const uint16_t color)
+    {
+        // Set Pixel
+        // uint8_t r = (color & 0xF800) >> 11;
+        // uint8_t g = (color & 0x7E0) >> 5;
+        // uint8_t b = (color & 0x1f);
+
+        memset(&mOledFB[(y * 192) + (x * 2)], color >> 8, sizeof(uint8_t));
+        memset(&mOledFB[(y * 192) + (x * 2) + 1], color & 0xff, sizeof(uint8_t));
     }
 
     void SSD1331::splashScreen()
@@ -47,16 +68,26 @@ namespace display
 
         gpio_put(DC, 1);
 
-        dma_channel_config c = dma_channel_get_default_config(mDmaWriteChannel);
-        channel_config_set_transfer_data_size(&c, DMA_SIZE_8);
-        channel_config_set_dreq(&c, spi_get_index(SSD1331_SPI) ? DREQ_SPI1_TX : DREQ_SPI0_TX);
-        dma_channel_configure(mDmaWriteChannel, &c,
-                                &spi_get_hw(SSD1331_SPI)->dr,          // write address
-                                display::image_data_maplepad_logo_9664,         // read address
-                                sizeof(display::image_data_maplepad_logo_9664), // element count (each element is of size transfer_data_size)
-                                true);                                 // start
+        //memcpy(mOledFB, display::image_data_maplepad_logo_9664, sizeof(display::image_data_maplepad_logo_9664));
+
+        if (!(dma_channel_is_busy(mDmaWriteChannel)))
+        {
+            dma_channel_configure(mDmaWriteChannel, &mConfig,
+                                    &spi_get_hw(SSD1331_SPI)->dr,          // write address
+                                    display::image_data_maplepad_logo_9664,         // read address
+                                    sizeof(display::image_data_maplepad_logo_9664), // element count (each element is of size transfer_data_size)
+                                    true);                                 // start
+        }
 
         // spi_write_blocking(SSD1331_SPI, oledFB, sizeof(oledFB));
+    }
+
+    void SSD1331::initialize()
+    {
+        init();
+
+        channel_config_set_transfer_data_size(&mConfig, DMA_SIZE_8);
+        channel_config_set_dreq(&mConfig, spi_get_index(SSD1331_SPI) ? DREQ_SPI1_TX : DREQ_SPI0_TX);
     }
 
     void SSD1331::init()

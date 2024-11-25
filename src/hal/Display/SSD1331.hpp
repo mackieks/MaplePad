@@ -66,15 +66,24 @@ namespace display
 
             void update(const uint32_t* screen, uint32_t len);
 
+            void initialize();
+
+            void setPixel(const uint8_t x, const uint8_t y, const uint16_t color);
+
+            void putLetter(int ix, int iy, int index, uint16_t color);
+
+            void putString(char *text, int ix, int iy, uint16_t color);
+
         private:
             //Initialize the screen
             void init();
 
         private:
-            //! Screen data block initialized to blank
-            uint8_t mOledFB[96 * 64 * 2] = {0x00};
-
             const int mDmaWriteChannel;
 
+            dma_channel_config mConfig;
+
+            //! Screen data block initialized to blank, 1536 bytes
+            uint8_t mOledFB[96 * 64 * 2] = {0x00};
     };
 }

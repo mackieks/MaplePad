@@ -27,10 +27,44 @@
 
 #include <memory>
 #include <algorithm>
+#include <cassert>
+
+#define LCD_NumCols 6
+
+display::SSD1331 lcd;
+static uint8_t LCDFramebuffer[192] = {0};
+volatile uint16_t palette[] = {
+    0xf800, // red
+    0xfba0, // orange
+    0xff80, // yellow
+    0x7f80, // yellow-green
+    0x0500, // green
+    0x045f, // blue
+    0x781f, // violet
+    0x780d  // magenta
+};
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
+    assert(screen != nullptr && len > 0);
+    //printf("Why am I being called?");
+    /*memcpy(LCDFramebuffer, screen, sizeof(*screen));
+    int x, y, pixel, bb;
+    for (int fb = 0; fb < 192; fb++) {
+        y = (fb / LCD_NumCols) * 2;
+        int mod = (fb % LCD_NumCols) * 16;
+        for (bb = 0; bb <= 7; bb++) {
+            x = mod + (14 - bb * 2);
+            pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[0];
 
+            lcd.setPixel(x, y, pixel);
+            lcd.setPixel(x + 1, y, pixel);
+            lcd.setPixel(x, y + 1, pixel);
+            lcd.setPixel(x + 1, y + 1, pixel);
+        }
+    }
+    lcd.update(screen, len);*/
+    lcd.splashScreen();
 }
 
 void setTimeCb(const client::DreamcastTimer::SetTime& setTime)
@@ -156,9 +190,8 @@ void core0()
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
     subPeripheral1->addFunction(dreamcastScreen);
     
-    std::shared_ptr<display::SSD1331> ssd1331 = 
-        std::make_shared<display::SSD1331>();
-    ssd1331->splashScreen();
+    lcd.initialize();
+    //lcd.splashScreen();
 
     Clock clock;
     std::shared_ptr<client::DreamcastTimer> dreamcastTimer =
@@ -194,6 +227,8 @@ void core0()
 
 int main()
 {
+    stdio_init_all();
+    
     led_init();
 
     gpio_init();

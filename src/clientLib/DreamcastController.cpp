@@ -191,10 +191,10 @@ void DreamcastController::setControls()
 
     condition.a = gpio_get(CTRL_PIN_A);
     condition.b = gpio_get(CTRL_PIN_B);
-    condition.c = gpio_get(CTRL_PIN_C);
+    condition.c = 1;
     condition.x = gpio_get(CTRL_PIN_X);
     condition.y = gpio_get(CTRL_PIN_Y);
-    condition.z = gpio_get(CTRL_PIN_Z);
+    condition.z = 1;
     condition.d = 1; //D for disabled
     condition.start = gpio_get(CTRL_PIN_START);
 
