@@ -46,25 +46,26 @@ volatile uint16_t palette[] = {
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
-    assert(screen != nullptr && len > 0);
-    //printf("Why am I being called?");
-    /*memcpy(LCDFramebuffer, screen, sizeof(*screen));
-    int x, y, pixel, bb;
-    for (int fb = 0; fb < 192; fb++) {
-        y = (fb / LCD_NumCols) * 2;
-        int mod = (fb % LCD_NumCols) * 16;
-        for (bb = 0; bb <= 7; bb++) {
-            x = mod + (14 - bb * 2);
-            pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[0];
+    //len is in words
+    if(*screen != 0 && (len * sizeof(uint32_t)) == sizeof(LCDFramebuffer))
+    {
+        memcpy(LCDFramebuffer, screen, len * sizeof(uint32_t));
+        int x, y, pixel, bb;
+        for (int fb = 0; fb < 192; fb++) {
+            y = (fb / LCD_NumCols) * 2;
+            int mod = (fb % LCD_NumCols) * 16;
+            for (bb = 0; bb <= 7; bb++) {
+                x = mod + (14 - bb * 2);
+                pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[0];
 
-            lcd.setPixel(x, y, pixel);
-            lcd.setPixel(x + 1, y, pixel);
-            lcd.setPixel(x, y + 1, pixel);
-            lcd.setPixel(x + 1, y + 1, pixel);
+                lcd.setPixel(x, y, pixel);
+                lcd.setPixel(x + 1, y, pixel);
+                lcd.setPixel(x, y + 1, pixel);
+                lcd.setPixel(x + 1, y + 1, pixel);
+            }
         }
+        lcd.update(screen, len);
     }
-    lcd.update(screen, len);*/
-    lcd.splashScreen();
 }
 
 void setTimeCb(const client::DreamcastTimer::SetTime& setTime)
@@ -191,7 +192,7 @@ void core0()
     subPeripheral1->addFunction(dreamcastScreen);
     
     lcd.initialize();
-    //lcd.splashScreen();
+    lcd.splashScreen();
 
     Clock clock;
     std::shared_ptr<client::DreamcastTimer> dreamcastTimer =

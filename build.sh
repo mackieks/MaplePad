@@ -44,3 +44,4 @@ fi
 mkdir -p ${DIST_DIR}
 rm -rf ${DIST_DIR}/*
 cp ${BUILD_DIR}/src/*/*/*.uf2 ${DIST_DIR}
+cp ${BUILD_DIR}/src/*/*/*.elf ${DIST_DIR}

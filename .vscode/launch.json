@@ -1,29 +1,35 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
         {
-            "name": "Debug Test",
-            "type": "cppdbg",
+            "cwd": "${workspaceRoot}",
+            "executable": "./dist/client-with-usb-host.elf",
+            "name": "Debug example with OpenOCD",
             "request": "launch",
-            "program": "${workspaceFolder}/build-test/src/test/testExe",
-            "args": [],
-            "stopAtEntry": false,
-            "cwd": "${workspaceFolder}",
-            "environment": [],
-            "externalConsole": false,
-            "MIMode": "gdb",
-            "miDebuggerPath": "/usr/bin/gdb",
-            "setupCommands": [
-              {
-                "description": "Enable pretty-printing for gdb",
-                "text": "-enable-pretty-printing",
-                "ignoreFailures": true
-              }
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "gdbPath": "gdb-multiarch",
+            "configFiles": [
+                "interface/cmsis-dap.cfg",
+                "target/rp2040.cfg"
             ],
-            "preLaunchTask": "Build Tests"
-          }
+            "searchDir": [
+                "/usr/local/share/openocd/scripts/"
+            ],
+            "showDevDebugOutput": "raw",
+            "openOCDLaunchCommands": [
+                "adapter speed 5000"
+            ],
+            "svdFile": "${env:PICO_SDK_PATH}/src/rp2040/hardware_regs/rp2040.svd",
+            "runToEntryPoint": "main",
+            "postRestartCommands": [
+                "break main",
+                "continue"
+            ],
+            "liveWatch": {
+                "enabled": true,
+                "samplesPerSecond": 4
+            }
+        }
     ]
 }
