@@ -30,6 +30,24 @@ DreamcastController::DreamcastController(EnabledControls enabledControls) :
 {
     updateConditionMasks();
     setCondition(NEUTRAL_CONTROLLER_CONDITION);
+
+    // Configure ADC for triggers and stick
+    adc_init();
+
+    adc_set_clkdiv(0);
+    adc_gpio_init(CTRL_PIN_SX); // Stick X
+    adc_gpio_init(CTRL_PIN_SY); // Stick Y
+    adc_gpio_init(CTRL_PIN_LT);  // Left Trigger
+    adc_gpio_init(CTRL_PIN_RT);  // Right Trigger
+
+    //TODO implement page button?
+
+    //Enable GPIOs for button inputs
+    for (int i = 0; i < NUM_BUTTONS; i++) {
+        gpio_init(ButtonInfos[i].pin);
+        gpio_set_dir(ButtonInfos[i].pin, false);
+        gpio_pull_up(ButtonInfos[i].pin);
+    }
 }
 
 void DreamcastController::setEnabledControls(EnabledControls enabledControls)

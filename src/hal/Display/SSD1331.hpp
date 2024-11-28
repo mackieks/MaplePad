@@ -5,6 +5,7 @@
 #include "pico/binary_info.h"
 #include "hardware/spi.h"
 #include "hardware/dma.h"
+#include "Display.hpp"
 #include <string.h>
 
 namespace display
@@ -49,30 +50,33 @@ namespace display
     #define SSD1331_CMD_PRECHARGELEVEL 0xBB //!< Set pre-charge voltage
     #define SSD1331_CMD_VCOMH 0xBE          //!< Set Vcomh voltge
 
-    class SSD1331
+    class SSD1331 : public Display
     {
         public:
             //! Default constructor, initializes SSD1331 screen
             SSD1331();
 
-            //! Displays the default splash screen on the SSD1331
-            void splashScreen();
+            //! Inherited from the abstract class Display
+            void showSplash();
 
-            //! Sets the screen to all black
+            //! Inherited from the abstract class Display
             void clear();
 
             //! Writes a command to SPI
             void write(const uint8_t data);
 
-            void update();
-
+            //! Inherited from the abstract class Display
             void initialize();
 
-            void setPixel(const uint8_t x, const uint8_t y, const uint16_t color);
+            //! Inherited from the abstract class Display
+            void setPixel(uint8_t x, uint8_t y, uint16_t color);
 
             void putLetter(int ix, int iy, int index, uint16_t color);
 
             void putString(char *text, int ix, int iy, uint16_t color);
+
+            //! Inherited from the abstract class Display
+            void refresh();
 
         private:
             //Initialize the screen
@@ -85,5 +89,16 @@ namespace display
 
             //! Screen data block initialized to blank, 1536 bytes
             uint8_t mOledFB[96 * 64 * 2] = {0x00};
+
+            volatile uint16_t palette[8] = {
+                0xf800, // red
+                0xfba0, // orange
+                0xff80, // yellow
+                0x7f80, // yellow-green
+                0x0500, // green
+                0x045f, // blue
+                0x781f, // violet
+                0x780d  // magenta
+            };
     };
 }

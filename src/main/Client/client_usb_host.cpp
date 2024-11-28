@@ -29,8 +29,6 @@
 #include <algorithm>
 #include <cassert>
 
-#define LCD_NumCols 6
-
 display::SSD1331 lcd;
 static uint8_t LCDFramebuffer[192] = {0};
 volatile uint16_t palette[] = {
@@ -44,59 +42,25 @@ volatile uint16_t palette[] = {
     0x780d  // magenta
 };
 
-// Function that reverses the byte order of a single uint32_t value
-uint32_t reverseByteOrder(uint32_t value) {
-    return ((value >> 24) & 0xFF) | 
-           ((value >> 8) & 0xFF00) | 
-           ((value << 8) & 0xFF0000) | 
-           ((value << 24) & 0xFF000000);
-}
-
 void screenCb(const uint32_t* screen, uint32_t len)
 {
-    //len is in words, screen is a pointer to the data() in a uint32_t vector. This means
-    //len is the number of words we should have available in the address screen points to.
-    //If the ptr to screen here is empty, then that tells us there hasn't been any data
-    //written to the maplebus for the screen. 48 words * 4 bytes per word should equal 192
-    //total bytes that the VMU screen handles.
+    //len is the number of words in the payload. For this it should be 48 total words, or 192 bytes.
+    //The bytes in each word of screen need to be reversed.
     if(*screen != 0 && (len * sizeof(uint32_t)) == sizeof(LCDFramebuffer))
     {
         uint32_t reversedArr[len];
 
         // Reverse the byte order of each element and store it in reversedArr
         for (size_t i = 0; i < len; ++i) {
-            reversedArr[i] = reverseByteOrder(screen[i]);
+            reversedArr[i] = lcd.reverseByteOrder(screen[i]);
         }
 
         memcpy(LCDFramebuffer, reversedArr, len * sizeof(uint32_t));
 
-        for(int fb = 0; fb < 192; fb++)
-        {
-            for(int bb = 0; bb <= 7; bb++)
-            {
-                if(((LCDFramebuffer[fb] >> bb) & 0x01))
-                {
-                    lcd.setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, palette[0]);
-                    lcd.setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, palette[0]);
-                    lcd.setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[0]);
-                    lcd.setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, palette[0]);
-                }
-                else
-                {
-                    lcd.setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, 0);
-                    lcd.setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, 0);
-                    lcd.setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, 0);
-                    lcd.setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, 0);
-                }
-            }
-        }
-
-        lcd.update();
-        
-        /*int x, y, pixel, bb;
+        int x, y, pixel, bb;
         for (int fb = 0; fb < 192; fb++) {
-            y = (fb / LCD_NumCols) * 2;
-            int mod = (fb % LCD_NumCols) * 16;
+            y = (fb / 6) * 2;
+            int mod = (fb % 6) * 16;
             for (bb = 0; bb <= 7; bb++) {
                 x = mod + (14 - bb * 2);
                 pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[0];
@@ -106,26 +70,14 @@ void screenCb(const uint32_t* screen, uint32_t len)
                 lcd.setPixel(x + 1, y + 1, pixel);
             }
         }
-        lcd.update(screen, len);*/
+
+        lcd.refresh();
     }
 }
 
 void setTimeCb(const client::DreamcastTimer::SetTime& setTime)
 {
     // TODO: Fill in
-}
-
-void storageCb(uint32_t state)
-{
-    // Push blocking waits until data can be written to FIFO. Since we don't want to stall the core
-    // which would result in dropped packets, we check to see if we can write to the FIFO (non-blocking)
-    // and only write to it if it's available. Since this is being used for a very limited purpose, we
-    // shouldn't be concerned that it will fill, this is just my paranoia coming out.
-    /*if(multicore_fifo_wready())
-    {
-        
-    }*/
-    //multicore_fifo_push_blocking(state);
 }
 
 void setPwmFn(uint8_t width, uint8_t down)
@@ -141,35 +93,23 @@ void setPwmFn(uint8_t width, uint8_t down)
     }
 }
 
-void gpio_init()
+void display_select()
 {
-    // Configure ADC for triggers and stick
-    adc_init();
-
-    adc_set_clkdiv(0);
-    adc_gpio_init(CTRL_PIN_SX); // Stick X
-    adc_gpio_init(CTRL_PIN_SY); // Stick Y
-    adc_gpio_init(CTRL_PIN_LT);  // Left Trigger
-    adc_gpio_init(CTRL_PIN_RT);  // Right Trigger
-
     // OLED Select GPIO (high/open = SSD1331, Low = SSD1306)
     gpio_init(OLED_SEL_PIN);
     gpio_set_dir(OLED_SEL_PIN, false);
     gpio_pull_up(OLED_SEL_PIN);
 
-    //TODO implement page button?
-
-    for (int i = 0; i < NUM_BUTTONS; i++) {
-        gpio_init(ButtonInfos[i].pin);
-        gpio_set_dir(ButtonInfos[i].pin, false);
-        gpio_pull_up(ButtonInfos[i].pin);
+    uint8_t oledType = gpio_get(OLED_SEL_PIN);
+    switch(oledType)
+    {
+        case SSD1331:
+            break;
+        case SSD1306:
+            break;
+        default:
+            break;
     }
-
-    //Configure OLED SPI
-    spi_init(SSD1331_SPI, SSD1331_SPEED);
-    spi_set_format(spi0, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
-    gpio_set_function(SCK, GPIO_FUNC_SPI);
-    gpio_set_function(MOSI, GPIO_FUNC_SPI);
 }
 
 std::shared_ptr<NonVolatilePicoSystemMemory> mem =
@@ -184,8 +124,8 @@ void core1()
 
     while (true)
     {
-      // Writes vmu storage to pico flash
-      mem->process();
+        // Writes vmu storage to pico flash
+        mem->process();
     }
 }
 
@@ -222,7 +162,7 @@ void core0()
             12.4,
             13.0);
     std::shared_ptr<client::DreamcastStorage> dreamcastStorage =
-        std::make_shared<client::DreamcastStorage>(mem, 0, storageCb);
+        std::make_shared<client::DreamcastStorage>(mem, 0);
     subPeripheral1->addFunction(dreamcastStorage);
 
     //TODO add logic to check firmware version, format memory, and store it here
@@ -234,7 +174,7 @@ void core0()
     subPeripheral1->addFunction(dreamcastScreen);
     
     lcd.initialize();
-    lcd.splashScreen();
+    lcd.showSplash();
 
     Clock clock;
     std::shared_ptr<client::DreamcastTimer> dreamcastTimer =
@@ -274,7 +214,7 @@ int main()
     
     led_init();
 
-    gpio_init();
+    display_select();
 
     core0();
 

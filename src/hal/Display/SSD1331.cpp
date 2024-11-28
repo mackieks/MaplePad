@@ -6,7 +6,7 @@ namespace display
         mDmaWriteChannel(dma_claim_unused_channel(true)),
         mConfig(dma_channel_get_default_config(mDmaWriteChannel))
     {
-        
+        mIsInitialized = false;
     }
 
     void SSD1331::clear()
@@ -19,7 +19,7 @@ namespace display
         spi_write_blocking(SSD1331_SPI, &data, 1);
     }
 
-    void SSD1331::update()
+    void SSD1331::refresh()
     {
         gpio_put(DC, 0);
 
@@ -44,7 +44,7 @@ namespace display
         }
     }
 
-    void SSD1331::setPixel(const uint8_t x, const uint8_t y, const uint16_t color)
+    void SSD1331::setPixel(uint8_t x, uint8_t y, uint16_t color)
     {
         // Set Pixel
         // uint8_t r = (color & 0xF800) >> 11;
@@ -55,7 +55,7 @@ namespace display
         memset(&mOledFB[(y * 192) + (x * 2) + 1], color & 0xff, sizeof(uint8_t));
     }
 
-    void SSD1331::splashScreen()
+    void SSD1331::showSplash()
     {
         gpio_put(DC, 0);
 
@@ -84,10 +84,17 @@ namespace display
 
     void SSD1331::initialize()
     {
+        //Configure OLED SPI
+        spi_init(SSD1331_SPI, SSD1331_SPEED);
+        spi_set_format(spi0, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
+        gpio_set_function(SCK, GPIO_FUNC_SPI);
+        gpio_set_function(MOSI, GPIO_FUNC_SPI);
+        
         init();
 
         channel_config_set_transfer_data_size(&mConfig, DMA_SIZE_8);
         channel_config_set_dreq(&mConfig, spi_get_index(SSD1331_SPI) ? DREQ_SPI1_TX : DREQ_SPI0_TX);
+        mIsInitialized = true;
     }
 
     void SSD1331::init()

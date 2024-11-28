@@ -42,3 +42,10 @@ static const ButtonInfo ButtonInfos[NUM_BUTTONS] = {
     //{CTRL_PIN_C}, // C - 9
     //{CTRL_PIN_Z}  // Z - 10
 };
+
+//! Enumerates all of the valid commands for Dreamcast devices
+enum OledType
+{
+    SSD1306 = 0x00,
+    SSD1331 = 0x01
+};

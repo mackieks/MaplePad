@@ -17,12 +17,9 @@ namespace client
 class DreamcastStorage : public DreamcastPeripheralFunction
 {
 public:
-  typedef void (*StorageFn)(uint32_t state);
-
-public:
     //! Default constructor
   DreamcastStorage(std::shared_ptr<SystemMemory> systemMemory,
-                   uint32_t memoryOffset, StorageFn callback);
+                   uint32_t memoryOffset);
 
   //! Formats the storage
   //! @returns true iff format writes completed
@@ -110,8 +107,5 @@ protected:
     uint32_t mMemoryOffset;
     //! Storage for a single block of data for read or write purposes
     uint8_t mDataBlock[BYTES_PER_BLOCK];
-    //! Callback function for notifying when a write block has completed
-    //! successfully
-    StorageFn mCallback;
 };
 }
