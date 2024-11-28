@@ -64,7 +64,7 @@ namespace display
             //! Writes a command to SPI
             void write(const uint8_t data);
 
-            void update(const uint32_t* screen, uint32_t len);
+            void update();
 
             void initialize();
 

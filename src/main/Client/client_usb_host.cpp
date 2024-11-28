@@ -44,27 +44,69 @@ volatile uint16_t palette[] = {
     0x780d  // magenta
 };
 
+// Function that reverses the byte order of a single uint32_t value
+uint32_t reverseByteOrder(uint32_t value) {
+    return ((value >> 24) & 0xFF) | 
+           ((value >> 8) & 0xFF00) | 
+           ((value << 8) & 0xFF0000) | 
+           ((value << 24) & 0xFF000000);
+}
+
 void screenCb(const uint32_t* screen, uint32_t len)
 {
-    //len is in words
+    //len is in words, screen is a pointer to the data() in a uint32_t vector. This means
+    //len is the number of words we should have available in the address screen points to.
+    //If the ptr to screen here is empty, then that tells us there hasn't been any data
+    //written to the maplebus for the screen. 48 words * 4 bytes per word should equal 192
+    //total bytes that the VMU screen handles.
     if(*screen != 0 && (len * sizeof(uint32_t)) == sizeof(LCDFramebuffer))
     {
-        memcpy(LCDFramebuffer, screen, len * sizeof(uint32_t));
-        int x, y, pixel, bb;
+        uint32_t reversedArr[len];
+
+        // Reverse the byte order of each element and store it in reversedArr
+        for (size_t i = 0; i < len; ++i) {
+            reversedArr[i] = reverseByteOrder(screen[i]);
+        }
+
+        memcpy(LCDFramebuffer, reversedArr, len * sizeof(uint32_t));
+
+        for(int fb = 0; fb < 192; fb++)
+        {
+            for(int bb = 0; bb <= 7; bb++)
+            {
+                if(((LCDFramebuffer[fb] >> bb) & 0x01))
+                {
+                    lcd.setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, palette[0]);
+                    lcd.setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, palette[0]);
+                    lcd.setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, palette[0]);
+                    lcd.setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, palette[0]);
+                }
+                else
+                {
+                    lcd.setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, (fb / LCD_NumCols) * 2, 0);
+                    lcd.setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, (fb / LCD_NumCols) * 2, 0);
+                    lcd.setPixel(((fb % LCD_NumCols) * 8 + (7 - bb)) * 2, ((fb / LCD_NumCols) * 2) + 1, 0);
+                    lcd.setPixel((((fb % LCD_NumCols) * 8 + (7 - bb)) * 2) + 1, ((fb / LCD_NumCols) * 2) + 1, 0);
+                }
+            }
+        }
+
+        lcd.update();
+        
+        /*int x, y, pixel, bb;
         for (int fb = 0; fb < 192; fb++) {
             y = (fb / LCD_NumCols) * 2;
             int mod = (fb % LCD_NumCols) * 16;
             for (bb = 0; bb <= 7; bb++) {
                 x = mod + (14 - bb * 2);
                 pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[0];
-
                 lcd.setPixel(x, y, pixel);
                 lcd.setPixel(x + 1, y, pixel);
                 lcd.setPixel(x, y + 1, pixel);
                 lcd.setPixel(x + 1, y + 1, pixel);
             }
         }
-        lcd.update(screen, len);
+        lcd.update(screen, len);*/
     }
 }
 

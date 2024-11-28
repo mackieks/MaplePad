@@ -35,7 +35,6 @@ bool DreamcastScreen::handlePacket(const MaplePacket& in, MaplePacket& out)
             {
                 if (mCallback)
                 {
-                    //printf("because i'm calling you");
                     mCallback(in.payload.data() + 2, in.payload.size() - 2);
                 }
                 out.frame.command = COMMAND_RESPONSE_ACK;

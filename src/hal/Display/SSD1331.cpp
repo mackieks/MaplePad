@@ -19,7 +19,7 @@ namespace display
         spi_write_blocking(SSD1331_SPI, &data, 1);
     }
 
-    void SSD1331::update(const uint32_t* screen, uint32_t len)
+    void SSD1331::update()
     {
         gpio_put(DC, 0);
 
@@ -32,7 +32,7 @@ namespace display
 
         gpio_put(DC, 1);
 
-        memcpy(mOledFB, screen, len);
+        //memcpy(mOledFB, screen, len);
 
         if (!(dma_channel_is_busy(mDmaWriteChannel)))
         {
