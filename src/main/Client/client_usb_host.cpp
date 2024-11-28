@@ -29,8 +29,9 @@
 #include <algorithm>
 #include <cassert>
 
-display::SSD1331 lcd;
-static uint8_t LCDFramebuffer[192] = {0};
+display::Display* lcd;
+
+//TODO think of a better way to handle colors
 volatile uint16_t palette[] = {
     0xf800, // red
     0xfba0, // orange
@@ -46,13 +47,14 @@ void screenCb(const uint32_t* screen, uint32_t len)
 {
     //len is the number of words in the payload. For this it should be 48 total words, or 192 bytes.
     //The bytes in each word of screen need to be reversed.
-    if(*screen != 0 && (len * sizeof(uint32_t)) == sizeof(LCDFramebuffer))
+    if(lcd != nullptr && lcd->isInitialized() && *screen != 0)
     {
         uint32_t reversedArr[len];
+        uint8_t LCDFramebuffer[192] = {0};
 
         // Reverse the byte order of each element and store it in reversedArr
         for (size_t i = 0; i < len; ++i) {
-            reversedArr[i] = lcd.reverseByteOrder(screen[i]);
+            reversedArr[i] = lcd->reverseByteOrder(screen[i]);
         }
 
         memcpy(LCDFramebuffer, reversedArr, len * sizeof(uint32_t));
@@ -64,14 +66,14 @@ void screenCb(const uint32_t* screen, uint32_t len)
             for (bb = 0; bb <= 7; bb++) {
                 x = mod + (14 - bb * 2);
                 pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[0];
-                lcd.setPixel(x, y, pixel);
-                lcd.setPixel(x + 1, y, pixel);
-                lcd.setPixel(x, y + 1, pixel);
-                lcd.setPixel(x + 1, y + 1, pixel);
+                lcd->setPixel(x, y, pixel);
+                lcd->setPixel(x + 1, y, pixel);
+                lcd->setPixel(x, y + 1, pixel);
+                lcd->setPixel(x + 1, y + 1, pixel);
             }
         }
 
-        lcd.refresh();
+        lcd->refresh();
     }
 }
 
@@ -100,12 +102,13 @@ void display_select()
     gpio_set_dir(OLED_SEL_PIN, false);
     gpio_pull_up(OLED_SEL_PIN);
 
-    uint8_t oledType = gpio_get(OLED_SEL_PIN);
+    int oledType = gpio_get(OLED_SEL_PIN);
     switch(oledType)
     {
-        case SSD1331:
+        case 0: //SSD1331
+            lcd = new display::SSD1331();
             break;
-        case SSD1306:
+        case 1: //SSD1306
             break;
         default:
             break;
@@ -173,8 +176,11 @@ void core0()
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
     subPeripheral1->addFunction(dreamcastScreen);
     
-    lcd.initialize();
-    lcd.showSplash();
+    if(lcd != nullptr)
+    {
+        lcd->initialize();
+        lcd->showSplash();
+    }
 
     Clock clock;
     std::shared_ptr<client::DreamcastTimer> dreamcastTimer =

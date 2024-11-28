@@ -39,7 +39,7 @@ public:
 
 protected:
     //! true iff "isInitialized"
-    bool mIsInitialized;
+    bool mIsInitialized = false;
 };
 
 }
