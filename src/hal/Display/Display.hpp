@@ -15,7 +15,7 @@ public:
     virtual void setPixel(uint8_t x, uint8_t y, uint16_t color) = 0;
 
     //! Refreshes the LCD panel by triggering a DMA transfer
-    virtual void refresh() = 0;
+    virtual void refresh(const uint32_t* screen, uint32_t len) = 0;
 
     //! Initializes the screen
     virtual void initialize() = 0;

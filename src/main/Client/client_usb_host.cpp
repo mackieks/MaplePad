@@ -31,49 +31,13 @@
 
 display::Display* lcd;
 
-//TODO think of a better way to handle colors
-volatile uint16_t palette[] = {
-    0xf800, // red
-    0xfba0, // orange
-    0xff80, // yellow
-    0x7f80, // yellow-green
-    0x0500, // green
-    0x045f, // blue
-    0x781f, // violet
-    0x780d  // magenta
-};
-
 void screenCb(const uint32_t* screen, uint32_t len)
 {
     //len is the number of words in the payload. For this it should be 48 total words, or 192 bytes.
     //The bytes in each word of screen need to be reversed.
-    if(lcd != nullptr && lcd->isInitialized() && *screen != 0)
+    if(lcd != nullptr && *screen != 0)
     {
-        uint32_t reversedArr[len];
-        uint8_t LCDFramebuffer[192] = {0};
-
-        // Reverse the byte order of each element and store it in reversedArr
-        for (size_t i = 0; i < len; ++i) {
-            reversedArr[i] = lcd->reverseByteOrder(screen[i]);
-        }
-
-        memcpy(LCDFramebuffer, reversedArr, len * sizeof(uint32_t));
-
-        int x, y, pixel, bb;
-        for (int fb = 0; fb < 192; fb++) {
-            y = (fb / 6) * 2;
-            int mod = (fb % 6) * 16;
-            for (bb = 0; bb <= 7; bb++) {
-                x = mod + (14 - bb * 2);
-                pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[0];
-                lcd->setPixel(x, y, pixel);
-                lcd->setPixel(x + 1, y, pixel);
-                lcd->setPixel(x, y + 1, pixel);
-                lcd->setPixel(x + 1, y + 1, pixel);
-            }
-        }
-
-        lcd->refresh();
+        lcd->refresh(screen, len);
     }
 }
 

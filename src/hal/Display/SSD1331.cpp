@@ -2,6 +2,17 @@
 
 namespace display
 {
+    volatile uint16_t palette[] = {
+        0xf800, // red
+        0xfba0, // orange
+        0xff80, // yellow
+        0x7f80, // yellow-green
+        0x0500, // green
+        0x045f, // blue
+        0x781f, // violet
+        0x780d  // magenta
+    };
+    
     SSD1331::SSD1331() :
         mDmaWriteChannel(dma_claim_unused_channel(true)),
         mConfig(dma_channel_get_default_config(mDmaWriteChannel))
@@ -19,8 +30,32 @@ namespace display
         spi_write_blocking(SSD1331_SPI, &data, 1);
     }
 
-    void SSD1331::refresh()
+    void SSD1331::refresh(const uint32_t* screen, uint32_t len)
     {
+        uint32_t reversedArr[len];
+        uint8_t LCDFramebuffer[192] = {0};
+
+        // Reverse the byte order of each element and store it in reversedArr
+        for (size_t i = 0; i < len; ++i) {
+            reversedArr[i] = reverseByteOrder(screen[i]);
+        }
+
+        memcpy(LCDFramebuffer, reversedArr, len * sizeof(uint32_t));
+
+        int x, y, pixel, bb;
+        for (int fb = 0; fb < 192; fb++) {
+            y = (fb / 6) * 2;
+            int mod = (fb % 6) * 16;
+            for (bb = 0; bb <= 7; bb++) {
+                x = mod + (14 - bb * 2);
+                pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[0];
+                setPixel(x, y, pixel);
+                setPixel(x + 1, y, pixel);
+                setPixel(x, y + 1, pixel);
+                setPixel(x + 1, y + 1, pixel);
+            }
+        }
+
         gpio_put(DC, 0);
 
         write(0x15);
@@ -31,8 +66,6 @@ namespace display
         write(63);
 
         gpio_put(DC, 1);
-
-        //memcpy(mOledFB, screen, len);
 
         if (!(dma_channel_is_busy(mDmaWriteChannel)))
         {
@@ -89,7 +122,7 @@ namespace display
         spi_set_format(spi0, 8, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
         gpio_set_function(SCK, GPIO_FUNC_SPI);
         gpio_set_function(MOSI, GPIO_FUNC_SPI);
-        
+
         init();
 
         channel_config_set_transfer_data_size(&mConfig, DMA_SIZE_8);
