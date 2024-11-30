@@ -33,11 +33,9 @@ std::unique_ptr<display::Display> lcd;
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
-    //Only write to the screen if we have something to write with
-    bool isScreenEmpty = std::all_of(screen, screen+len, [](uint32_t val) { return val == 0; });
     //len is the number of words in the payload. For this it should be 48 total words, or 192 bytes.
     //The bytes in each word of screen need to be reversed.
-    if(lcd != nullptr && lcd->isInitialized() && !isScreenEmpty)
+    if(lcd != nullptr && lcd->isInitialized())
     {
         lcd->refresh(screen, len);
     }

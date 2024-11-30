@@ -32,13 +32,31 @@ namespace display
         spi_write_blocking(SSD1331_SPI, &data, 1);
     }
 
+    //! Refreshes the screen of the SSD1331
+    //! In order to prevent issues with pushing an all empty array to the screen,
+    //! a check is made to ensure that there is something to write before continuing.
+    //! Since the screen array is already being iterated in this method, it made the most
+    //! sense to include that check here.
     void SSD1331::refresh(const uint32_t* screen, uint32_t len)
     {
         uint32_t reversedArr[len];
 
+        // Counter for the amount of words that are empty
+        uint32_t zeroWords = 0;
         // Reverse the byte order of each element and store it in reversedArr
         for (size_t i = 0; i < len; ++i) {
             reversedArr[i] = reverseByteOrder(screen[i]);
+            // If the word is 0 or 'empty', increase count
+            if(reversedArr[i] == 0)
+            {
+                zeroWords++;
+            }
+        }
+
+        // If all the words are zero, we don't want to write anything to the screen so we return
+        if(zeroWords == len)
+        {
+            return;
         }
 
         memcpy(LCDFramebuffer, reversedArr, len * sizeof(uint32_t));
