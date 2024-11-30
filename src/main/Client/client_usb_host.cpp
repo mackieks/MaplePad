@@ -29,13 +29,15 @@
 #include <algorithm>
 #include <cassert>
 
-display::Display* lcd;
+std::unique_ptr<display::Display> lcd;
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
+    //Only write to the screen if we have something to write with
+    bool isScreenEmpty = std::all_of(screen, screen+len, [](uint32_t val) { return val == 0; });
     //len is the number of words in the payload. For this it should be 48 total words, or 192 bytes.
     //The bytes in each word of screen need to be reversed.
-    if(lcd != nullptr && *screen != 0)
+    if(lcd != nullptr && lcd->isInitialized() && !isScreenEmpty)
     {
         lcd->refresh(screen, len);
     }
@@ -70,7 +72,7 @@ void display_select()
     switch(oledType)
     {
         case 0: //SSD1331
-            lcd = new display::SSD1331();
+            lcd = std::make_unique<display::SSD1331>();
             break;
         case 1: //SSD1306
             break;

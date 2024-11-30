@@ -12,6 +12,8 @@ namespace display
         0x781f, // violet
         0x780d  // magenta
     };
+
+    static uint8_t LCDFramebuffer[192] = {0};
     
     SSD1331::SSD1331() :
         mDmaWriteChannel(dma_claim_unused_channel(true)),
@@ -33,7 +35,6 @@ namespace display
     void SSD1331::refresh(const uint32_t* screen, uint32_t len)
     {
         uint32_t reversedArr[len];
-        uint8_t LCDFramebuffer[192] = {0};
 
         // Reverse the byte order of each element and store it in reversedArr
         for (size_t i = 0; i < len; ++i) {
