@@ -29,7 +29,7 @@ public:
     //! Returns true if the screen has been initialized, false otherwise
     inline bool isInitialized() { return mIsInitialized; }
 
-    // Function that reverses the byte order of a single uint32_t value
+    //! Function that reverses the byte order of a single uint32_t value
     inline uint32_t reverseByteOrder(uint32_t value) {
         return ((value >> 24) & 0xFF) | 
             ((value >> 8) & 0xFF00) | 

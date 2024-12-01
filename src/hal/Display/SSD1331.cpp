@@ -134,6 +134,23 @@ namespace display
         // spi_write_blocking(SSD1331_SPI, oledFB, sizeof(oledFB));
     }
 
+    void SSD1331::putLetter(int ix, int iy, int index, uint16_t color)
+    {
+        Font font;
+        tChar y = font.getFont().chars[index]; // select character from 0 - 54
+        tImage z = *y.image;         // data array from tImage "Font_0x79"
+        uint8_t *a = z.data;         // row of character data
+
+        for (int i = 0; i <= 9; i++) {
+            for (int j = 2; j <= 7; j++) { // iterate through bits in row of character
+            if (!((1 << j) & a[i]))
+                setPixel((88 - (ix * 6)) - j, (59 - (iy * 10) - (iy * 2)) - i, color);
+            else
+                setPixel((88 - (ix * 6)) - j, (59 - (iy * 10) - (iy * 2)) - i, 0x0000);
+            }
+        }
+    }
+
     void SSD1331::initialize()
     {
         //Configure OLED SPI

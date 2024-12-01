@@ -2,6 +2,9 @@
 
 #include <cstdint>
 
+//7x12 battery indicator upper right
+//12x12 page indicator bottom right
+
 namespace display
 {
     static constexpr uint8_t image_data_maplepad_logo_9664[12288] = {

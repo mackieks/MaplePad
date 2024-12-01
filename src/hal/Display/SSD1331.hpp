@@ -6,6 +6,7 @@
 #include "hardware/spi.h"
 #include "hardware/dma.h"
 #include "Display.hpp"
+#include "Font.hpp"
 #include <string.h>
 
 namespace display
