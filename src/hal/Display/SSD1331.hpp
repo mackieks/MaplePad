@@ -76,6 +76,8 @@ namespace display
 
             void putString(char *text, int ix, int iy, uint16_t color);
 
+            void update();
+
             //! Inherited from the abstract class Display
             void refresh(const uint32_t* screen, uint32_t len);
 

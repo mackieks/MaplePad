@@ -32,6 +32,29 @@ namespace display
         spi_write_blocking(SSD1331_SPI, &data, 1);
     }
 
+    void SSD1331::update()
+    {
+        gpio_put(DC, 0);
+
+        write(0x15);
+        write(0);
+        write(95);
+        write(0x75);
+        write(0);
+        write(63);
+
+        gpio_put(DC, 1);
+
+        if (!(dma_channel_is_busy(mDmaWriteChannel)))
+        {
+            dma_channel_configure(mDmaWriteChannel, &mConfig,
+                                    &spi_get_hw(SSD1331_SPI)->dr,          // write address
+                                    mOledFB,         // read address
+                                    sizeof(mOledFB), // element count (each element is of size transfer_data_size)
+                                    true);                                 // start
+        }
+    }
+
     //! Refreshes the screen of the SSD1331
     //! In order to prevent issues with pushing an all empty array to the screen,
     //! a check is made to ensure that there is something to write before continuing.
@@ -75,25 +98,7 @@ namespace display
             }
         }
 
-        gpio_put(DC, 0);
-
-        write(0x15);
-        write(0);
-        write(95);
-        write(0x75);
-        write(0);
-        write(63);
-
-        gpio_put(DC, 1);
-
-        if (!(dma_channel_is_busy(mDmaWriteChannel)))
-        {
-            dma_channel_configure(mDmaWriteChannel, &mConfig,
-                                    &spi_get_hw(SSD1331_SPI)->dr,          // write address
-                                    mOledFB,         // read address
-                                    sizeof(mOledFB), // element count (each element is of size transfer_data_size)
-                                    true);                                 // start
-        }
+        update();
     }
 
     void SSD1331::setPixel(uint8_t x, uint8_t y, uint16_t color)

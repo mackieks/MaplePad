@@ -29,6 +29,10 @@ public:
     //! Returns true if the screen has been initialized, false otherwise
     inline bool isInitialized() { return mIsInitialized; }
 
+    virtual void putString(char *text, int ix, int iy, uint16_t color) = 0;
+
+    virtual void update() = 0;
+
     //! Function that reverses the byte order of a single uint32_t value
     inline uint32_t reverseByteOrder(uint32_t value) {
         return ((value >> 24) & 0xFF) | 

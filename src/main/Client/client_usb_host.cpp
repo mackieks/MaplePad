@@ -11,7 +11,6 @@
 #include "Mutex.hpp"
 #include "Clock.hpp"
 #include "NonVolatilePicoSystemMemory.hpp"
-#include "SSD1331.hpp"
 
 #include "hal/System/LockGuard.hpp"
 #include "hal/MapleBus/MapleBusInterface.hpp"
@@ -22,6 +21,8 @@
 #include "DreamcastVibration.hpp"
 #include "DreamcastScreen.hpp"
 #include "DreamcastTimer.hpp"
+#include "SSD1331.hpp"
+#include "Menu.hpp"
 
 #include "led.hpp"
 
@@ -168,6 +169,13 @@ void core0()
     dreamcastVibration->setObserver(get_usb_vibration_observer());
     subPeripheral2->addFunction(dreamcastVibration);
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
+
+    //Draw menu here before kicking off the second core?
+    //if(controller->triggerMenu())
+    //{
+        display::Menu menu;
+        menu.showMenu(lcd);
+    //}
 
     multicore_launch_core1(core1);
 

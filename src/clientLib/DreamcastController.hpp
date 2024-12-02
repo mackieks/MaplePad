@@ -61,6 +61,8 @@ public:
     //! @returns the number of condition samples made
     uint32_t getConditionSamples();
 
+    bool triggerMenu();
+
 private:
     //! Updates mConditionAndMask and mConditionOrMask based on mEnabledControls
     void updateConditionMasks();

@@ -239,6 +239,16 @@ void DreamcastController::setControls()
     setCondition(condition);
 }
 
+bool DreamcastController::triggerMenu()
+{
+    bool menuTriggered = false;
+    if(!gpio_get(CTRL_PIN_Y) && !gpio_get(CTRL_PIN_X))
+    {
+        menuTriggered = true;
+    }
+    return menuTriggered;
+}
+
 /* TODO Setup defaults as vars that are updated on bootup
 // Also set up some reasonable analog stick, trigger and flag defaults
     xMin = 0x00;
