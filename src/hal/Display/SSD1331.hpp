@@ -72,7 +72,7 @@ namespace display
             //! Inherited from the abstract class Display
             void setPixel(uint8_t x, uint8_t y, uint16_t color);
 
-            void putLetter(int ix, int iy, int index, uint16_t color);
+            void putLetter(int ix, int iy, char text, uint16_t color);
 
             void putString(char *text, int ix, int iy, uint16_t color);
 
