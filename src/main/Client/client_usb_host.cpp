@@ -30,7 +30,7 @@
 #include <algorithm>
 #include <cassert>
 
-std::unique_ptr<display::Display> lcd;
+std::shared_ptr<display::Display> lcd;
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
@@ -71,7 +71,7 @@ void display_select()
     switch(oledType)
     {
         case 0: //SSD1331
-            lcd = std::make_unique<display::SSD1331>();
+            lcd = std::make_shared<display::SSD1331>();
             break;
         case 1: //SSD1306
             break;
@@ -171,11 +171,14 @@ void core0()
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
 
     //Draw menu here before kicking off the second core?
-    //if(controller->triggerMenu())
-    //{
-        display::Menu menu;
-        menu.showMenu(lcd);
-    //}
+    if(controller->triggerMenu())
+    {
+        if(lcd->isInitialized())
+        {
+            display::Menu menu;
+            menu.showMenu(lcd);
+        }
+    }
 
     multicore_launch_core1(core1);
 

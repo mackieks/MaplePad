@@ -7,24 +7,24 @@ namespace display
 
     }
 
-    void Menu::updateMenu(std::unique_ptr<Display>& lcd)
+    void Menu::updateMenu(std::shared_ptr<Display>  lcd)
     {
         lcd->clear();
 
         uint8_t numEntries = sizeof(display::mainMenu) / sizeof(MenuOptions);
 
         for (uint8_t n = 0; n < numEntries; n++) {
-            lcd->putString(display::mainMenu[n].name, 0, n + 0, 0x0000);
+            lcd->putString(display::mainMenu[n].name, 0, n + 0, 0xFFFF);
         }
         lcd->update();
     }
 
-    void Menu::showMenu(std::unique_ptr<Display>& lcd)
+    void Menu::showMenu(std::shared_ptr<Display> lcd)
     {
         while(1)
         {
+            sleep_ms(100);
             updateMenu(lcd);
-            sleep_ms(500);
         }
     }
 }

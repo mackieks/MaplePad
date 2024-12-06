@@ -12,11 +12,11 @@ namespace display
 
     static MenuOptions mainMenu[6] = {
         {"Button Test   "},
-        {"Stick Config  "},
-        {"Trigger Config"},
-        {"Edit VMU Color"}, // ssd1331 present
-        {"Settings      "},
-        {"Exit          "}
+        {"Stick Config  "}
+        //{"Trigger Config"},
+        //{"Edit VMU Color"}, // ssd1331 present
+        //{"Settings      "},
+        //{"Exit          "}
     };
 
     class Menu
@@ -24,9 +24,9 @@ namespace display
         public:
             Menu();
 
-            void showMenu(std::unique_ptr<Display>& lcd);
+            void showMenu(std::shared_ptr<Display> lcd);
+
+            void updateMenu(std::shared_ptr<Display> lcd);
         
-        private:
-            void updateMenu(std::unique_ptr<Display>& lcd);
     };
 }

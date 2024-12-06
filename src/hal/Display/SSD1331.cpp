@@ -58,7 +58,7 @@ namespace display
     //! Refreshes the screen of the SSD1331
     //! In order to prevent issues with pushing an all empty array to the screen,
     //! a check is made to ensure that there is something to write before continuing.
-    //! Since the screen array is already being iterated in this method, it made the most
+    //! Since the screen array is already being iterated over in this method, it made the most
     //! sense to include that check here.
     void SSD1331::refresh(const uint32_t* screen, uint32_t len)
     {
