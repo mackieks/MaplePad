@@ -1,6 +1,6 @@
 [submodule "lib/pico-sdk"]
 	path = ext/pico-sdk
-	url = https://github.com/OrangeFox86/pico-sdk.git
+	url = https://github.com/raspberrypi/pico-sdk.git
 [submodule "ext/pico-sdk"]
 	path = ext/pico-sdk
-	url = https://github.com/OrangeFox86/pico-sdk.git
+	url = https://github.com/raspberrypi/pico-sdk.git

@@ -171,13 +171,10 @@ void core0()
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
 
     //Draw menu here before kicking off the second core?
-    if(controller->triggerMenu())
+    if(controller->triggerMenu() && lcd->isInitialized())
     {
-        if(lcd->isInitialized())
-        {
-            display::Menu menu;
-            menu.showMenu(lcd);
-        }
+        display::Menu menu;
+        menu.showMenu(lcd);
     }
 
     multicore_launch_core1(core1);

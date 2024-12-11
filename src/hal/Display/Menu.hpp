@@ -5,14 +5,15 @@
 
 namespace display
 {
-    struct MenuOptions
+    struct MenuItem
     {
         char name[15];
+        bool selected;
     };
 
-    static MenuOptions mainMenu[6] = {
-        {"Button Test   "},
-        {"Stick Config  "}
+    static MenuItem mainMenu[6] = {
+        {"Button Test   ", true},
+        {"Stick Config  ", false}
         //{"Trigger Config"},
         //{"Edit VMU Color"}, // ssd1331 present
         //{"Settings      "},
@@ -27,6 +28,14 @@ namespace display
             void showMenu(std::shared_ptr<Display> lcd);
 
             void updateMenu(std::shared_ptr<Display> lcd);
+
+        private:
+            uint8_t getSelectedEntry();
+
+        private:
+            uint8_t mCurrentNumEntries;
+
+            MenuItem *mCurrentMenu;
         
     };
 }

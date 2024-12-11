@@ -2,7 +2,9 @@
 
 namespace display
 {
-    Menu::Menu()
+    Menu::Menu() :
+        mCurrentNumEntries(sizeof(mainMenu) / sizeof(MenuItem)),
+        mCurrentMenu(mainMenu)
     {
 
     }
@@ -11,19 +13,31 @@ namespace display
     {
         lcd->clear();
 
-        uint8_t numEntries = sizeof(display::mainMenu) / sizeof(MenuOptions);
-
-        for (uint8_t n = 0; n < numEntries; n++) {
-            lcd->putString(display::mainMenu[n].name, 0, n + 0, 0xFFFF);
+        for (uint8_t n = 0; n < mCurrentNumEntries; n++) {
+            lcd->putString(mCurrentMenu[n].name, 0, n + 0, 0xFFFF);
         }
         lcd->update();
+    }
+
+    uint8_t Menu::getSelectedEntry()
+    {
+        uint8_t selectedEntry = 0;
+        for (int i = 0; i < mCurrentNumEntries; i++)
+        {
+            if (mCurrentMenu[i].selected)
+            {
+                selectedEntry = i;
+                break;
+            }
+        }
+        return selectedEntry;
     }
 
     void Menu::showMenu(std::shared_ptr<Display> lcd)
     {
         while(1)
         {
-            sleep_ms(100);
+            sleep_ms(50);
             updateMenu(lcd);
         }
     }
