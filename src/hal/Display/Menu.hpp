@@ -12,6 +12,7 @@ namespace display
         bool isSelected;
         bool isSelectable;
         bool isVisible;
+        int (*subMenu)(MenuItem *self);
     };
 
     static MenuItem mainMenu[6] = {
@@ -30,11 +31,11 @@ namespace display
         public:
             Menu(std::shared_ptr<Display> lcd);
 
-            void runMenu();
-
-            void updateMenu(int offset);
+            void run();
 
         private:
+            void updateMenu(int offset);
+
             uint8_t getSelectedEntry();
 
             uint8_t getFirstVisibleEntry();

@@ -124,7 +124,7 @@ namespace display
         return index;
     }
 
-    void Menu::runMenu()
+    void Menu::run()
     {
         int selectedEntry, firstVisibleEntry, lastVisibleEntry, offset = 0;
 

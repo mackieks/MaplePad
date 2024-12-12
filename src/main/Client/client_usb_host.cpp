@@ -174,7 +174,7 @@ void core0()
     if(controller->triggerMenu() && lcd->isInitialized())
     {
         display::Menu menu(lcd);
-        menu.runMenu();
+        menu.run();
     }
 
     multicore_launch_core1(core1);
