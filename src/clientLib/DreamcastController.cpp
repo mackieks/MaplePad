@@ -241,12 +241,17 @@ void DreamcastController::setControls()
 
 bool DreamcastController::triggerMenu()
 {
-    bool menuTriggered = false;
-    if(!gpio_get(CTRL_PIN_Y) && !gpio_get(CTRL_PIN_X))
-    {
-        menuTriggered = true;
-    }
-    return menuTriggered;
+    return !gpio_get(CTRL_PIN_Y) && !gpio_get(CTRL_PIN_X);
+}
+
+bool DreamcastController::dpadDownPressed()
+{
+    return !gpio_get(CTRL_PIN_DD);
+}
+
+bool DreamcastController::dpadUpPressed()
+{
+    return !gpio_get(CTRL_PIN_DU);
 }
 
 /* TODO Setup defaults as vars that are updated on bootup

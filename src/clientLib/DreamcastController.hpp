@@ -63,6 +63,10 @@ public:
 
     bool triggerMenu();
 
+    bool dpadDownPressed();
+
+    bool dpadUpPressed();
+
 private:
     //! Updates mConditionAndMask and mConditionOrMask based on mEnabledControls
     void updateConditionMasks();

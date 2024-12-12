@@ -69,9 +69,6 @@ namespace display
             //! Inherited from the abstract class Display
             void initialize();
 
-            //! Inherited from the abstract class Display
-            void setPixel(uint8_t x, uint8_t y, uint16_t color);
-
             void putLetter(int ix, int iy, char text, uint16_t color);
 
             void putString(char *text, int ix, int iy, uint16_t color);
@@ -88,10 +85,7 @@ namespace display
         private:
             const int mDmaWriteChannel;
 
-            dma_channel_config mConfig;
-
-            //! Screen data block initialized to blank, 1536 bytes
-            uint8_t mOledFB[96 * 64 * 2] = {0x00};
+            dma_channel_config mConfig; 
 
             volatile uint16_t palette[8] = {
                 0xf800, // red

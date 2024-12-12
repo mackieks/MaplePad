@@ -24,7 +24,7 @@ namespace display
 
     void SSD1331::clear()
     {
-        memset(mOledFB, 0, sizeof(mOledFB));
+        memset(oledFB, 0, sizeof(oledFB));
     }
 
     void SSD1331::write(const uint8_t data)
@@ -49,8 +49,8 @@ namespace display
         {
             dma_channel_configure(mDmaWriteChannel, &mConfig,
                                     &spi_get_hw(SSD1331_SPI)->dr,          // write address
-                                    mOledFB,         // read address
-                                    sizeof(mOledFB), // element count (each element is of size transfer_data_size)
+                                    oledFB,         // read address
+                                    sizeof(oledFB), // element count (each element is of size transfer_data_size)
                                     true);                                 // start
         }
     }
@@ -101,7 +101,7 @@ namespace display
         update();
     }
 
-    void SSD1331::setPixel(uint8_t x, uint8_t y, uint16_t color)
+    /*void SSD1331::setPixel(uint8_t x, uint8_t y, uint16_t color)
     {
         // Set Pixel
         // uint8_t r = (color & 0xF800) >> 11;
@@ -110,7 +110,7 @@ namespace display
 
         memset(&mOledFB[(y * 192) + (x * 2)], color >> 8, sizeof(uint8_t));
         memset(&mOledFB[(y * 192) + (x * 2) + 1], color & 0xff, sizeof(uint8_t));
-    }
+    }*/
 
     void SSD1331::showSplash()
     {

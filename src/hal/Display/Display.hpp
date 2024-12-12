@@ -1,6 +1,7 @@
 #pragma once
 
 #include "pico/stdlib.h"
+#include <string.h>
 
 namespace display
 {
@@ -12,7 +13,7 @@ public:
     virtual inline ~Display() {}
 
     //! Copies the pixel data into the LCD frame buffer used by the DMA channel
-    virtual void setPixel(uint8_t x, uint8_t y, uint16_t color) = 0;
+    void setPixel(uint8_t x, uint8_t y, uint16_t color);
 
     //! Refreshes the LCD panel by triggering a DMA transfer
     virtual void refresh(const uint32_t* screen, uint32_t len) = 0;
@@ -33,6 +34,8 @@ public:
 
     virtual void update() = 0;
 
+    void drawCursor(int iy, uint16_t color);
+
     //! Function that reverses the byte order of a single uint32_t value
     inline uint32_t reverseByteOrder(uint32_t value) {
         return ((value >> 24) & 0xFF) | 
@@ -40,6 +43,10 @@ public:
             ((value << 8) & 0xFF0000) | 
             ((value << 24) & 0xFF000000);
     }
+
+public:
+    //! Screen data block initialized to blank, 1536 bytes
+    uint8_t oledFB[96 * 64 * 2] = {0x00};
 
 protected:
     //! true iff "isInitialized"

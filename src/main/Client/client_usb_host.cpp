@@ -173,8 +173,8 @@ void core0()
     //Draw menu here before kicking off the second core?
     if(controller->triggerMenu() && lcd->isInitialized())
     {
-        display::Menu menu;
-        menu.showMenu(lcd);
+        display::Menu menu(lcd);
+        menu.runMenu();
     }
 
     multicore_launch_core1(core1);
