@@ -144,7 +144,6 @@ void core0()
     if(lcd != nullptr)
     {
         lcd->initialize();
-        lcd->showSplash();
     }
 
     Clock clock;
@@ -171,10 +170,16 @@ void core0()
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
 
     //Draw menu here before kicking off the second core?
-    if(controller->triggerMenu() && lcd->isInitialized())
+    if(lcd->isInitialized())
     {
-        display::Menu menu(lcd);
-        menu.run();
+        if(controller->triggerMenu())
+        {
+            display::Menu menu(lcd);
+            menu.run();
+        }
+        // Show splash after we exit the menu or if we don't enter the menu at all
+        lcd->clear();
+        lcd->showSplash();
     }
 
     multicore_launch_core1(core1);

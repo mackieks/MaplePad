@@ -71,7 +71,7 @@ namespace display
 
             void putLetter(int ix, int iy, char text, uint16_t color);
 
-            void putString(char *text, int ix, int iy, uint16_t color);
+            void putString(const char *text, int ix, int iy, uint16_t color);
 
             void update();
 

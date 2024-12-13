@@ -154,7 +154,7 @@ namespace display
         }
     }
 
-    void SSD1331::putString(char *text, int ix, int iy, uint16_t color)
+    void SSD1331::putString(const char *text, int ix, int iy, uint16_t color)
     {
         for (int i = 0; text[i] != '\0'; i++)
         {
@@ -174,6 +174,7 @@ namespace display
 
         channel_config_set_transfer_data_size(&mConfig, DMA_SIZE_8);
         channel_config_set_dreq(&mConfig, spi_get_index(SSD1331_SPI) ? DREQ_SPI1_TX : DREQ_SPI0_TX);
+
         mIsInitialized = true;
     }
 

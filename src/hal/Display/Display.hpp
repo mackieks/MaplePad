@@ -30,7 +30,7 @@ public:
     //! Returns true if the screen has been initialized, false otherwise
     inline bool isInitialized() { return mIsInitialized; }
 
-    virtual void putString(char *text, int ix, int iy, uint16_t color) = 0;
+    virtual void putString(const char *text, int ix, int iy, uint16_t color) = 0;
 
     virtual void update() = 0;
 

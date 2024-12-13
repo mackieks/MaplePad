@@ -2,12 +2,49 @@
 
 namespace display
 {
+
     Menu::Menu(std::shared_ptr<Display> lcd) :
         mCurrentNumEntries(sizeof(mainMenu) / sizeof(MenuItem)),
         mCurrentMenu(mainMenu),
         mDisplay(lcd)
     {
+        //buildMainMenu();
+        mainMenu[4].runOption = &Menu::enterSettingsMenu;
+        mainMenu[5].runOption = &Menu::exitToPad;
+    }
 
+    void Menu::buildMainMenu()
+    {
+        
+    }
+
+    int Menu::exitToPad(MenuItem *self)
+    {
+        return 0;
+    }
+
+    int Menu::enterSettingsMenu(MenuItem *self)
+    {
+        settingsMenu[0].runOption = &Menu::enterMainMenu;
+
+        mCurrentMenu = settingsMenu;
+        mCurrentNumEntries = sizeof(settingsMenu) / sizeof(MenuItem);
+        mPrevOffset = mOffset;
+        mOffset = 0;
+        //entryModifier = prevEntryModifier;
+        return 1;
+    }
+
+    int Menu::enterMainMenu(MenuItem *self)
+    {
+        mainMenu[4].runOption = &Menu::enterSettingsMenu;
+        mainMenu[5].runOption = &Menu::exitToPad;
+
+        mCurrentMenu = mainMenu;
+        mCurrentNumEntries = sizeof(mainMenu) / sizeof(MenuItem);
+        mOffset = mPrevOffset;
+        //entryModifier = prevEntryModifier;
+        return 1;
     }
 
     void Menu::updateMenu(int offset)
@@ -126,12 +163,10 @@ namespace display
 
     void Menu::run()
     {
-        int selectedEntry, firstVisibleEntry, lastVisibleEntry, offset = 0;
+        int selectedEntry, firstVisibleEntry, lastVisibleEntry = 0;
 
-        while(true)
+        while(1)
         {
-            sleep_ms(100);
-            
             selectedEntry = getSelectedEntry();
 
             if (!gpio_get(CTRL_PIN_DU)) //up
@@ -147,7 +182,7 @@ namespace display
                     if ((selectedEntry == firstVisibleEntry) && (firstVisibleEntry)) {
                         mCurrentMenu[firstVisibleEntry + 4].isVisible = false;
                         mCurrentMenu[firstVisibleEntry - 1].isVisible = true;
-                        offset++;
+                        mOffset++;
                     }
                 }
 
@@ -167,12 +202,27 @@ namespace display
                     {
                         mCurrentMenu[lastVisibleEntry - 4].isVisible = false;
                         mCurrentMenu[lastVisibleEntry + 1].isVisible = true;
-                        offset--;
+                        mOffset--;
+                    }
+                }
+            }
+            else if (!gpio_get(CTRL_PIN_A)) // A
+            {
+                /* check currently selected entry
+                if entry is enabled, run entry's function
+                entry functions should set currentMenu if they enter a submenu. */
+                if (mCurrentMenu[selectedEntry].isEnabled)
+                {
+                    if (!(this->*mCurrentMenu[selectedEntry].runOption)(&mCurrentMenu[selectedEntry]))
+                    {
+                        break;
                     }
                 }
             }
 
-            updateMenu(offset);
+            updateMenu(mOffset);
+
+            sleep_ms(75);
         }
     }
 }
