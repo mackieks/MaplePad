@@ -18,12 +18,16 @@ client::DreamcastStorage::DreamcastStorage(std::shared_ptr<SystemMemory> systemM
 const uint8_t* client::DreamcastStorage::readBlock(uint16_t blockNum)
 {
     uint32_t size = BYTES_PER_BLOCK;
-    const uint8_t* mem =
-        mSystemMemory->read(mMemoryOffset + (blockNum * BYTES_PER_BLOCK), size);
-    if (size < BYTES_PER_BLOCK)
+    const uint8_t* mem = nullptr;
+
+    if(mSystemMemory != nullptr)
     {
-        // Failure
-        mem = nullptr;
+        mem = mSystemMemory->read(mMemoryOffset + (blockNum * BYTES_PER_BLOCK), size);
+        if (size < BYTES_PER_BLOCK)
+        {
+            // Failure
+            mem = nullptr;
+        }
     }
 
     return mem;
@@ -325,4 +329,29 @@ void client::DreamcastStorage::setFatAddr(uint32_t*& fatBlock, bool& lower, uint
         --fatBlock;
     }
     lower = !lower;
+}
+
+uint8_t client::DreamcastStorage::updateCurrentPage(uint8_t page)
+{
+    if(page > 8)
+    {
+        mCurrentPage = 8;
+    }
+    else if(page < 1)
+    {
+        mCurrentPage = 1;
+    }
+    else
+    {
+        mCurrentPage = page;
+    }
+
+    //notify observers here
+
+    return mCurrentPage;
+}
+
+void client::DreamcastStorage::updateSystemMemory(std::shared_ptr<SystemMemory> systemMemory)
+{
+    mSystemMemory = systemMemory;
 }

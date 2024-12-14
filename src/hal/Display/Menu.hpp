@@ -24,7 +24,7 @@ namespace display
             int (Menu::*runOption)(MenuItem* self);  // Correct definition of the member function pointer
 
             //! Constructor - Item Name, Selected, Selectable, Visible, Enabled
-            MenuItem(const char* itemName = "", bool selected = false, bool selectable = true, bool visible = false, bool enabled = true)
+            MenuItem(const char* itemName = "", bool selected = false, bool selectable = false, bool visible = true, bool enabled = true)
                 : name(itemName), isSelected(selected), isSelectable(selectable), isVisible(visible), isEnabled(enabled) {}
     };
 
@@ -51,8 +51,6 @@ namespace display
             uint8_t getNextSelectable(int selectedEntry);
 
             uint8_t getPrevSelectable(int selectedEntry);
-
-            void buildMainMenu();
 
             int exitToPad(MenuItem *self);
 

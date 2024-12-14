@@ -38,6 +38,10 @@ public:
   //! @returns the function definition for this peripheral function
   virtual uint32_t getFunctionDefinition() final;
 
+  uint8_t updateCurrentPage(uint8_t page);
+
+  void updateSystemMemory(std::shared_ptr<SystemMemory> systemMemory);
+
 private:
     //! Sets 16-bit address value into FAT area and decrements pointer, when necessary
     //! @param[in, out] fatBlock  Pointer to next 16-bit FAT entry
@@ -99,6 +103,11 @@ private:
     static const uint16_t NUM_FILE_INFO_BLOCKS = 13;
     static const uint16_t SAVE_AREA_BLOCK_NO = 31;
     static const uint16_t NUM_SAVE_AREA_BLOCKS = 200;
+    static const uint8_t MAX_PAGE = 8;
+    static const uint8_t MIN_PAGE = 1;
+
+    //! Flash data size in bytes for MaplePad configurations
+    static const uint32_t FLASHDATA_SIZE_BYTES = 64; //Don't need much space for now
 
 protected:
     //! The system memory object where data is to be written
@@ -107,5 +116,7 @@ protected:
     uint32_t mMemoryOffset;
     //! Storage for a single block of data for read or write purposes
     uint8_t mDataBlock[BYTES_PER_BLOCK];
+
+    uint8_t mCurrentPage = 1;
 };
 }

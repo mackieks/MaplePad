@@ -13,11 +13,6 @@ namespace display
         mainMenu[5].runOption = &Menu::exitToPad;
     }
 
-    void Menu::buildMainMenu()
-    {
-        
-    }
-
     int Menu::exitToPad(MenuItem *self)
     {
         return 0;
@@ -31,19 +26,14 @@ namespace display
         mCurrentNumEntries = sizeof(settingsMenu) / sizeof(MenuItem);
         mPrevOffset = mOffset;
         mOffset = 0;
-        //entryModifier = prevEntryModifier;
         return 1;
     }
 
     int Menu::enterMainMenu(MenuItem *self)
     {
-        mainMenu[4].runOption = &Menu::enterSettingsMenu;
-        mainMenu[5].runOption = &Menu::exitToPad;
-
         mCurrentMenu = mainMenu;
         mCurrentNumEntries = sizeof(mainMenu) / sizeof(MenuItem);
         mOffset = mPrevOffset;
-        //entryModifier = prevEntryModifier;
         return 1;
     }
 

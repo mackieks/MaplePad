@@ -80,10 +80,17 @@ void display_select()
     }
 }
 
-std::shared_ptr<NonVolatilePicoSystemMemory> mem =
-    std::make_shared<NonVolatilePicoSystemMemory>(
-        PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES,
-        client::DreamcastStorage::MEMORY_SIZE_BYTES);
+//2MB of pico flash memory, 128KB of storage for VMU
+std::shared_ptr<NonVolatilePicoSystemMemory> mem;
+
+std::shared_ptr<NonVolatilePicoSystemMemory> updateMemoryPage(uint8_t page)
+{
+    mem = std::make_shared<NonVolatilePicoSystemMemory>(
+        PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES * page, //(2*1024*1024)=2097152-131072 = 1,966,080
+        client::DreamcastStorage::MEMORY_SIZE_BYTES); //131,072
+
+    return mem;
+}
 
 // Second Core Process
 void core1()
@@ -93,7 +100,10 @@ void core1()
     while (true)
     {
         // Writes vmu storage to pico flash
-        mem->process();
+        if(mem != nullptr)
+        {
+            mem->process();
+        }
     }
 }
 
@@ -133,6 +143,8 @@ void core0()
         std::make_shared<client::DreamcastStorage>(mem, 0);
     subPeripheral1->addFunction(dreamcastStorage);
 
+    dreamcastStorage->updateSystemMemory(updateMemoryPage(dreamcastStorage->updateCurrentPage(3)));
+
     //TODO add logic to check firmware version, format memory, and store it here
     //Format makes a call to store to flash so processing memory not necessary
     //dreamcastStorage->format();
@@ -169,11 +181,18 @@ void core0()
     subPeripheral2->addFunction(dreamcastVibration);
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
 
-    //Draw menu here before kicking off the second core?
+    //TODO uncomment once ready to work on persisting settings
+    /*std::shared_ptr<NonVolatilePicoSystemMemory> flashData =
+        std::make_shared<NonVolatilePicoSystemMemory>(
+            PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES * 9, //Need to offset by the vmu size so we don't have collisions
+            client::DreamcastStorage::FLASHDATA_SIZE_BYTES); //64
+            */
+
     if(lcd->isInitialized())
     {
         if(controller->triggerMenu())
         {
+            // Pass volatile memory pointer to flash data
             display::Menu menu(lcd);
             menu.run();
         }
@@ -181,6 +200,8 @@ void core0()
         lcd->clear();
         lcd->showSplash();
     }
+    // Read flash data here for setting configurations. How should flash data be accessed by the controller?
+    // Possibly via a controller update function?
 
     multicore_launch_core1(core1);
 

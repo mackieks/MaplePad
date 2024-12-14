@@ -83,7 +83,7 @@ namespace display
             void init();
 
         private:
-            const int mDmaWriteChannel;
+            int mDmaWriteChannel;
 
             dma_channel_config mConfig; 
 

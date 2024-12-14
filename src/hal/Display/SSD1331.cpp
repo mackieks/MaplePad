@@ -101,17 +101,6 @@ namespace display
         update();
     }
 
-    /*void SSD1331::setPixel(uint8_t x, uint8_t y, uint16_t color)
-    {
-        // Set Pixel
-        // uint8_t r = (color & 0xF800) >> 11;
-        // uint8_t g = (color & 0x7E0) >> 5;
-        // uint8_t b = (color & 0x1f);
-
-        memset(&mOledFB[(y * 192) + (x * 2)], color >> 8, sizeof(uint8_t));
-        memset(&mOledFB[(y * 192) + (x * 2) + 1], color & 0xff, sizeof(uint8_t));
-    }*/
-
     void SSD1331::showSplash()
     {
         gpio_put(DC, 0);
