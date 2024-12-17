@@ -21,7 +21,7 @@ target_link_libraries(client-with-usb-host
 target_compile_options(client-with-usb-host PRIVATE
   -Wall
   #-Werror
-  -O3
+  #-O3
 )
 
 target_include_directories(client-with-usb-host
@@ -33,5 +33,5 @@ target_include_directories(client-with-usb-host
 
 
 # Serial through USB
-pico_enable_stdio_uart(client-with-usb-host 1)
-pico_enable_stdio_usb(client-with-usb-host 0)
+#pico_enable_stdio_uart(client-with-usb-host 1)
+#pico_enable_stdio_usb(client-with-usb-host 0)

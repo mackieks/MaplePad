@@ -1,0 +1,23 @@
+Not searching for unused variables given on the command line.
+-- The C compiler identification is GNU 9.2.1
+-- The CXX compiler identification is GNU 9.2.1
+-- The ASM compiler identification is GNU
+-- Found assembler: /usr/bin/arm-none-eabi-gcc
+-- Check for working C compiler: /usr/bin/arm-none-eabi-gcc
+-- Check for working C compiler: /usr/bin/arm-none-eabi-gcc -- works
+-- Detecting C compiler ABI info
+-- Detecting C compiler ABI info - failed
+-- Detecting C compile features
+-- Detecting C compile features - done
+-- Check for working CXX compiler: /usr/bin/arm-none-eabi-g++
+-- Check for working CXX compiler: /usr/bin/arm-none-eabi-g++ -- works
+-- Detecting CXX compiler ABI info
+-- Detecting CXX compiler ABI info - failed
+-- Detecting CXX compile features
+-- Detecting CXX compile features - done
+-- Found Python3: /usr/bin/python3.8 (found version "3.8.10") found components: Interpreter 
+-- Configuring incomplete, errors occurred!
+See also "/mnt/g/MaplePad/MaplePad/build/CMakeFiles/CMakeOutput.log".
+See also "/mnt/g/MaplePad/MaplePad/build/CMakeFiles/CMakeError.log".
+CMake returned error exit code: 1
+Exiting

@@ -32,17 +32,17 @@
 
 std::shared_ptr<display::Display> lcd;
 
-void screenCb(const uint32_t* screen, uint32_t len)
+void screenCb(const uint32_t *screen, uint32_t len)
 {
-    //len is the number of words in the payload. For this it should be 48 total words, or 192 bytes.
-    //The bytes in each word of screen need to be reversed.
-    if(lcd != nullptr && lcd->isInitialized())
+    // len is the number of words in the payload. For this it should be 48 total words, or 192 bytes.
+    // The bytes in each word of screen need to be reversed.
+    if (lcd != nullptr && lcd->isInitialized())
     {
         lcd->refresh(screen, len);
     }
 }
 
-void setTimeCb(const client::DreamcastTimer::SetTime& setTime)
+void setTimeCb(const client::DreamcastTimer::SetTime &setTime)
 {
     // TODO: Fill in
 }
@@ -51,12 +51,12 @@ void setPwmFn(uint8_t width, uint8_t down)
 {
     if (width == 0 || down == 0)
     {
-        //buzzer.stop(2);
+        // buzzer.stop(2);
     }
     else
     {
-        //buzzer.stop(2);
-        //buzzer.buzzRaw({.priority=2, .wrapCount=width, .highCount=(width-down)});
+        // buzzer.stop(2);
+        // buzzer.buzzRaw({.priority=2, .wrapCount=width, .highCount=(width-down)});
     }
 }
 
@@ -68,26 +68,26 @@ void display_select()
     gpio_pull_up(OLED_SEL_PIN);
 
     int oledType = gpio_get(OLED_SEL_PIN);
-    switch(oledType)
+    switch (oledType)
     {
-        case 0: //SSD1331
-            lcd = std::make_shared<display::SSD1331>();
-            break;
-        case 1: //SSD1306
-            break;
-        default:
-            break;
+    case 0: // SSD1331
+        break;
+    case 1: // SSD1306
+        lcd = std::make_shared<display::SSD1331>();
+        break;
+    default:
+        break;
     }
 }
 
-//2MB of pico flash memory, 128KB of storage for VMU
+// 2MB of pico flash memory, 128KB of storage for VMU
 std::shared_ptr<NonVolatilePicoSystemMemory> mem;
 
 std::shared_ptr<NonVolatilePicoSystemMemory> updateMemoryPage(uint8_t page)
 {
     mem = std::make_shared<NonVolatilePicoSystemMemory>(
         PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES * page, //(2*1024*1024)=2097152-131072 = 1,966,080
-        client::DreamcastStorage::MEMORY_SIZE_BYTES); //131,072
+        client::DreamcastStorage::MEMORY_SIZE_BYTES);                               // 131,072
 
     return mem;
 }
@@ -100,7 +100,7 @@ void core1()
     while (true)
     {
         // Writes vmu storage to pico flash
-        if(mem != nullptr)
+        if (mem != nullptr)
         {
             mem->process();
         }
@@ -145,15 +145,15 @@ void core0()
 
     dreamcastStorage->updateSystemMemory(updateMemoryPage(dreamcastStorage->updateCurrentPage(3)));
 
-    //TODO add logic to check firmware version, format memory, and store it here
-    //Format makes a call to store to flash so processing memory not necessary
-    //dreamcastStorage->format();
+    // TODO add logic to check firmware version, format memory, and store it here
+    // Format makes a call to store to flash so processing memory not necessary
+    // dreamcastStorage->format();
 
     std::shared_ptr<client::DreamcastScreen> dreamcastScreen =
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
     subPeripheral1->addFunction(dreamcastScreen);
-    
-    if(lcd != nullptr)
+
+    if (lcd != nullptr)
     {
         lcd->initialize();
     }
@@ -181,16 +181,16 @@ void core0()
     subPeripheral2->addFunction(dreamcastVibration);
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
 
-    //TODO uncomment once ready to work on persisting settings
+    // TODO uncomment once ready to work on persisting settings
     /*std::shared_ptr<NonVolatilePicoSystemMemory> flashData =
         std::make_shared<NonVolatilePicoSystemMemory>(
             PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES * 9, //Need to offset by the vmu size so we don't have collisions
             client::DreamcastStorage::FLASHDATA_SIZE_BYTES); //64
             */
 
-    if(lcd->isInitialized())
+    if (lcd->isInitialized())
     {
-        if(controller->triggerMenu())
+        if (controller->triggerMenu())
         {
             // Pass volatile memory pointer to flash data
             display::Menu menu(lcd);
@@ -205,7 +205,7 @@ void core0()
 
     multicore_launch_core1(core1);
 
-    while(true)
+    while (true)
     {
         mainPeripheral.task(time_us_64());
         led_task(mem->getLastActivityTime());
@@ -214,8 +214,8 @@ void core0()
 
 int main()
 {
-    stdio_init_all();
-    
+    // stdio_init_all();
+
     led_init();
 
     display_select();

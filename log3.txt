@@ -1,0 +1,83 @@
+Not searching for unused variables given on the command line.
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /mnt/g/MaplePad/MaplePad/build
+/usr/bin/cmake -S/mnt/g/MaplePad/MaplePad -B/mnt/g/MaplePad/MaplePad/build --check-build-system CMakeFiles/Makefile.cmake 0
+/usr/bin/cmake -E cmake_progress_start /mnt/g/MaplePad/MaplePad/build/CMakeFiles /mnt/g/MaplePad/MaplePad/build/CMakeFiles/progress.marks
+/usr/bin/make -f CMakeFiles/Makefile2 all
+make[1]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+/usr/bin/make -f pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default.dir/build.make pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default.dir/depend
+/usr/bin/make -f pico-sdk/src/rp2_common/tinyusb/CMakeFiles/PioasmBuild.dir/build.make pico-sdk/src/rp2_common/tinyusb/CMakeFiles/PioasmBuild.dir/depend
+/usr/bin/make -f src/main/Client/CMakeFiles/ELF2UF2Build.dir/build.make src/main/Client/CMakeFiles/ELF2UF2Build.dir/depend
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+cd /mnt/g/MaplePad/MaplePad/build && /usr/bin/cmake -E cmake_depends "Unix Makefiles" /mnt/g/MaplePad/MaplePad /mnt/g/MaplePad/MaplePad/ext/pico-sdk/src/rp2_common/boot_stage2 /mnt/g/MaplePad/MaplePad/build /mnt/g/MaplePad/MaplePad/build/pico-sdk/src/rp2_common/boot_stage2 /mnt/g/MaplePad/MaplePad/build/pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default.dir/DependInfo.cmake --color=
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+cd /mnt/g/MaplePad/MaplePad/build && /usr/bin/cmake -E cmake_depends "Unix Makefiles" /mnt/g/MaplePad/MaplePad /mnt/g/MaplePad/MaplePad/ext/pico-sdk/src/rp2_common/tinyusb /mnt/g/MaplePad/MaplePad/build /mnt/g/MaplePad/MaplePad/build/pico-sdk/src/rp2_common/tinyusb /mnt/g/MaplePad/MaplePad/build/pico-sdk/src/rp2_common/tinyusb/CMakeFiles/PioasmBuild.dir/DependInfo.cmake --color=
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+cd /mnt/g/MaplePad/MaplePad/build && /usr/bin/cmake -E cmake_depends "Unix Makefiles" /mnt/g/MaplePad/MaplePad /mnt/g/MaplePad/MaplePad/src/main/Client /mnt/g/MaplePad/MaplePad/build /mnt/g/MaplePad/MaplePad/build/src/main/Client /mnt/g/MaplePad/MaplePad/build/src/main/Client/CMakeFiles/ELF2UF2Build.dir/DependInfo.cmake --color=
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+/usr/bin/make -f pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default.dir/build.make pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default.dir/build
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+/usr/bin/make -f src/main/Client/CMakeFiles/ELF2UF2Build.dir/build.make src/main/Client/CMakeFiles/ELF2UF2Build.dir/build
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+/usr/bin/make -f pico-sdk/src/rp2_common/tinyusb/CMakeFiles/PioasmBuild.dir/build.make pico-sdk/src/rp2_common/tinyusb/CMakeFiles/PioasmBuild.dir/build
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+make[2]: Nothing to be done for 'pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default.dir/build'.
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+[  1%] Performing configure step for 'ELF2UF2Build'
+[  2%] Performing configure step for 'PioasmBuild'
+[  2%] Built target bs2_default
+/usr/bin/make -f pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default_padded_checksummed_asm.dir/build.make pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default_padded_checksummed_asm.dir/depend
+cd /mnt/g/MaplePad/MaplePad/build/pioasm && /usr/bin/cmake -DCMAKE_MAKE_PROGRAM:FILEPATH=/usr/bin/make "-GUnix Makefiles" -C/mnt/g/MaplePad/MaplePad/build/pico-sdk/src/rp2_common/tinyusb/pioasm/tmp/PioasmBuild-cache-Debug.cmake /mnt/g/MaplePad/MaplePad/ext/pico-sdk/tools/pioasm
+cd /mnt/g/MaplePad/MaplePad/build/elf2uf2 && /usr/bin/cmake -DCMAKE_MAKE_PROGRAM:FILEPATH=/usr/bin/make "-GUnix Makefiles" /mnt/g/MaplePad/MaplePad/ext/pico-sdk/tools/elf2uf2
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+cd /mnt/g/MaplePad/MaplePad/build && /usr/bin/cmake -E cmake_depends "Unix Makefiles" /mnt/g/MaplePad/MaplePad /mnt/g/MaplePad/MaplePad/ext/pico-sdk/src/rp2_common/boot_stage2 /mnt/g/MaplePad/MaplePad/build /mnt/g/MaplePad/MaplePad/build/pico-sdk/src/rp2_common/boot_stage2 /mnt/g/MaplePad/MaplePad/build/pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default_padded_checksummed_asm.dir/DependInfo.cmake --color=
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+/usr/bin/make -f pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default_padded_checksummed_asm.dir/build.make pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default_padded_checksummed_asm.dir/build
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+make[2]: Nothing to be done for 'pico-sdk/src/rp2_common/boot_stage2/CMakeFiles/bs2_default_padded_checksummed_asm.dir/build'.
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+[  3%] Built target bs2_default_padded_checksummed_asm
+/usr/bin/make -f src/hal/System/CMakeFiles/hal-System.dir/build.make src/hal/System/CMakeFiles/hal-System.dir/depend
+/usr/bin/make -f src/hal/Display/CMakeFiles/hal-Display.dir/build.make src/hal/Display/CMakeFiles/hal-Display.dir/depend
+/usr/bin/make -f src/clientLib/CMakeFiles/clientLib.dir/build.make src/clientLib/CMakeFiles/clientLib.dir/depend
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+cd /mnt/g/MaplePad/MaplePad/build && /usr/bin/cmake -E cmake_depends "Unix Makefiles" /mnt/g/MaplePad/MaplePad /mnt/g/MaplePad/MaplePad/src/hal/System /mnt/g/MaplePad/MaplePad/build /mnt/g/MaplePad/MaplePad/build/src/hal/System /mnt/g/MaplePad/MaplePad/build/src/hal/System/CMakeFiles/hal-System.dir/DependInfo.cmake --color=
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+cd /mnt/g/MaplePad/MaplePad/build && /usr/bin/cmake -E cmake_depends "Unix Makefiles" /mnt/g/MaplePad/MaplePad /mnt/g/MaplePad/MaplePad/src/clientLib /mnt/g/MaplePad/MaplePad/build /mnt/g/MaplePad/MaplePad/build/src/clientLib /mnt/g/MaplePad/MaplePad/build/src/clientLib/CMakeFiles/clientLib.dir/DependInfo.cmake --color=
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+cd /mnt/g/MaplePad/MaplePad/build && /usr/bin/cmake -E cmake_depends "Unix Makefiles" /mnt/g/MaplePad/MaplePad /mnt/g/MaplePad/MaplePad/src/hal/Display /mnt/g/MaplePad/MaplePad/build /mnt/g/MaplePad/MaplePad/build/src/hal/Display /mnt/g/MaplePad/MaplePad/build/src/hal/Display/CMakeFiles/hal-Display.dir/DependInfo.cmake --color=
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+/usr/bin/make -f src/hal/System/CMakeFiles/hal-System.dir/build.make src/hal/System/CMakeFiles/hal-System.dir/build
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+/usr/bin/make -f src/hal/Display/CMakeFiles/hal-Display.dir/build.make src/hal/Display/CMakeFiles/hal-Display.dir/build
+/usr/bin/make -f src/clientLib/CMakeFiles/clientLib.dir/build.make src/clientLib/CMakeFiles/clientLib.dir/build
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+make[2]: Nothing to be done for 'src/hal/System/CMakeFiles/hal-System.dir/build'.
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+make[2]: Nothing to be done for 'src/clientLib/CMakeFiles/clientLib.dir/build'.
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+make[2]: Entering directory '/mnt/g/MaplePad/MaplePad/build'
+make[2]: Nothing to be done for 'src/hal/Display/CMakeFiles/hal-Display.dir/build'.
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+-- The CXX compiler identification is unknown
+loading initial cache file /mnt/g/MaplePad/MaplePad/build/pico-sdk/src/rp2_common/tinyusb/pioasm/tmp/PioasmBuild-cache-Debug.cmake
+-- The CXX compiler identification is unknown
+[ 51%] Built target hal-System
+[ 52%] Built target clientLib
+[ 58%] Built target hal-Display
+-- Configuring incomplete, errors occurred!
+See also "/mnt/g/MaplePad/MaplePad/build/elf2uf2/CMakeFiles/CMakeOutput.log".
+See also "/mnt/g/MaplePad/MaplePad/build/elf2uf2/CMakeFiles/CMakeError.log".
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+-- Configuring incomplete, errors occurred!
+See also "/mnt/g/MaplePad/MaplePad/build/pioasm/CMakeFiles/CMakeOutput.log".
+See also "/mnt/g/MaplePad/MaplePad/build/pioasm/CMakeFiles/CMakeError.log".
+make[2]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+make[1]: Leaving directory '/mnt/g/MaplePad/MaplePad/build'
+CMake returned error exit code: 2
+Exiting

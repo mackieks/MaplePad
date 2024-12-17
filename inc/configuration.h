@@ -6,7 +6,7 @@
 #define SHOW_DEBUG_MESSAGES false
 
 // true to enable USB CDC (serial) interface to directly control the maple bus
-#define USB_CDC_ENABLED true
+#define USB_CDC_ENABLED false
 
 // Adjust the CPU clock frequency here (133 MHz is maximum documented stable frequency)
 #define CPU_FREQ_KHZ 133000
@@ -38,18 +38,18 @@
 
 // The pin which sets IO direction for each player (-1 to disable)
 #define P1_DIR_PIN -1
-//#define P2_DIR_PIN -1
-//#define P3_DIR_PIN -1
-//#define P4_DIR_PIN -1
+// #define P2_DIR_PIN -1
+// #define P3_DIR_PIN -1
+// #define P4_DIR_PIN -1
 
 // True if DIR pin is HIGH for output and LOW for input; false if opposite
 #define DIR_OUT_HIGH true
 
 // The start pin of the two-pin bus for each player
 #define P1_BUS_START_PIN 11
-//#define P2_BUS_START_PIN 12
-//#define P3_BUS_START_PIN 18
-//#define P4_BUS_START_PIN 20
+// #define P2_BUS_START_PIN 12
+// #define P3_BUS_START_PIN 18
+// #define P4_BUS_START_PIN 20
 
 // LED pin number for USB activity or -1 to disable
 // When USB connected:
