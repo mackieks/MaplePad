@@ -28,6 +28,31 @@ NonVolatilePicoSystemMemory::NonVolatilePicoSystemMemory(uint32_t flashOffset, u
     mLocalMem.write(0, readFlash, size);
 }
 
+void NonVolatilePicoSystemMemory::pageMemory(uint32_t flashOffset, uint32_t size, uint8_t page)
+{
+    // Assert that the flash offset is aligned with the sector size
+    assert((flashOffset*page) % SECTOR_SIZE == 0);
+
+    // Operate paging within upper and lower bounds
+    if(page > 8 || page < 1)
+    {
+        page = 1;
+    }
+
+    // Initialize members
+    mOffset = flashOffset;
+    mSize = size;
+    //mLocalMem.resize(size); // Make sure to resize the buffer to the correct size if needed
+    mProgrammingState = ProgrammingState::WAITING_FOR_JOB;
+    mSectorQueue.clear(); // Empty queue by default
+    mDelayedWriteTime = 0;
+    mLastActivityTime = 0;
+
+    // Copy all of flash into volatile memory
+    const uint8_t* const readFlash = (const uint8_t *)(XIP_BASE + mOffset);
+    mLocalMem.write(0, readFlash, size);
+}
+
 uint32_t NonVolatilePicoSystemMemory::getMemorySize()
 {
     return mSize;

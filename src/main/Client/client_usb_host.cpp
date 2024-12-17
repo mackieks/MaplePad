@@ -67,13 +67,15 @@ void display_select()
     gpio_set_dir(OLED_SEL_PIN, false);
     gpio_pull_up(OLED_SEL_PIN);
 
+    sleep_ms(50); // wait for pin to settle
+    
     int oledType = gpio_get(OLED_SEL_PIN);
     switch(oledType)
     {
         case 0: //SSD1331
-            lcd = std::make_shared<display::SSD1331>();
             break;
         case 1: //SSD1306
+            lcd = std::make_shared<display::SSD1331>();
             break;
         default:
             break;
@@ -81,16 +83,9 @@ void display_select()
 }
 
 //2MB of pico flash memory, 128KB of storage for VMU
-std::shared_ptr<NonVolatilePicoSystemMemory> mem;
-
-std::shared_ptr<NonVolatilePicoSystemMemory> updateMemoryPage(uint8_t page)
-{
-    mem = std::make_shared<NonVolatilePicoSystemMemory>(
-        PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES * page, //(2*1024*1024)=2097152-131072 = 1,966,080
-        client::DreamcastStorage::MEMORY_SIZE_BYTES); //131,072
-
-    return mem;
-}
+std::shared_ptr<NonVolatilePicoSystemMemory> mem = std::make_shared<NonVolatilePicoSystemMemory>(
+        PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES, //(2*1024*1024)=2097152-131072 = 1,966,080
+        client::DreamcastStorage::MEMORY_SIZE_BYTES); //131,072;
 
 // Second Core Process
 void core1()
@@ -143,11 +138,12 @@ void core0()
         std::make_shared<client::DreamcastStorage>(mem, 0);
     subPeripheral1->addFunction(dreamcastStorage);
 
-    dreamcastStorage->updateSystemMemory(updateMemoryPage(dreamcastStorage->updateCurrentPage(3)));
-
     //TODO add logic to check firmware version, format memory, and store it here
     //Format makes a call to store to flash so processing memory not necessary
     //dreamcastStorage->format();
+    
+    //Always start up on the first page
+    //dreamcastStorage->updateSystemMemory(getMemoryBlockByPage(dreamcastStorage->updateCurrentPage(1)));
 
     std::shared_ptr<client::DreamcastScreen> dreamcastScreen =
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
@@ -205,8 +201,20 @@ void core0()
 
     multicore_launch_core1(core1);
 
+    uint8_t currentPage = 2;
     while(true)
     {
+        if(!gpio_get(CTRL_PIN_X) && !gpio_get(CTRL_PIN_Y) && !gpio_get(CTRL_PIN_DR))
+        {
+            mem->pageMemory(PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES*currentPage, client::DreamcastStorage::MEMORY_SIZE_BYTES, currentPage);
+            //pageTest(currentPage);
+            currentPage++;
+            if(currentPage > 8)
+            {
+                currentPage = 1;
+            }
+            sleep_ms(200);
+        }
         mainPeripheral.task(time_us_64());
         led_task(mem->getLastActivityTime());
     }

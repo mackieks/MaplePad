@@ -75,6 +75,8 @@ public:
     //! @warning this may block for up to 400 ms
     void process();
 
+    void pageMemory(uint32_t flashOffset, uint32_t size, uint8_t page);
+
 private:
     //! Converts a local sector index to flash byte offset
     uint32_t sectorToFlashByte(uint16_t sector);
@@ -90,9 +92,9 @@ private:
     //! How long to delay before committing to the last sector write
     static const uint32_t WRITE_DELAY_US = 200000;
     //! Flash memory offset
-    const uint32_t mOffset;
+    uint32_t mOffset;
     //! Number of bytes in volatile memory
-    const uint32_t mSize;
+    uint32_t mSize;
     //! Because erase takes so long which prevents read, the entire flash range is copied locally
     VolatileSystemMemory mLocalMem;
     //! Mutex to serialize write() and flash programming
