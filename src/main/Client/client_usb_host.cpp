@@ -148,11 +148,6 @@ void core0()
     std::shared_ptr<client::DreamcastScreen> dreamcastScreen =
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
     subPeripheral1->addFunction(dreamcastScreen);
-    
-    if(lcd != nullptr)
-    {
-        lcd->initialize();
-    }
 
     Clock clock;
     std::shared_ptr<client::DreamcastTimer> dreamcastTimer =
@@ -184,17 +179,22 @@ void core0()
             client::DreamcastStorage::FLASHDATA_SIZE_BYTES); //64
             */
 
-    if(lcd->isInitialized())
+    if(lcd != nullptr)
     {
-        if(controller->triggerMenu())
+        lcd->initialize();
+
+        if(lcd->isInitialized())
         {
-            // Pass volatile memory pointer to flash data
-            display::Menu menu(lcd);
-            menu.run();
+            if(controller->triggerMenu())
+            {
+                // Pass volatile memory pointer to flash data
+                display::Menu menu(lcd);
+                menu.run();
+            }
+            // Show splash after we exit the menu or if we don't enter the menu at all
+            lcd->clear();
+            lcd->showSplash();
         }
-        // Show splash after we exit the menu or if we don't enter the menu at all
-        lcd->clear();
-        lcd->showSplash();
     }
     // Read flash data here for setting configurations. How should flash data be accessed by the controller?
     // Possibly via a controller update function?
