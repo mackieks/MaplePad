@@ -19,7 +19,8 @@ NonVolatilePicoSystemMemory::NonVolatilePicoSystemMemory(uint32_t flashOffset, u
     mProgrammingState(ProgrammingState::WAITING_FOR_JOB),
     mSectorQueue(),
     mDelayedWriteTime(0),
-    mLastActivityTime(0)
+    mLastActivityTime(0),
+    mCurrentPage(1)
 {
     assert(flashOffset % SECTOR_SIZE == 0);
 
@@ -28,34 +29,30 @@ NonVolatilePicoSystemMemory::NonVolatilePicoSystemMemory(uint32_t flashOffset, u
     mLocalMem.write(0, readFlash, size);
 }
 
-uint8_t NonVolatilePicoSystemMemory::nextPage(uint32_t size, uint8_t page)
+void NonVolatilePicoSystemMemory::nextPage(uint32_t size)
 {
-    uint8_t nextPage = page + 1;
+    ++mCurrentPage;
 
     // Once max pages reached, cycled back to beginning
-    if(nextPage > MAX_NUM_PAGES)
+    if(mCurrentPage > MAX_NUM_PAGES)
     {
-        nextPage = MIN_NUM_PAGES;
+        mCurrentPage = MIN_NUM_PAGES;
     }
 
-    setPageBlock(size, nextPage);
-
-    return nextPage;
+    setPageBlock(size, mCurrentPage);
 }
 
-uint8_t NonVolatilePicoSystemMemory::prevPage(uint32_t size, uint8_t page)
+void NonVolatilePicoSystemMemory::prevPage(uint32_t size)
 {
-    uint8_t prevPage = page - 1;
+    --mCurrentPage;
 
     // Once max pages reached, cycled back to beginning
-    if(prevPage < MIN_NUM_PAGES)
+    if(mCurrentPage < MIN_NUM_PAGES)
     {
-        prevPage = MAX_NUM_PAGES;
+        mCurrentPage = MAX_NUM_PAGES;
     }
 
-    setPageBlock(size, prevPage);
-
-    return prevPage;
+    setPageBlock(size, mCurrentPage);
 }
 
 void NonVolatilePicoSystemMemory::setPageBlock(uint32_t size, uint8_t page)
@@ -77,7 +74,7 @@ void NonVolatilePicoSystemMemory::setPageBlock(uint32_t size, uint8_t page)
     const uint8_t* const readFlash = (const uint8_t *)(XIP_BASE + mOffset);
     mLocalMem.write(0, readFlash, size);
 
-    sleep_ms(200); // Give the flash some time to write to ram
+    sleep_ms(200); // Settle
 }
 
 uint32_t NonVolatilePicoSystemMemory::getMemorySize()

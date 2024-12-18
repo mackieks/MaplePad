@@ -77,11 +77,11 @@ public:
 
     //! Go to the next available VMU page. Cycles back to the first page once the end is reached.
     //! @returns the page number of the loaded block
-    uint8_t nextPage(uint32_t size, uint8_t page);
+    void nextPage(uint32_t size);
 
     //! Go to the previous available VMU page. Cycles back to the last page once the first page is reached.
     //! @returns the page number of the loaded block
-    uint8_t prevPage(uint32_t size, uint8_t page);
+    void prevPage(uint32_t ssize_t);
 
 private:
     //! Converts a local sector index to flash byte offset
@@ -116,6 +116,8 @@ private:
     uint64_t mDelayedWriteTime;
     //! Last system time of read/write activity
     uint64_t mLastActivityTime;
+
+    uint8_t mCurrentPage;
 
     static const uint8_t MAX_NUM_PAGES = 8;
     static const uint8_t MIN_NUM_PAGES = 1;

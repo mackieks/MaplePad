@@ -201,16 +201,15 @@ void core0()
 
     multicore_launch_core1(core1);
 
-    uint8_t currentPage = 1; //starting on page 1 (what's loaded in global)
     while(true)
     {
         if(controller->triggerNextPage())
         {
-            currentPage = mem->nextPage(client::DreamcastStorage::MEMORY_SIZE_BYTES, currentPage);
+            mem->nextPage(client::DreamcastStorage::MEMORY_SIZE_BYTES);
         }
         else if(controller->triggerPrevPage())
         {
-            currentPage = mem->prevPage(client::DreamcastStorage::MEMORY_SIZE_BYTES, currentPage);
+            mem->prevPage(client::DreamcastStorage::MEMORY_SIZE_BYTES);
         }
 
         mainPeripheral.task(time_us_64());
