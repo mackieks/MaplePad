@@ -68,7 +68,7 @@ void display_select()
     gpio_pull_up(OLED_SEL_PIN);
 
     sleep_ms(50); // wait for pin to settle
-    
+
     int oledType = gpio_get(OLED_SEL_PIN);
     switch(oledType)
     {
@@ -201,20 +201,18 @@ void core0()
 
     multicore_launch_core1(core1);
 
-    uint8_t currentPage = 2;
+    uint8_t currentPage = 1; //starting on page 1 (what's loaded in global)
     while(true)
     {
-        if(!gpio_get(CTRL_PIN_X) && !gpio_get(CTRL_PIN_Y) && !gpio_get(CTRL_PIN_DR))
+        if(controller->triggerNextPage())
         {
-            mem->pageMemory(PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES*currentPage, client::DreamcastStorage::MEMORY_SIZE_BYTES, currentPage);
-            //pageTest(currentPage);
-            currentPage++;
-            if(currentPage > 8)
-            {
-                currentPage = 1;
-            }
-            sleep_ms(200);
+            currentPage = mem->nextPage(client::DreamcastStorage::MEMORY_SIZE_BYTES, currentPage);
         }
+        else if(controller->triggerPrevPage())
+        {
+            currentPage = mem->prevPage(client::DreamcastStorage::MEMORY_SIZE_BYTES, currentPage);
+        }
+
         mainPeripheral.task(time_us_64());
         led_task(mem->getLastActivityTime());
     }

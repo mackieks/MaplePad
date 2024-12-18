@@ -63,6 +63,10 @@ public:
 
     bool triggerMenu();
 
+    bool triggerNextPage();
+
+    bool triggerPrevPage();
+
     bool dpadDownPressed();
 
     bool dpadUpPressed();

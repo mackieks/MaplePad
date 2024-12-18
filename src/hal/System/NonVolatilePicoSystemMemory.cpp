@@ -28,16 +28,41 @@ NonVolatilePicoSystemMemory::NonVolatilePicoSystemMemory(uint32_t flashOffset, u
     mLocalMem.write(0, readFlash, size);
 }
 
-void NonVolatilePicoSystemMemory::pageMemory(uint32_t flashOffset, uint32_t size, uint8_t page)
+uint8_t NonVolatilePicoSystemMemory::nextPage(uint32_t size, uint8_t page)
 {
-    // Assert that the flash offset is aligned with the sector size
-    assert((flashOffset*page) % SECTOR_SIZE == 0);
+    uint8_t nextPage = page + 1;
 
-    // Operate paging within upper and lower bounds
-    if(page > 8 || page < 1)
+    // Once max pages reached, cycled back to beginning
+    if(nextPage > MAX_NUM_PAGES)
     {
-        page = 1;
+        nextPage = MIN_NUM_PAGES;
     }
+
+    setPageBlock(size, nextPage);
+
+    return nextPage;
+}
+
+uint8_t NonVolatilePicoSystemMemory::prevPage(uint32_t size, uint8_t page)
+{
+    uint8_t prevPage = page - 1;
+
+    // Once max pages reached, cycled back to beginning
+    if(prevPage < MIN_NUM_PAGES)
+    {
+        prevPage = MAX_NUM_PAGES;
+    }
+
+    setPageBlock(size, prevPage);
+
+    return prevPage;
+}
+
+void NonVolatilePicoSystemMemory::setPageBlock(uint32_t size, uint8_t page)
+{
+    uint32_t flashOffset = PICO_FLASH_SIZE_BYTES - (size * page);
+    // Assert that the flash offset is aligned with the sector size
+    assert((flashOffset) % SECTOR_SIZE == 0);
 
     // Initialize members
     mOffset = flashOffset;
@@ -51,6 +76,8 @@ void NonVolatilePicoSystemMemory::pageMemory(uint32_t flashOffset, uint32_t size
     // Copy all of flash into volatile memory
     const uint8_t* const readFlash = (const uint8_t *)(XIP_BASE + mOffset);
     mLocalMem.write(0, readFlash, size);
+
+    sleep_ms(200); // Give the flash some time to write to ram
 }
 
 uint32_t NonVolatilePicoSystemMemory::getMemorySize()
