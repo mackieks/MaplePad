@@ -34,4 +34,32 @@ namespace display
         memset(&oledFB[(y * 192) + (x * 2)], color >> 8, sizeof(uint8_t));
         memset(&oledFB[(y * 192) + (x * 2) + 1], color & 0xff, sizeof(uint8_t));
     }
+
+    void Display::putLetter(int ix, int iy, char text, uint16_t color)
+    {
+        Font font;
+        uint8_t *a = font.getFontImage(text)->data;         // row of character data
+
+        for (int i = 0; i <= 9; i++) {
+            for (int j = 2; j <= 7; j++) { // iterate through bits in row of character
+            if (!((1 << j) & a[i]))
+                setPixel((88 - (ix * 6)) - j, (59 - (iy * 10) - (iy * 2)) - i, color);
+            else
+                setPixel((88 - (ix * 6)) - j, (59 - (iy * 10) - (iy * 2)) - i, 0x0000);
+            }
+        }
+    }
+
+    void Display::putString(const char *text, int ix, int iy, uint16_t color)
+    {
+        for (int i = 0; text[i] != '\0'; i++)
+        {
+            putLetter(ix + i, iy, text[i], color);
+        }
+    }
+
+    void Display::update(const std::string& message)
+    {
+        //do nothing, for now
+    }
 }

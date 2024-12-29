@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hal/System/SystemMemory.hpp"
+#include "hal/Display/TransientOverlaySubject.hpp"
 #include "VolatileSystemMemory.hpp"
 #include "Mutex.hpp"
 
@@ -118,6 +119,8 @@ private:
     uint64_t mLastActivityTime;
 
     uint8_t mCurrentPage;
+
+    std::list<std::shared_ptr<TransientOverlayObserver>> observerList;
 
     static const uint8_t MAX_NUM_PAGES = 8;
     static const uint8_t MIN_NUM_PAGES = 1;
