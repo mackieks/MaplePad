@@ -74,7 +74,7 @@ void NonVolatilePicoSystemMemory::setPageBlock(uint32_t size, uint8_t page)
     const uint8_t* const readFlash = (const uint8_t *)(XIP_BASE + mOffset);
     mLocalMem.write(0, readFlash, size);
 
-    //notify(std::to_string(page));
+    notify(std::to_string(page));
 
     sleep_ms(250); // Settle
 }

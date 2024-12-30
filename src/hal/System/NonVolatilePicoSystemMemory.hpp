@@ -33,7 +33,7 @@
 //! write() while the other core must call process() to process queued writes. It should be possible
 //! to do all execution from a single core in the future once the TODO within process() is
 //! addressed.
-class NonVolatilePicoSystemMemory : public SystemMemory
+class NonVolatilePicoSystemMemory : public SystemMemory, public TransientOverlaySubject
 {
 public:
     //! Flash memory write states
@@ -119,8 +119,6 @@ private:
     uint64_t mLastActivityTime;
 
     uint8_t mCurrentPage;
-
-    std::list<std::shared_ptr<TransientOverlayObserver>> observerList;
 
     static const uint8_t MAX_NUM_PAGES = 8;
     static const uint8_t MIN_NUM_PAGES = 1;

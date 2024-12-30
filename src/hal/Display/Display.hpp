@@ -8,7 +8,7 @@
 namespace display
 {
 
-class Display
+class Display : public TransientOverlayObserver
 {
 public:
     //! Virtual destructor
@@ -27,6 +27,9 @@ public:
     void drawCursor(int iy, uint16_t color);
 
     void update(const std::string& message);
+
+    //! Overriden notify method inherited from TransientOverlayObserver
+    void notify(const std::string& message);
 
     virtual void update() = 0;
 

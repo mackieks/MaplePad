@@ -1,14 +1,28 @@
 #pragma once
 
 #include <string>
-#include <vector>
+#include <list>
 #include <memory>
 #include "TransientOverlayObserver.hpp"
 
 class TransientOverlaySubject {
 public:
     virtual ~TransientOverlaySubject() {}
-    virtual void attach(std::shared_ptr<TransientOverlayObserver> observer) = 0;
-    virtual void detach(std::shared_ptr<TransientOverlayObserver> observer) = 0;
-    virtual void notify(const std::string& message) = 0;
+
+    void attach(std::shared_ptr<TransientOverlayObserver> observer) {
+        mObservers.push_front(observer);
+    }
+
+    void detach(std::shared_ptr<TransientOverlayObserver> observer) {
+        mObservers.remove(observer);
+    }
+
+    void notify(const std::string& message) {
+        for(auto& o: mObservers) {
+            o->notify(message);
+        }
+    }
+
+private:
+    std::list<std::shared_ptr<TransientOverlayObserver>> mObservers;
 };

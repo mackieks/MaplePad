@@ -193,7 +193,7 @@ void core0()
                 menu.run();
             }
             //subscribing the lcd to NVM to receive updates on paging, other subjects can follow this pattern to notify the lcd of events
-            //mem->attach(lcd);
+            mem->attach(lcd);
             // Show splash after we exit the menu or if we don't enter the menu at all
             lcd->clear();
             lcd->showSplash();

@@ -58,8 +58,9 @@ namespace display
         }
     }
 
-    void Display::update(const std::string& message)
+    void Display::notify(const std::string& message)
     {
         //do nothing, for now
+        //putString(message.c_str(), 0, 0, 0x0000);
     }
 }
