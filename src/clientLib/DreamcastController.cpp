@@ -207,23 +207,12 @@ void DreamcastController::setControls()
     condition.l = getTriggerADCInput(2, 0x00, 0xff, 0x00, 0x04, false);
     condition.r = getTriggerADCInput(3, 0x00, 0xff, 0x00, 0x04, false);
 
-    if(uart_is_enabled(uart0))
-    {
-        condition.a = gpio_get(CTRL_PIN_C);
-        condition.b = gpio_get(CTRL_PIN_Z);
-        condition.c = 1;
-        condition.z = 1;
-    }
-    else
-    {
-        condition.a = gpio_get(CTRL_PIN_A);
-        condition.b = gpio_get(CTRL_PIN_B);
-        condition.c = gpio_get(CTRL_PIN_C);
-        condition.z = gpio_get(CTRL_PIN_Z);
-    }
-    
+    condition.a = gpio_get(CTRL_PIN_A);
+    condition.b = gpio_get(CTRL_PIN_B);
+    condition.c = 1;
     condition.x = gpio_get(CTRL_PIN_X);
     condition.y = gpio_get(CTRL_PIN_Y);
+    condition.z = 1;
     condition.d = 1; //D for disabled
     condition.start = gpio_get(CTRL_PIN_START);
 
@@ -252,7 +241,7 @@ void DreamcastController::setControls()
 
 bool DreamcastController::triggerMenu()
 {
-    return !gpio_get(CTRL_PIN_START) && !gpio_get(CTRL_PIN_Y);
+    return !gpio_get(CTRL_PIN_Y) && !gpio_get(CTRL_PIN_X);
 }
 
 bool DreamcastController::triggerNextPage()

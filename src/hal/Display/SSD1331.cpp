@@ -19,7 +19,6 @@ namespace display
         mDmaWriteChannel(dma_claim_unused_channel(true)),
         mConfig(dma_channel_get_default_config(mDmaWriteChannel))
     {
-        mCurrentPage = 1;
         mIsInitialized = false;
     }
 
@@ -61,6 +60,7 @@ namespace display
     //! a check is made to ensure that there is something to write before continuing.
     //! Since the screen array is already being iterated over in this method, it made the most
     //! sense to include that check here.
+    //! Do not add anything to this, it needs to be fast to handle the dreamcast screen updates
     void SSD1331::refresh(const uint32_t* screen, uint32_t len)
     {
         uint32_t reversedArr[len];
@@ -91,15 +91,13 @@ namespace display
             int mod = (fb % 6) * 16;
             for (bb = 0; bb <= 7; bb++) {
                 x = mod + (14 - bb * 2);
-                pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[mCurrentPage-1];
+                pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[0];
                 setPixel(x, y, pixel);
                 setPixel(x + 1, y, pixel);
                 setPixel(x, y + 1, pixel);
                 setPixel(x + 1, y + 1, pixel);
             }
         }
-
-        //putString("test", 0, 0, palette[mCurrentPage-1]);
 
         update();
     }
@@ -117,6 +115,8 @@ namespace display
 
         gpio_put(DC, 1);
 
+        //memcpy(mOledFB, display::image_data_maplepad_logo_9664, sizeof(display::image_data_maplepad_logo_9664));
+
         if (!(dma_channel_is_busy(mDmaWriteChannel)))
         {
             dma_channel_configure(mDmaWriteChannel, &mConfig,
@@ -125,9 +125,34 @@ namespace display
                                     sizeof(display::image_data_maplepad_logo_9664), // element count (each element is of size transfer_data_size)
                                     true);                                 // start
         }
+
+        // spi_write_blocking(SSD1331_SPI, oledFB, sizeof(oledFB));
     }
 
-    bool SSD1331::initialize()
+    void SSD1331::putLetter(int ix, int iy, char text, uint16_t color)
+    {
+        Font font;
+        uint8_t *a = font.getFontImage(text)->data;         // row of character data
+
+        for (int i = 0; i <= 9; i++) {
+            for (int j = 2; j <= 7; j++) { // iterate through bits in row of character
+            if (!((1 << j) & a[i]))
+                setPixel((88 - (ix * 6)) - j, (59 - (iy * 10) - (iy * 2)) - i, color);
+            else
+                setPixel((88 - (ix * 6)) - j, (59 - (iy * 10) - (iy * 2)) - i, 0x0000);
+            }
+        }
+    }
+
+    void SSD1331::putString(const char *text, int ix, int iy, uint16_t color)
+    {
+        for (int i = 0; text[i] != '\0'; i++)
+        {
+            putLetter(ix + i, iy, text[i], color);
+        }
+    }
+
+    void SSD1331::initialize()
     {
         //Configure OLED SPI
         spi_init(SSD1331_SPI, SSD1331_SPEED);
@@ -141,7 +166,6 @@ namespace display
         channel_config_set_dreq(&mConfig, spi_get_index(SSD1331_SPI) ? DREQ_SPI1_TX : DREQ_SPI0_TX);
 
         mIsInitialized = true;
-        return mIsInitialized;
     }
 
     void SSD1331::init()

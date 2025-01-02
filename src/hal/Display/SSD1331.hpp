@@ -1,11 +1,12 @@
 #pragma once
 
-#include "hal/Display/DisplayIcons.hpp"
+#include "DisplayIcons.hpp"
 #include "pico/stdlib.h"
 #include "pico/binary_info.h"
 #include "hardware/spi.h"
 #include "hardware/dma.h"
 #include "Display.hpp"
+#include "Font.hpp"
 #include <string.h>
 
 namespace display
@@ -66,7 +67,11 @@ namespace display
             void write(const uint8_t data);
 
             //! Inherited from the abstract class Display
-            bool initialize();
+            void initialize();
+
+            void putLetter(int ix, int iy, char text, uint16_t color);
+
+            void putString(const char *text, int ix, int iy, uint16_t color);
 
             void update();
 
@@ -80,7 +85,7 @@ namespace display
         private:
             int mDmaWriteChannel;
 
-            dma_channel_config mConfig;
+            dma_channel_config mConfig; 
 
             volatile uint16_t palette[8] = {
                 0xf800, // red

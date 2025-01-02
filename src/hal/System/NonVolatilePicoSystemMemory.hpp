@@ -1,7 +1,6 @@
 #pragma once
 
 #include "hal/System/SystemMemory.hpp"
-#include "hal/Display/TransientOverlaySubject.hpp"
 #include "VolatileSystemMemory.hpp"
 #include "Mutex.hpp"
 

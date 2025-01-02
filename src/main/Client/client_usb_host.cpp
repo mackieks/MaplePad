@@ -31,7 +31,6 @@
 #include <cassert>
 
 std::shared_ptr<display::Display> lcd;
-//bool isLcdInitialized = false;
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
@@ -149,6 +148,11 @@ void core0()
     std::shared_ptr<client::DreamcastScreen> dreamcastScreen =
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
     subPeripheral1->addFunction(dreamcastScreen);
+    
+    if(lcd != nullptr)
+    {
+        lcd->initialize();
+    }
 
     Clock clock;
     std::shared_ptr<client::DreamcastTimer> dreamcastTimer =
@@ -180,24 +184,17 @@ void core0()
             client::DreamcastStorage::FLASHDATA_SIZE_BYTES); //64
             */
 
-    if(lcd != nullptr)
+    if(lcd->isInitialized())
     {
-        lcd->initialize();
-
-        if(lcd->isInitialized())
+        if(controller->triggerMenu())
         {
-            if(controller->triggerMenu())
-            {
-                // Pass volatile memory pointer to flash data
-                display::Menu menu(lcd);
-                menu.run();
-            }
-            //subscribing the lcd to NVM to receive updates on paging, other subjects can follow this pattern to notify the lcd of events
-            //mem->attach(lcd);
-            // Show splash after we exit the menu or if we don't enter the menu at all
-            lcd->clear();
-            lcd->showSplash();
+            // Pass volatile memory pointer to flash data
+            display::Menu menu(lcd);
+            menu.run();
         }
+        // Show splash after we exit the menu or if we don't enter the menu at all
+        lcd->clear();
+        lcd->showSplash();
     }
     // Read flash data here for setting configurations. How should flash data be accessed by the controller?
     // Possibly via a controller update function?
