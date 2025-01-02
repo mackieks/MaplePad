@@ -7,5 +7,5 @@ class TransientOverlayObserver
 {
     public:
         virtual ~TransientOverlayObserver() {}
-        virtual void notify(const std::string& message) = 0;
+        virtual void notify(uint8_t message) = 0;
 };

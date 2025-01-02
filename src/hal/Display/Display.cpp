@@ -58,9 +58,8 @@ namespace display
         }
     }
 
-    void Display::notify(const std::string& message)
+    /*void Display::notify(uint8_t message)
     {
-        //do nothing, for now
-        //putString(message.c_str(), 0, 0, 0x0000);
-    }
+        mCurrentPage = message;//message.c_str();
+    }*/
 }

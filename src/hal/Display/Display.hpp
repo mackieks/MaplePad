@@ -8,7 +8,7 @@
 namespace display
 {
 
-class Display : public TransientOverlayObserver
+class Display
 {
 public:
     //! Virtual destructor
@@ -29,7 +29,7 @@ public:
     void update(const std::string& message);
 
     //! Overriden notify method inherited from TransientOverlayObserver
-    void notify(const std::string& message);
+    //void notify(uint8_t message);
 
     virtual void update() = 0;
 
@@ -57,6 +57,8 @@ public:
 public:
     //! Screen data block initialized to blank, 1536 bytes
     uint8_t oledFB[96 * 64 * 2] = {0x00};
+
+    uint8_t mCurrentPage;
 
 protected:
     //! true iff "isInitialized"

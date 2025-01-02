@@ -19,6 +19,7 @@ namespace display
         mDmaWriteChannel(dma_claim_unused_channel(true)),
         mConfig(dma_channel_get_default_config(mDmaWriteChannel))
     {
+        mCurrentPage = 1;
         mIsInitialized = false;
     }
 
@@ -90,13 +91,15 @@ namespace display
             int mod = (fb % 6) * 16;
             for (bb = 0; bb <= 7; bb++) {
                 x = mod + (14 - bb * 2);
-                pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[0];
+                pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[mCurrentPage-1];
                 setPixel(x, y, pixel);
                 setPixel(x + 1, y, pixel);
                 setPixel(x, y + 1, pixel);
                 setPixel(x + 1, y + 1, pixel);
             }
         }
+
+        //putString("test", 0, 0, palette[mCurrentPage-1]);
 
         update();
     }
@@ -114,8 +117,6 @@ namespace display
 
         gpio_put(DC, 1);
 
-        //memcpy(mOledFB, display::image_data_maplepad_logo_9664, sizeof(display::image_data_maplepad_logo_9664));
-
         if (!(dma_channel_is_busy(mDmaWriteChannel)))
         {
             dma_channel_configure(mDmaWriteChannel, &mConfig,
@@ -124,8 +125,6 @@ namespace display
                                     sizeof(display::image_data_maplepad_logo_9664), // element count (each element is of size transfer_data_size)
                                     true);                                 // start
         }
-
-        // spi_write_blocking(SSD1331_SPI, oledFB, sizeof(oledFB));
     }
 
     bool SSD1331::initialize()

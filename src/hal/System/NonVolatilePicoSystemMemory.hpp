@@ -33,7 +33,7 @@
 //! write() while the other core must call process() to process queued writes. It should be possible
 //! to do all execution from a single core in the future once the TODO within process() is
 //! addressed.
-class NonVolatilePicoSystemMemory : public SystemMemory, public TransientOverlaySubject
+class NonVolatilePicoSystemMemory : public SystemMemory
 {
 public:
     //! Flash memory write states

@@ -17,7 +17,7 @@ public:
         mObservers.remove(observer);
     }
 
-    void notify(const std::string& message) {
+    void notify(uint8_t message) {
         for(auto& o: mObservers) {
             o->notify(message);
         }

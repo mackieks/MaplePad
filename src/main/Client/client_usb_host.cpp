@@ -31,13 +31,13 @@
 #include <cassert>
 
 std::shared_ptr<display::Display> lcd;
-bool isLcdInitialized = false;
+//bool isLcdInitialized = false;
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
     //len is the number of words in the payload. For this it should be 48 total words, or 192 bytes.
     //The bytes in each word of screen need to be reversed.
-    if(isLcdInitialized)
+    if(lcd != nullptr && lcd->isInitialized())
     {
         lcd->refresh(screen, len);
     }
@@ -182,9 +182,9 @@ void core0()
 
     if(lcd != nullptr)
     {
-        isLcdInitialized = lcd->initialize();
+        lcd->initialize();
 
-        if(isLcdInitialized)
+        if(lcd->isInitialized())
         {
             if(controller->triggerMenu())
             {
@@ -193,7 +193,7 @@ void core0()
                 menu.run();
             }
             //subscribing the lcd to NVM to receive updates on paging, other subjects can follow this pattern to notify the lcd of events
-            mem->attach(lcd);
+            //mem->attach(lcd);
             // Show splash after we exit the menu or if we don't enter the menu at all
             lcd->clear();
             lcd->showSplash();
