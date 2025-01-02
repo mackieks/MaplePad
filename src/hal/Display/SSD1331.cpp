@@ -19,6 +19,7 @@ namespace display
         mDmaWriteChannel(dma_claim_unused_channel(true)),
         mConfig(dma_channel_get_default_config(mDmaWriteChannel))
     {
+        mCurrentPage = 1;
         mIsInitialized = false;
     }
 
@@ -85,13 +86,15 @@ namespace display
 
         memcpy(LCDFramebuffer, reversedArr, len * sizeof(uint32_t));
 
+        uint8_t colorIndex = mCurrentPage - 1;
+
         int x, y, pixel, bb;
         for (int fb = 0; fb < 192; fb++) {
             y = (fb / 6) * 2;
             int mod = (fb % 6) * 16;
             for (bb = 0; bb <= 7; bb++) {
                 x = mod + (14 - bb * 2);
-                pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[0];
+                pixel = ((LCDFramebuffer[fb] >> bb) & 0x01) * palette[colorIndex];
                 setPixel(x, y, pixel);
                 setPixel(x + 1, y, pixel);
                 setPixel(x, y + 1, pixel);

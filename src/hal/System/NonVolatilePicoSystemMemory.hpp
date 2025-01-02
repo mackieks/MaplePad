@@ -1,6 +1,7 @@
 #pragma once
 
 #include "hal/System/SystemMemory.hpp"
+#include "hal/Display/TransientOverlaySubject.hpp"
 #include "VolatileSystemMemory.hpp"
 #include "Mutex.hpp"
 
@@ -32,7 +33,7 @@
 //! write() while the other core must call process() to process queued writes. It should be possible
 //! to do all execution from a single core in the future once the TODO within process() is
 //! addressed.
-class NonVolatilePicoSystemMemory : public SystemMemory
+class NonVolatilePicoSystemMemory : public SystemMemory, public TransientOverlaySubject
 {
 public:
     //! Flash memory write states

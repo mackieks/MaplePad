@@ -192,6 +192,7 @@ void core0()
             display::Menu menu(lcd);
             menu.run();
         }
+        mem->attach(lcd);
         // Show splash after we exit the menu or if we don't enter the menu at all
         lcd->clear();
         lcd->showSplash();

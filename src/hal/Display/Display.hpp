@@ -1,12 +1,13 @@
 #pragma once
 
 #include "pico/stdlib.h"
+#include "hal/Display/TransientOverlayObserver.hpp"
 #include <string.h>
 
 namespace display
 {
 
-class Display
+class Display: public TransientOverlayObserver
 {
 public:
     //! Virtual destructor
@@ -36,6 +37,8 @@ public:
 
     void drawCursor(int iy, uint16_t color);
 
+    void notify(uint8_t& message);
+
     //! Function that reverses the byte order of a single uint32_t value
     inline uint32_t reverseByteOrder(uint32_t value) {
         return ((value >> 24) & 0xFF) | 
@@ -47,6 +50,8 @@ public:
 public:
     //! Screen data block initialized to blank, 1536 bytes
     uint8_t oledFB[96 * 64 * 2] = {0x00};
+
+    uint8_t mCurrentPage;
 
 protected:
     //! true iff "isInitialized"

@@ -34,4 +34,11 @@ namespace display
         memset(&oledFB[(y * 192) + (x * 2)], color >> 8, sizeof(uint8_t));
         memset(&oledFB[(y * 192) + (x * 2) + 1], color & 0xff, sizeof(uint8_t));
     }
+
+    void Display::notify(uint8_t& message)
+    {
+        //do nothing, for now
+        //putString(message.c_str(), 0, 0, 0x0000);
+        mCurrentPage = message;
+    }
 }

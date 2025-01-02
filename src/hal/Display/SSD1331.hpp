@@ -85,7 +85,7 @@ namespace display
         private:
             int mDmaWriteChannel;
 
-            dma_channel_config mConfig; 
+            dma_channel_config mConfig;
 
             volatile uint16_t palette[8] = {
                 0xf800, // red
