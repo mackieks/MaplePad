@@ -67,7 +67,7 @@ namespace display
             void write(const uint8_t data);
 
             //! Inherited from the abstract class Display
-            void initialize();
+            bool initialize();
 
             void putLetter(int ix, int iy, char text, uint16_t color);
 

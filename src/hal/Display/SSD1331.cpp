@@ -2,16 +2,6 @@
 
 namespace display
 {
-    volatile uint16_t palette[] = {
-        0xf800, // red
-        0xfba0, // orange
-        0xff80, // yellow
-        0x7f80, // yellow-green
-        0x0500, // green
-        0x045f, // blue
-        0x781f, // violet
-        0x780d  // magenta
-    };
 
     static uint8_t LCDFramebuffer[192] = {0};
     
@@ -155,7 +145,7 @@ namespace display
         }
     }
 
-    void SSD1331::initialize()
+    bool SSD1331::initialize()
     {
         //Configure OLED SPI
         spi_init(SSD1331_SPI, SSD1331_SPEED);
@@ -169,6 +159,7 @@ namespace display
         channel_config_set_dreq(&mConfig, spi_get_index(SSD1331_SPI) ? DREQ_SPI1_TX : DREQ_SPI0_TX);
 
         mIsInitialized = true;
+        return mIsInitialized;
     }
 
     void SSD1331::init()

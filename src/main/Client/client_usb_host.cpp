@@ -31,12 +31,15 @@
 #include <cassert>
 
 std::shared_ptr<display::Display> lcd;
+volatile bool isLcdInitialized = false;
+volatile bool isOverlayVisible = false;  // Flag to check if overlay should be shown
+volatile uint32_t overlayTimer = 0;  // Overlay visibility timer (in milliseconds)
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
     //len is the number of words in the payload. For this it should be 48 total words, or 192 bytes.
     //The bytes in each word of screen need to be reversed.
-    if(lcd != nullptr && lcd->isInitialized())
+    if(isLcdInitialized)
     {
         lcd->refresh(screen, len);
     }
@@ -94,6 +97,10 @@ void core1()
 
     while (true)
     {
+        if(isLcdInitialized && isOverlayVisible)
+        {
+            lcd->putString("testtesttest", 0, 0, 0xFFFF);
+        }
         // Writes vmu storage to pico flash
         if(mem != nullptr)
         {
@@ -148,11 +155,6 @@ void core0()
     std::shared_ptr<client::DreamcastScreen> dreamcastScreen =
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
     subPeripheral1->addFunction(dreamcastScreen);
-    
-    if(lcd != nullptr)
-    {
-        lcd->initialize();
-    }
 
     Clock clock;
     std::shared_ptr<client::DreamcastTimer> dreamcastTimer =
@@ -184,18 +186,23 @@ void core0()
             client::DreamcastStorage::FLASHDATA_SIZE_BYTES); //64
             */
 
-    if(lcd->isInitialized())
+    if(lcd != nullptr)
     {
-        if(controller->triggerMenu())
+        isLcdInitialized = lcd->initialize();
+    
+        if(isLcdInitialized)
         {
-            // Pass volatile memory pointer to flash data
-            display::Menu menu(lcd);
-            menu.run();
+            if(controller->triggerMenu())
+            {
+                // Pass volatile memory pointer to flash data
+                display::Menu menu(lcd);
+                menu.run();
+            }
+            mem->attach(lcd);
+            // Show splash after we exit the menu or if we don't enter the menu at all
+            lcd->clear();
+            lcd->showSplash();
         }
-        mem->attach(lcd);
-        // Show splash after we exit the menu or if we don't enter the menu at all
-        lcd->clear();
-        lcd->showSplash();
     }
     // Read flash data here for setting configurations. How should flash data be accessed by the controller?
     // Possibly via a controller update function?
@@ -206,10 +213,12 @@ void core0()
     {
         if(controller->triggerNextPage())
         {
+            isOverlayVisible = true;
             mem->nextPage(client::DreamcastStorage::MEMORY_SIZE_BYTES);
         }
         else if(controller->triggerPrevPage())
         {
+            isOverlayVisible = true;
             mem->prevPage(client::DreamcastStorage::MEMORY_SIZE_BYTES);
         }
 

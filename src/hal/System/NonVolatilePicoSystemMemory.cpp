@@ -75,7 +75,7 @@ void NonVolatilePicoSystemMemory::setPageBlock(uint32_t size, uint8_t page)
 
     notify(page);
 
-    sleep_ms(200); // Settle
+    sleep_ms(250); // Settle
 }
 
 uint32_t NonVolatilePicoSystemMemory::getMemorySize()

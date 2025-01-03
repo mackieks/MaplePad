@@ -7,6 +7,8 @@
 namespace display
 {
 
+#define OVERLAY_DISPLAY_TIME 3000  // 3 seconds, in milliseconds
+
 class Display: public TransientOverlayObserver
 {
 public:
@@ -20,7 +22,7 @@ public:
     virtual void refresh(const uint32_t* screen, uint32_t len) = 0;
 
     //! Initializes the screen
-    virtual void initialize() = 0;
+    virtual bool initialize() = 0;
 
     //! Clears the screen by setting the LCD frame buffer to black
     virtual void clear() = 0;
@@ -50,6 +52,9 @@ public:
 public:
     //! Screen data block initialized to blank, 1536 bytes
     uint8_t oledFB[96 * 64 * 2] = {0x00};
+
+    //we're pushing the boundaries of available memory space with this...
+    //uint8_t overlayFB[96 * 10 * 2] = {0x00};
 
     uint8_t mCurrentPage;
 
