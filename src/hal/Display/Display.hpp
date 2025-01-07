@@ -3,6 +3,7 @@
 #include "pico/stdlib.h"
 #include "hal/Display/TransientOverlayObserver.hpp"
 #include <string.h>
+#include "Font.hpp"
 
 namespace display
 {
@@ -18,6 +19,10 @@ public:
     //! Copies the pixel data into the LCD frame buffer used by the DMA channel
     void setPixel(uint8_t x, uint8_t y, uint16_t color);
 
+    void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color);
+
+    void drawRect(int x0, int x1, int y0, int y1, uint16_t color);
+
     //! Refreshes the LCD panel by triggering a DMA transfer
     virtual void refresh(const uint32_t* screen, uint32_t len) = 0;
 
@@ -30,10 +35,14 @@ public:
     //! Display a splash image
     virtual void showSplash() = 0;
 
+    void showOverlay();
+
     //! Returns true if the screen has been initialized, false otherwise
     inline bool isInitialized() { return mIsInitialized; }
 
-    virtual void putString(const char *text, int ix, int iy, uint16_t color) = 0;
+    void putLetter(int ix, int iy, char text, uint16_t color);
+
+    void putString(const char *text, int ix, int iy, uint16_t color);
 
     virtual void update() = 0;
 

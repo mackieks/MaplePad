@@ -254,6 +254,12 @@ bool DreamcastController::triggerPrevPage()
     return !gpio_get(CTRL_PIN_START) && !gpio_get(CTRL_PIN_DL);
 }
 
+bool DreamcastController::triggerOverlay()
+{
+    //return !gpio_get(CTRL_PIN_START) && !gpio_get(CTRL_PIN_DU);
+    return !gpio_get(CTRL_PIN_X) && !gpio_get(CTRL_PIN_Y) && !gpio_get(CTRL_PIN_DU);
+}
+
 bool DreamcastController::dpadDownPressed()
 {
     return !gpio_get(CTRL_PIN_DD);

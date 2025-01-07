@@ -67,6 +67,8 @@ public:
 
     bool triggerPrevPage();
 
+    bool triggerOverlay();
+
     bool dpadDownPressed();
 
     bool dpadUpPressed();

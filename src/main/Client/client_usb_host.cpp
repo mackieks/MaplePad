@@ -33,15 +33,22 @@
 std::shared_ptr<display::Display> lcd;
 volatile bool isLcdInitialized = false;
 volatile bool isOverlayVisible = false;  // Flag to check if overlay should be shown
+volatile bool isOverlayHidden = true;
 volatile uint32_t overlayTimer = 0;  // Overlay visibility timer (in milliseconds)
+
+//! Keeps a reference to the last thing displayed onto the LCD so it can be restored after overlay disappears
+const uint32_t* lastScreen;
+uint32_t lastLen;
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
     //len is the number of words in the payload. For this it should be 48 total words, or 192 bytes.
     //The bytes in each word of screen need to be reversed.
-    if(isLcdInitialized)
+    if(isLcdInitialized && isOverlayHidden)
     {
         lcd->refresh(screen, len);
+        lastScreen = screen; //save pointer to last screen bytes
+        lastLen = len; //save length as well
     }
 }
 
@@ -85,6 +92,25 @@ void display_select()
     }
 }
 
+// Function to handle the overlay timing on core 1
+void showOverlay() {
+    if (isOverlayVisible) {
+        overlayTimer = to_ms_since_boot(get_absolute_time()) + 2000;  // Set overlay duration to 2 seconds
+        isOverlayVisible = false;  // Reset the flag until the next button press
+    }
+
+    // If the overlay should still be visible, keep it on screen
+    if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) < overlayTimer) {
+        lcd->showOverlay();
+    }
+    // If the overlay duration has expired, stop showing the overlay
+    else if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) >= overlayTimer) {
+        overlayTimer = 0;  // Reset the overlay duration
+        isOverlayHidden = true;
+        lcd->refresh(lastScreen, lastLen);
+    }
+}
+
 //2MB of pico flash memory, 128KB of storage for VMU
 std::shared_ptr<NonVolatilePicoSystemMemory> mem = std::make_shared<NonVolatilePicoSystemMemory>(
         PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES, //(2*1024*1024)=2097152-131072 = 1,966,080
@@ -97,10 +123,7 @@ void core1()
 
     while (true)
     {
-        if(isLcdInitialized && isOverlayVisible)
-        {
-            lcd->putString("testtesttest", 0, 0, 0xFFFF);
-        }
+        showOverlay();
         // Writes vmu storage to pico flash
         if(mem != nullptr)
         {
@@ -213,13 +236,16 @@ void core0()
     {
         if(controller->triggerNextPage())
         {
-            isOverlayVisible = true;
             mem->nextPage(client::DreamcastStorage::MEMORY_SIZE_BYTES);
         }
         else if(controller->triggerPrevPage())
         {
-            isOverlayVisible = true;
             mem->prevPage(client::DreamcastStorage::MEMORY_SIZE_BYTES);
+        }
+        else if(controller->triggerOverlay())
+        {
+            isOverlayVisible = true;
+            isOverlayHidden = false;
         }
 
         mainPeripheral.task(time_us_64());

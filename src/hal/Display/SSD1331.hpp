@@ -6,7 +6,6 @@
 #include "hardware/spi.h"
 #include "hardware/dma.h"
 #include "Display.hpp"
-#include "Font.hpp"
 #include <string.h>
 
 namespace display
@@ -68,10 +67,6 @@ namespace display
 
             //! Inherited from the abstract class Display
             bool initialize();
-
-            void putLetter(int ix, int iy, char text, uint16_t color);
-
-            void putString(const char *text, int ix, int iy, uint16_t color);
 
             void update();
 
