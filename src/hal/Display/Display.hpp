@@ -24,7 +24,7 @@ public:
     void drawRect(int x0, int x1, int y0, int y1, uint16_t color);
 
     //! Refreshes the LCD panel by triggering a DMA transfer
-    virtual void refresh(const uint32_t* screen, uint32_t len) = 0;
+    virtual void refresh(const uint32_t* screen, uint32_t len, bool isOverlayShown) = 0;
 
     //! Initializes the screen
     virtual bool initialize() = 0;

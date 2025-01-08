@@ -103,16 +103,18 @@ namespace display
 
     void Display::showOverlay()
     {
-        clear();
+        /*clear();
         if(mCurrentPage == 1)
         {
             putString("VMU page 1", 0, 0, 0xFFFF);
         }else{
             putString("VMU page 2", 0, 0, 0xFFFF);
         }
-        update();
+        update();*/
 
-        sleep_ms(50);
+        //sleep_ms(50);
+
+        memset(oledFB+9216, {0xFF}, 3072); //96x16x2
     }
 
     void Display::notify(uint8_t& message)

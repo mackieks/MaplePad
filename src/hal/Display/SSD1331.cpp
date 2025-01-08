@@ -52,7 +52,7 @@ namespace display
     //! Since the screen array is already being iterated over in this method, it made the most
     //! sense to include that check here.
     //! Do not add anything to this, it needs to be fast to handle the dreamcast screen updates
-    void SSD1331::refresh(const uint32_t* screen, uint32_t len)
+    void SSD1331::refresh(const uint32_t* screen, uint32_t len, bool isOverlayShown)
     {
         uint32_t reversedArr[len];
 
@@ -78,8 +78,15 @@ namespace display
 
         uint8_t colorIndex = mCurrentPage - 1;
 
+        uint8_t byteCount = 192;
+
+        if(isOverlayShown)
+        {
+            byteCount = 161; //substract overlay height
+        }
+
         int x, y, pixel, bb;
-        for (int fb = 0; fb < 192; fb++) {
+        for (int fb = 0; fb < byteCount; fb++) {
             y = (fb / 6) * 2;
             int mod = (fb % 6) * 16;
             for (bb = 0; bb <= 7; bb++) {

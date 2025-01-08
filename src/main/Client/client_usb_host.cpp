@@ -44,9 +44,9 @@ void screenCb(const uint32_t* screen, uint32_t len)
 {
     //len is the number of words in the payload. For this it should be 48 total words, or 192 bytes.
     //The bytes in each word of screen need to be reversed.
-    if(isLcdInitialized && isOverlayHidden)
+    if(isLcdInitialized)
     {
-        lcd->refresh(screen, len);
+        lcd->refresh(screen, len, !isOverlayHidden);
         lastScreen = screen; //save pointer to last screen bytes
         lastLen = len; //save length as well
     }
@@ -102,12 +102,13 @@ void showOverlay() {
     // If the overlay should still be visible, keep it on screen
     if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) < overlayTimer) {
         lcd->showOverlay();
+        //lcd->update();
     }
     // If the overlay duration has expired, stop showing the overlay
     else if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) >= overlayTimer) {
         overlayTimer = 0;  // Reset the overlay duration
         isOverlayHidden = true;
-        lcd->refresh(lastScreen, lastLen);
+        //lcd->refresh(lastScreen, lastLen, !isOverlayHidden);
     }
 }
 
@@ -242,7 +243,7 @@ void core0()
         {
             mem->prevPage(client::DreamcastStorage::MEMORY_SIZE_BYTES);
         }
-        else if(controller->triggerOverlay())
+        else if(controller->triggerOverlay() && isOverlayHidden)
         {
             isOverlayVisible = true;
             isOverlayHidden = false;
