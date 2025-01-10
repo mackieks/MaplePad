@@ -102,33 +102,6 @@ namespace display
         update();
     }
 
-    void SSD1331::showSplash()
-    {
-        gpio_put(DC, 0);
-
-        write(0x15);
-        write(0);
-        write(95);
-        write(0x75);
-        write(0);
-        write(63);
-
-        gpio_put(DC, 1);
-
-        //memcpy(mOledFB, display::image_data_maplepad_logo_9664, sizeof(display::image_data_maplepad_logo_9664));
-
-        if (!(dma_channel_is_busy(mDmaWriteChannel)))
-        {
-            dma_channel_configure(mDmaWriteChannel, &mConfig,
-                                    &spi_get_hw(SSD1331_SPI)->dr,          // write address
-                                    display::image_data_maplepad_logo_9664,         // read address
-                                    sizeof(display::image_data_maplepad_logo_9664), // element count (each element is of size transfer_data_size)
-                                    true);                                 // start
-        }
-
-        // spi_write_blocking(SSD1331_SPI, oledFB, sizeof(oledFB));
-    }
-
     bool SSD1331::initialize()
     {
         //Configure OLED SPI

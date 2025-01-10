@@ -6,7 +6,6 @@
 #include "hardware/dma.h"
 #include "Display.hpp"
 #include <string.h>
-#include "DisplayIcons.hpp"
 
 namespace display
 {
@@ -55,9 +54,6 @@ namespace display
         public:
             //! Default constructor, initializes SSD1331 screen
             SSD1331();
-
-            //! Inherited from the abstract class Display
-            void showSplash();
 
             //! Inherited from the abstract class Display
             void clear();

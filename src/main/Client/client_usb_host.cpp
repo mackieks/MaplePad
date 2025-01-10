@@ -232,8 +232,8 @@ void core0()
             }
             mem->attach(lcd);
             // Show splash after we exit the menu or if we don't enter the menu at all
-            lcd->clear();
-            lcd->showSplash();
+            //lcd->clear();
+            lcd->update();
         }
     }
     // Read flash data here for setting configurations. How should flash data be accessed by the controller?

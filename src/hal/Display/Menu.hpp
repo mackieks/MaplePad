@@ -3,6 +3,7 @@
 #include "Display.hpp"
 #include "pico_configurations.h"
 #include <memory>
+#include "hardware/adc.h"
 
 namespace display
 {
@@ -57,6 +58,8 @@ namespace display
             int enterMainMenu(MenuItem *self);
 
             int enterSettingsMenu(MenuItem *self);
+
+            int enterStickCalibration(MenuItem *self);
 
         private:
             uint8_t mCurrentNumEntries;

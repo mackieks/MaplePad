@@ -11,6 +11,7 @@ target_link_libraries(hal-Display
     hardware_flash
     hardware_dma
     hardware_spi
+    hardware_adc
 )
 target_compile_options(hal-Display PRIVATE
   -Wall
