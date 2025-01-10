@@ -4,6 +4,7 @@
 #include "hal/Display/TransientOverlayObserver.hpp"
 #include <string.h>
 #include "Font.hpp"
+#include "DisplayIcons.hpp"
 
 namespace display
 {
@@ -40,6 +41,9 @@ public:
     //! Returns true if the screen has been initialized, false otherwise
     inline bool isInitialized() { return mIsInitialized; }
 
+    //! Returns true if the overlay has been rendered, false otherwise
+    inline void setIsOverlayRendered(bool isRendered) { mIsOverlayRendered = isRendered; }
+
     void putLetter(int ix, int iy, char text, uint16_t color);
 
     void putString(const char *text, int ix, int iy, uint16_t color);
@@ -62,14 +66,19 @@ public:
     //! Screen data block initialized to blank, 1536 bytes
     uint8_t oledFB[96 * 64 * 2] = {0x00};
 
-    //we're pushing the boundaries of available memory space with this...
-    //uint8_t overlayFB[96 * 10 * 2] = {0x00};
-
     uint8_t mCurrentPage;
 
 protected:
     //! true iff "isInitialized"
     bool mIsInitialized = false;
+
+    bool mIsOverlayRendered = false;
+
+    bool mShowTimer = false;
+
+    bool mShowBatteryInd = true;
+
+    bool mEnableOverlay = true;
 };
 
 }

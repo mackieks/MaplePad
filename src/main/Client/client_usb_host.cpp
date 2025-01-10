@@ -31,14 +31,17 @@
 #include <cassert>
 
 std::shared_ptr<display::Display> lcd;
+
+//These flags are messy, need to clean this up
 volatile bool isLcdInitialized = false;
 volatile bool isOverlayVisible = false;  // Flag to check if overlay should be shown
 volatile bool isOverlayHidden = true;
+volatile bool isOverlayShown = false;
 volatile uint32_t overlayTimer = 0;  // Overlay visibility timer (in milliseconds)
 
 //! Keeps a reference to the last thing displayed onto the LCD so it can be restored after overlay disappears
-const uint32_t* lastScreen;
-uint32_t lastLen;
+//const uint32_t* lastScreen;
+//uint32_t lastLen;
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
@@ -47,8 +50,8 @@ void screenCb(const uint32_t* screen, uint32_t len)
     if(isLcdInitialized)
     {
         lcd->refresh(screen, len, !isOverlayHidden);
-        lastScreen = screen; //save pointer to last screen bytes
-        lastLen = len; //save length as well
+        //lastScreen = screen; //save pointer to last screen bytes
+        //lastLen = len; //save length as well
     }
 }
 
@@ -102,13 +105,18 @@ void showOverlay() {
     // If the overlay should still be visible, keep it on screen
     if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) < overlayTimer) {
         lcd->showOverlay();
-        //lcd->update();
+        if(!isOverlayShown)
+        {
+            lcd->update();
+        }
+        isOverlayShown = true;
     }
     // If the overlay duration has expired, stop showing the overlay
     else if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) >= overlayTimer) {
         overlayTimer = 0;  // Reset the overlay duration
         isOverlayHidden = true;
-        //lcd->refresh(lastScreen, lastLen, !isOverlayHidden);
+        isOverlayShown = false;
+        lcd->setIsOverlayRendered(false);
     }
 }
 

@@ -82,7 +82,7 @@ namespace display
 
         if(isOverlayShown)
         {
-            byteCount = 161; //substract overlay height
+            byteCount = 140; //substract overlay height
         }
 
         int x, y, pixel, bb;

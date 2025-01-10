@@ -101,20 +101,47 @@ namespace display
         }
     }
 
+    //text = "2   00:00  21%"; 14 chars
     void Display::showOverlay()
     {
-        /*clear();
-        if(mCurrentPage == 1)
+        if (mIsOverlayRendered)
         {
-            putString("VMU page 1", 0, 0, 0xFFFF);
-        }else{
-            putString("VMU page 2", 0, 0, 0xFFFF);
+            return;  // Skip if the overlay is already rendered
         }
-        update();*/
 
-        //sleep_ms(50);
+        memset(oledFB+9216, {0x00}, 3072); //96x16x2
+        
+        char pageText[4];       // Buffer for page number ("1", "2", "3", .. "8")
+        char timeText[9];       // Buffer for time ("00:00")
+        char batteryText[6];    // Buffer for battery percentage ("21%")
 
-        memset(oledFB+9216, {0xFF}, 3072); //96x16x2
+        // Format the page number dynamically (1 or 2)
+        sprintf(pageText, "%d", mCurrentPage);
+
+        if(mShowTimer)
+        {
+            sprintf(timeText, "00:00");  // hardcoded for now, replace with variable update via observer
+        }
+        else
+        {
+            sprintf(timeText, "     ");
+        }
+
+        if(mShowBatteryInd)
+        {
+            sprintf(batteryText, "100%%");  // hardcoded for now, replace with variable update via observer
+        }
+        else
+        {
+            sprintf(batteryText, "    ");
+        }
+
+        char finalText[20];  // Buffer to hold the final text
+        snprintf(finalText, sizeof(finalText), "%-3s %-5s %-4s", pageText, timeText, batteryText);
+
+        putString(finalText, 0, 0, 0xFFFF);
+
+        mIsOverlayRendered = true;
     }
 
     void Display::notify(uint8_t& message)

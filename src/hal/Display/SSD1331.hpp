@@ -1,12 +1,12 @@
 #pragma once
 
-#include "DisplayIcons.hpp"
 #include "pico/stdlib.h"
 #include "pico/binary_info.h"
 #include "hardware/spi.h"
 #include "hardware/dma.h"
 #include "Display.hpp"
 #include <string.h>
+#include "DisplayIcons.hpp"
 
 namespace display
 {
