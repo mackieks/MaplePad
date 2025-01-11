@@ -125,6 +125,11 @@ std::shared_ptr<NonVolatilePicoSystemMemory> mem = std::make_shared<NonVolatileP
         PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES, //(2*1024*1024)=2097152-131072 = 1,966,080
         client::DreamcastStorage::MEMORY_SIZE_BYTES); //131,072;
 
+/*std::shared_ptr<NonVolatilePicoSystemMemory> flashData =
+        std::make_shared<NonVolatilePicoSystemMemory>(
+            PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES * 9, //Need to offset by the vmu size so we don't have collisions
+            client::DreamcastStorage::FLASHDATA_SIZE_BYTES); //64*/
+
 // Second Core Process
 void core1()
 {
@@ -212,11 +217,7 @@ void core0()
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
 
     //TODO uncomment once ready to work on persisting settings
-    /*std::shared_ptr<NonVolatilePicoSystemMemory> flashData =
-        std::make_shared<NonVolatilePicoSystemMemory>(
-            PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES * 9, //Need to offset by the vmu size so we don't have collisions
-            client::DreamcastStorage::FLASHDATA_SIZE_BYTES); //64
-            */
+    
 
     if(lcd != nullptr)
     {
@@ -227,8 +228,9 @@ void core0()
             if(controller->triggerMenu())
             {
                 // Pass volatile memory pointer to flash data
-                display::Menu menu(lcd);
-                menu.run();
+                display::Menu* menu = new display::Menu(lcd);
+                menu->run();
+                delete menu;
             }
             mem->attach(lcd);
             // Show splash after we exit the menu or if we don't enter the menu at all

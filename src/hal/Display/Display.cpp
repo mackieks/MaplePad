@@ -81,7 +81,7 @@ namespace display
     void Display::putLetter(int ix, int iy, char text, uint16_t color)
     {
         Font font;
-        uint8_t *a = font.getFontImage(text)->data;         // row of character data
+        const uint8_t *a = font.getFontImage(text)->data;         // row of character data
 
         for (int i = 0; i <= 9; i++) {
             for (int j = 2; j <= 7; j++) { // iterate through bits in row of character
