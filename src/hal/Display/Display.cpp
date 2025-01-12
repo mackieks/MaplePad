@@ -78,10 +78,11 @@ namespace display
         }
     }
 
-    void Display::putLetter(int ix, int iy, char text, uint16_t color)
+    void Display::putLetter(int ix, int iy, int index, uint16_t color)
     {
-        Font font;
-        const uint8_t *a = font.getFontImage(text)->data;         // row of character data
+        tChar y = Font_array[index]; // select character from 0 - 54
+        tImage z = y.image;         // data array from tImage "Font_0x79"
+        const uint8_t *a = z.data;         // row of character data
 
         for (int i = 0; i <= 9; i++) {
             for (int j = 2; j <= 7; j++) { // iterate through bits in row of character
@@ -97,7 +98,323 @@ namespace display
     {
         for (int i = 0; text[i] != '\0'; i++)
         {
-            putLetter(ix + i, iy, text[i], color);
+            switch (text[i])
+            {
+                case ' ':
+                    putLetter(ix + i, iy, 0, color);
+                break;
+
+                case '-':
+                    putLetter(ix + i, iy, 1, color);
+                break;
+
+                case '.':
+                    putLetter(ix + i, iy, 2, color);
+                break;
+
+                case 'A':
+                    putLetter(ix + i, iy, 3, color);
+                break;
+
+                case 'B':
+                    putLetter(ix + i, iy, 4, color);
+                break;
+
+                case 'C':
+                    putLetter(ix + i, iy, 5, color);
+                break;
+
+                case 'D':
+                    putLetter(ix + i, iy, 6, color);
+                break;
+
+                case 'E':
+                    putLetter(ix + i, iy, 7, color);
+                break;
+
+                case 'F':
+                    putLetter(ix + i, iy, 8, color);
+                break;
+
+                case 'G':
+                    putLetter(ix + i, iy, 9, color);
+                break;
+
+                case 'H':
+                    putLetter(ix + i, iy, 10, color);
+                break;
+
+                case 'I':
+                    putLetter(ix + i, iy, 11, color);
+                break;
+
+                case 'J':
+                    putLetter(ix + i, iy, 12, color);
+                break;
+
+                case 'K':
+                    putLetter(ix + i, iy, 13, color);
+                break;
+
+                case 'L':
+                    putLetter(ix + i, iy, 14, color);
+                break;
+
+                case 'M':
+                    putLetter(ix + i, iy, 15, color);
+                break;
+
+                case 'N':
+                    putLetter(ix + i, iy, 16, color);
+                break;
+
+                case 'O':
+                    putLetter(ix + i, iy, 17, color);
+                break;
+
+                case 'P':
+                    putLetter(ix + i, iy, 18, color);
+                break;
+
+                case 'Q':
+                    putLetter(ix + i, iy, 19, color);
+                break;
+
+                case 'R':
+                    putLetter(ix + i, iy, 20, color);
+                break;
+
+                case 'S':
+                    putLetter(ix + i, iy, 21, color);
+                break;
+
+                case 'T':
+                    putLetter(ix + i, iy, 22, color);
+                break;
+
+                case 'U':
+                    putLetter(ix + i, iy, 23, color);
+                break;
+
+                case 'V':
+                    putLetter(ix + i, iy, 24, color);
+                break;
+
+                case 'W':
+                    putLetter(ix + i, iy, 25, color);
+                break;
+
+                case 'X':
+                    putLetter(ix + i, iy, 26, color);
+                break;
+
+                case 'Y':
+                    putLetter(ix + i, iy, 27, color);
+                break;
+
+                case 'Z':
+                    putLetter(ix + i, iy, 28, color);
+                break;
+
+                case 'a':
+                    putLetter(ix + i, iy, 29, color);
+                break;
+
+                case 'b':
+                    putLetter(ix + i, iy, 30, color);
+                break;
+
+                case 'c':
+                    putLetter(ix + i, iy, 31, color);
+                break;
+
+                case 'd':
+                    putLetter(ix + i, iy, 32, color);
+                break;
+
+                case 'e':
+                    putLetter(ix + i, iy, 33, color);
+                break;
+
+                case 'f':
+                    putLetter(ix + i, iy, 34, color);
+                break;
+
+                case 'g':
+                    putLetter(ix + i, iy, 35, color);
+                break;
+
+                case 'h':
+                    putLetter(ix + i, iy, 36, color);
+                break;
+
+                case 'i':
+                    putLetter(ix + i, iy, 37, color);
+                break;
+
+                case 'j':
+                    putLetter(ix + i, iy, 38, color);
+                break;
+
+                case 'k':
+                    putLetter(ix + i, iy, 39, color);
+                break;
+
+                case 'l':
+                    putLetter(ix + i, iy, 40, color);
+                break;
+
+                case 'm':
+                    putLetter(ix + i, iy, 41, color);
+                break;
+
+                case 'n':
+                    putLetter(ix + i, iy, 42, color);
+                break;
+
+                case 'o':
+                    putLetter(ix + i, iy, 43, color);
+                break;
+
+                case 'p':
+                    putLetter(ix + i, iy, 44, color);
+                break;
+
+                case 'q':
+                    putLetter(ix + i, iy, 45, color);
+                break;
+
+                case 'r':
+                    putLetter(ix + i, iy, 46, color);
+                break;
+
+                case 's':
+                    putLetter(ix + i, iy, 47, color);
+                break;
+
+                case 't':
+                    putLetter(ix + i, iy, 48, color);
+                break;
+
+                case 'u':
+                    putLetter(ix + i, iy, 49, color);
+                break;
+
+                case 'v':
+                    putLetter(ix + i, iy, 50, color);
+                break;
+
+                case 'w':
+                    putLetter(ix + i, iy, 51, color);
+                break;
+
+                case 'x':
+                    putLetter(ix + i, iy, 52, color);
+                break;
+
+                case 'y':
+                    putLetter(ix + i, iy, 53, color);
+                break;
+
+                case 'z':
+                    putLetter(ix + i, iy, 54, color);
+                break;
+
+                case '!':
+                    putLetter(ix + i, iy, 55, color);
+                break;
+
+                case '#':
+                    putLetter(ix + i, iy, 56, color);
+                break;
+
+                case '%':
+                    putLetter(ix + i, iy, 57, color);
+                break;
+
+                case '&':
+                    putLetter(ix + i, iy, 58, color);
+                break;
+
+                case '\'':
+                    putLetter(ix + i, iy, 59, color);
+                break;
+
+                case '(':
+                    putLetter(ix + i, iy, 60, color);
+                break;
+
+                case ')':
+                    putLetter(ix + i, iy, 61, color);
+                break;
+
+                case '*':
+                    putLetter(ix + i, iy, 62, color);
+                break;
+
+                case '+':
+                    putLetter(ix + i, iy, 63, color);
+                break;
+
+                case ',':
+                    putLetter(ix + i, iy, 64, color);
+                break;
+
+                case '0':
+                    putLetter(ix + i, iy, 65, color);
+                break;
+
+                case '1':
+                    putLetter(ix + i, iy, 66, color);
+                break;
+
+                case '2':
+                    putLetter(ix + i, iy, 67, color);
+                break;
+
+                case '3':
+                    putLetter(ix + i, iy, 68, color);
+                break;
+
+                case '4':
+                    putLetter(ix + i, iy, 69, color);
+                break;
+
+                case '5':
+                    putLetter(ix + i, iy, 70, color);
+                break;
+
+                case '6':
+                    putLetter(ix + i, iy, 71, color);
+                break;
+
+                case '7':
+                    putLetter(ix + i, iy, 72, color);
+                break;
+
+                case '8':
+                    putLetter(ix + i, iy, 73, color);
+                break;
+
+                case '9':
+                    putLetter(ix + i, iy, 74, color);
+                break;
+
+                case ':':
+                    putLetter(ix + i, iy, 75, color);
+                break;
+
+                case ';':
+                    putLetter(ix + i, iy, 76, color);
+                break;
+
+                case '=':
+                    putLetter(ix + i, iy, 77, color);
+                break;
+
+                default:
+                break;
+            }
         }
     }
 

@@ -228,9 +228,30 @@ namespace display
         return index;
     }
 
+    bool Menu::updateMenuCallback(repeating_timer *t)
+    {
+        if(mRedraw)
+        {
+           updateMenu(mOffset); 
+        }
+
+        return true;
+    }
+
+    // Static wrapper to call the non-static updateMenuCallback
+    bool Menu::updateMenuCallbackWrapper(repeating_timer *t)
+    {
+        // Get the Menu instance from the user_data field
+        Menu* menuInstance = static_cast<Menu*>(t->user_data);
+        return menuInstance->updateMenuCallback(t);
+    }
+
     void Menu::run()
     {
         int selectedEntry, firstVisibleEntry, lastVisibleEntry = 0;
+
+        // negative interval means the callback func is called every 10ms regardless of how long callback takes to execute
+        add_repeating_timer_ms(-10, updateMenuCallbackWrapper, this, &mRedrawTimer);
 
         while(1)
         {
@@ -287,9 +308,11 @@ namespace display
                 }
             }
 
-            updateMenu(mOffset);
+            //updateMenu(mOffset);
 
-            sleep_ms(75);
+            //sleep_ms(75);
         }
+
+        cancel_repeating_timer(&mRedrawTimer);
     }
 }

@@ -33,7 +33,7 @@ void NonVolatilePicoSystemMemory::nextPage(uint32_t size)
 {
     ++mCurrentPage;
 
-    // Once max pages reached, cycled back to beginning
+    // Once max pages reached, cycle back to beginning
     if(mCurrentPage > MAX_NUM_PAGES)
     {
         mCurrentPage = MIN_NUM_PAGES;
@@ -46,7 +46,7 @@ void NonVolatilePicoSystemMemory::prevPage(uint32_t size)
 {
     --mCurrentPage;
 
-    // Once max pages reached, cycled back to beginning
+    // Once min pages reached, cycle back to end
     if(mCurrentPage < MIN_NUM_PAGES)
     {
         mCurrentPage = MAX_NUM_PAGES;
