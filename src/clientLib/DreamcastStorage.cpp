@@ -15,7 +15,7 @@ client::DreamcastStorage::DreamcastStorage(std::shared_ptr<SystemMemory> systemM
     mDataBlock{}
 {}
 
-const uint8_t* client::DreamcastStorage::readBlock(uint16_t blockNum)
+const uint8_t* __no_inline_not_in_flash_func(client::DreamcastStorage::readBlock)(uint16_t blockNum)
 {
     uint32_t size = BYTES_PER_BLOCK;
     const uint8_t* mem = nullptr;
@@ -33,7 +33,7 @@ const uint8_t* client::DreamcastStorage::readBlock(uint16_t blockNum)
     return mem;
 }
 
-bool client::DreamcastStorage::writeBlock(uint16_t blockNum, void* data)
+bool __no_inline_not_in_flash_func(client::DreamcastStorage::writeBlock)(uint16_t blockNum, void* data)
 {
     uint32_t size = BYTES_PER_BLOCK;
     if (blockNum == (SYSTEM_BLOCK_NO - NUM_SYSTEM_BLOCKS + 1))
@@ -50,7 +50,7 @@ bool client::DreamcastStorage::writeBlock(uint16_t blockNum, void* data)
     return mSystemMemory->write(mMemoryOffset + (blockNum * BYTES_PER_BLOCK), data, size);
 }
 
-void client::DreamcastStorage::setDefaultMediaInfo(uint32_t* out, uint8_t infoOffset, uint8_t infoLen)
+void __no_inline_not_in_flash_func(client::DreamcastStorage::setDefaultMediaInfo)(uint32_t* out, uint8_t infoOffset, uint8_t infoLen)
 {
     static const uint32_t executionFile = 0x00008000;
     static const uint32_t mediaInfo[6] = {
@@ -64,7 +64,7 @@ void client::DreamcastStorage::setDefaultMediaInfo(uint32_t* out, uint8_t infoOf
     memcpy(out, mediaInfo + infoOffset, infoLen * sizeof(mediaInfo[0]));
 }
 
-void client::DreamcastStorage::setDefaultMediaInfoFlipped(uint32_t* out, uint8_t infoOffset, uint8_t infoLen)
+void __no_inline_not_in_flash_func(client::DreamcastStorage::setDefaultMediaInfoFlipped)(uint32_t* out, uint8_t infoOffset, uint8_t infoLen)
 {
     setDefaultMediaInfo(out, infoOffset, infoLen);
     while (infoLen-- > 0)
@@ -154,7 +154,7 @@ bool client::DreamcastStorage::format()
     return true;
 }
 
-bool client::DreamcastStorage::handlePacket(const MaplePacket& in, MaplePacket& out)
+bool __no_inline_not_in_flash_func(client::DreamcastStorage::handlePacket)(const MaplePacket& in, MaplePacket& out)
 {
     const uint8_t cmd = in.frame.command;
     switch (cmd)
@@ -305,7 +305,7 @@ bool client::DreamcastStorage::handlePacket(const MaplePacket& in, MaplePacket& 
 void client::DreamcastStorage::reset()
 {}
 
-uint32_t client::DreamcastStorage::getFunctionDefinition()
+uint32_t __no_inline_not_in_flash_func(client::DreamcastStorage::getFunctionDefinition)(void)
 {
     return (
         (IS_REMOVABLE ? 0x00000080 : 0)
@@ -317,7 +317,7 @@ uint32_t client::DreamcastStorage::getFunctionDefinition()
     );
 }
 
-void client::DreamcastStorage::setFatAddr(uint32_t*& fatBlock, bool& lower, uint16_t value)
+void __no_inline_not_in_flash_func(client::DreamcastStorage::setFatAddr)(uint32_t*& fatBlock, bool& lower, uint16_t value)
 {
     if (lower)
     {
@@ -329,29 +329,4 @@ void client::DreamcastStorage::setFatAddr(uint32_t*& fatBlock, bool& lower, uint
         --fatBlock;
     }
     lower = !lower;
-}
-
-uint8_t client::DreamcastStorage::updateCurrentPage(uint8_t page)
-{
-    if(page > 8)
-    {
-        mCurrentPage = 8;
-    }
-    else if(page < 1)
-    {
-        mCurrentPage = 1;
-    }
-    else
-    {
-        mCurrentPage = page;
-    }
-
-    //notify observers here
-
-    return mCurrentPage;
-}
-
-void client::DreamcastStorage::updateSystemMemory(std::shared_ptr<SystemMemory> systemMemory)
-{
-    mSystemMemory = systemMemory;
 }

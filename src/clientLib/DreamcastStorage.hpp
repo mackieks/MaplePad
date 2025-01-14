@@ -6,6 +6,8 @@
 
 #include "hal/System/SystemMemory.hpp"
 
+#include "pico/platform.h"
+
 #include <memory>
 #include <string.h>
 
@@ -37,10 +39,6 @@ public:
 
   //! @returns the function definition for this peripheral function
   virtual uint32_t getFunctionDefinition() final;
-
-  uint8_t updateCurrentPage(uint8_t page);
-
-  void updateSystemMemory(std::shared_ptr<SystemMemory> systemMemory);
 
 private:
     //! Sets 16-bit address value into FAT area and decrements pointer, when necessary

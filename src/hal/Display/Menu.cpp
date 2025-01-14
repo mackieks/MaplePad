@@ -4,14 +4,9 @@ namespace display
 {
 
     Menu::Menu(std::shared_ptr<Display> lcd) :
-        mCurrentNumEntries(sizeof(mainMenu) / sizeof(MenuItem)),
-        mCurrentMenu(mainMenu),
         mDisplay(lcd)
     {
-        //buildMainMenu();
-        mainMenu[1].runOption = &Menu::enterStickCalibration;
-        mainMenu[4].runOption = &Menu::enterSettingsMenu;
-        mainMenu[5].runOption = &Menu::exitToPad;
+        enterMainMenu(NULL);
     }
 
     int Menu::exitToPad(MenuItem *self)
@@ -19,12 +14,57 @@ namespace display
         return 0;
     }
 
+    int Menu::enterMainMenu(MenuItem *self)
+    {
+        mainMenu[1].runOption = &Menu::enterStickConfigMenu;
+        mainMenu[2].runOption = &Menu::enterTriggerConfigMenu;
+        mainMenu[4].runOption = &Menu::enterSettingsMenu;
+        mainMenu[5].runOption = &Menu::exitToPad;
+
+        mCurrentMenu = mainMenu;
+        mCurrentNumEntries = sizeof(mainMenu) / sizeof(MenuItem);
+        mOffset = mPrevOffset;
+        return 1;
+    }
+
     int Menu::enterSettingsMenu(MenuItem *self)
     {
         settingsMenu[0].runOption = &Menu::enterMainMenu;
+        settingsMenu[6].runOption = &Menu::toggleOption;
 
         mCurrentMenu = settingsMenu;
         mCurrentNumEntries = sizeof(settingsMenu) / sizeof(MenuItem);
+        mPrevOffset = mOffset;
+        mOffset = 0;
+        return 1;
+    }
+
+    int Menu::enterStickConfigMenu(MenuItem *self)
+    {
+        stickConfigMenu[0].runOption = &Menu::enterMainMenu;
+        stickConfigMenu[1].runOption = &Menu::enterStickCalibration;
+        stickConfigMenu[2].runOption = &Menu::enterStickDeadzoneConfig;
+        stickConfigMenu[3].runOption = &Menu::toggleOption;
+        stickConfigMenu[4].runOption = &Menu::toggleOption;
+        stickConfigMenu[5].runOption = &Menu::toggleOption;
+
+        mCurrentMenu = stickConfigMenu;
+        mCurrentNumEntries = sizeof(stickConfigMenu) / sizeof(MenuItem);
+        mPrevOffset = mOffset;
+        mOffset = 0;
+        return 1;
+    }
+
+    int Menu::enterTriggerConfigMenu(MenuItem *self)
+    {
+        triggerConfigMenu[0].runOption = &Menu::enterMainMenu;
+        //stickConfigMenu[1].runOption = &Menu::enterStickCalibration;
+        triggerConfigMenu[3].runOption = &Menu::toggleOption;
+        triggerConfigMenu[4].runOption = &Menu::toggleOption;
+        triggerConfigMenu[5].runOption = &Menu::toggleOption;
+
+        mCurrentMenu = triggerConfigMenu;
+        mCurrentNumEntries = sizeof(triggerConfigMenu) / sizeof(MenuItem);
         mPrevOffset = mOffset;
         mOffset = 0;
         return 1;
@@ -106,11 +146,146 @@ namespace display
         return 1;
     }
 
-    int Menu::enterMainMenu(MenuItem *self)
+    int Menu::enterStickDeadzoneConfig(MenuItem *self)
     {
-        mCurrentMenu = mainMenu;
-        mCurrentNumEntries = sizeof(mainMenu) / sizeof(MenuItem);
-        mOffset = mPrevOffset;
+        mRedraw = false;
+
+        uint16_t color = 0xFFFF;
+        char sdata[5] = {0};
+
+        while(!gpio_get(ButtonInfos[0].pin));
+
+        uint8_t xDeadzone = 0;
+        uint8_t xAntiDeadzone = 0;
+        uint8_t yDeadzone = 0;
+        uint8_t yAntiDeadzone = 0;
+
+        while (gpio_get(ButtonInfos[0].pin))
+        {
+            mDisplay->clear();
+            mDisplay->putString("X Deadzone", 0, 0, color);
+            sprintf(sdata, "0x%02x", xDeadzone);
+            mDisplay->putString(sdata, 3, 2, color);
+            mDisplay->update();
+
+            xDeadzone = setDeadzone(xDeadzone);
+
+            sleep_ms(60);
+        }
+
+        while(!gpio_get(ButtonInfos[0].pin));
+
+        while (gpio_get(ButtonInfos[0].pin))
+        {
+            mDisplay->clear();
+            mDisplay->putString("X", 5, 0, color);
+            mDisplay->putString("AntiDeadzone", 0, 1, color);
+            sprintf(sdata, "0x%02x", xAntiDeadzone);
+            mDisplay->putString(sdata, 3, 3, color);
+            mDisplay->update();
+
+            xAntiDeadzone = setDeadzone(xAntiDeadzone);
+
+            sleep_ms(60);
+        }
+
+        while(!gpio_get(ButtonInfos[0].pin));
+
+        while (gpio_get(ButtonInfos[0].pin))
+        {
+            mDisplay->clear();
+            mDisplay->putString("Y Deadzone", 0, 0, color);
+            sprintf(sdata, "0x%02x", yDeadzone);
+            mDisplay->putString(sdata, 3, 2, color);
+            mDisplay->update();
+
+            yDeadzone = setDeadzone(yDeadzone);
+
+            sleep_ms(60);
+        }
+
+        while(!gpio_get(ButtonInfos[0].pin));
+
+        while (gpio_get(ButtonInfos[0].pin))
+        {
+            mDisplay->clear();
+            mDisplay->putString("Y", 5, 0, color);
+            mDisplay->putString("AntiDeadzone", 0, 1, color);
+            sprintf(sdata, "0x%02x", yAntiDeadzone);
+            mDisplay->putString(sdata, 3, 3, color);
+            mDisplay->update();
+
+            yAntiDeadzone = setDeadzone(yAntiDeadzone);
+
+            sleep_ms(60);
+        }
+
+        //updateFlashData();
+
+        mDisplay->clear();
+        
+        mRedraw = true;
+
+        return 1;
+    }
+
+    int Menu::setDeadzone(int deadzone)
+    {
+        int newDeadzone = 0;
+
+        if (!gpio_get(ButtonInfos[4].pin))
+        {
+            if (deadzone < 128)
+                newDeadzone = deadzone + 1;
+        }
+        else if (!gpio_get(ButtonInfos[5].pin))
+        {
+            if (deadzone > 0)
+                newDeadzone = deadzone - 1;
+        }
+        else if (!gpio_get(ButtonInfos[6].pin))
+        {
+            if (deadzone > 7)
+                newDeadzone = deadzone - 8;
+        }
+        else if (!gpio_get(ButtonInfos[7].pin))
+        {
+            if (deadzone < 121)
+                newDeadzone = deadzone + 8;
+        }
+
+        return newDeadzone;
+    }
+
+    int Menu::toggleOption(MenuItem *self)
+    {
+        if (!strcmp(self->name, "OLED Flip     "))
+        {
+            if ((to_ms_since_boot(get_absolute_time()) - mFlipLockout) > 500)
+            {
+
+                if (self->type == entry_type::TOGGLE)
+                {
+                    self->isToggledOn = !(self->isToggledOn);
+                }
+
+                mFlipLockout = to_ms_since_boot(get_absolute_time());
+
+                /*updateFlags();
+                updateFlashData();
+
+                if(oledType)
+                    ssd1331_init();
+                else ssd1306_init();*/
+                sleep_ms(100);
+            }
+        } else {
+            if (self->type == entry_type::TOGGLE)
+            {
+                self->isToggledOn = !(self->isToggledOn);
+            }
+        }
+
         return 1;
     }
 
@@ -122,6 +297,10 @@ namespace display
             if(mCurrentMenu[n].isVisible)
             {
                 mDisplay->putString(mCurrentMenu[n].name, 0, n + offset, 0xFFFF);
+                if(mCurrentMenu[n].type == entry_type::TOGGLE)
+                {
+                    mDisplay->drawToggle(n + offset, 0xFFFF, mCurrentMenu[n].isToggledOn);
+                }
             }
         }
         mDisplay->drawCursor(getSelectedEntry() + offset, 0xFFFF);
@@ -228,34 +407,18 @@ namespace display
         return index;
     }
 
-    bool Menu::updateMenuCallback(repeating_timer *t)
-    {
-        if(mRedraw)
-        {
-           updateMenu(mOffset); 
-        }
-
-        return true;
-    }
-
-    // Static wrapper to call the non-static updateMenuCallback
-    bool Menu::updateMenuCallbackWrapper(repeating_timer *t)
-    {
-        // Get the Menu instance from the user_data field
-        Menu* menuInstance = static_cast<Menu*>(t->user_data);
-        return menuInstance->updateMenuCallback(t);
-    }
-
     void Menu::run()
     {
         int selectedEntry, firstVisibleEntry, lastVisibleEntry = 0;
 
-        // negative interval means the callback func is called every 10ms regardless of how long callback takes to execute
-        add_repeating_timer_ms(-10, updateMenuCallbackWrapper, this, &mRedrawTimer);
-
         while(1)
         {
             selectedEntry = getSelectedEntry();
+
+            // Wait for A button release (submenu rate-limit)
+            while (!gpio_get(CTRL_PIN_A));
+
+            sleep_ms(75); // Wait out switch bounce + rate-limiting
 
             if (!gpio_get(CTRL_PIN_DU)) //up
             {
@@ -308,11 +471,10 @@ namespace display
                 }
             }
 
-            //updateMenu(mOffset);
-
-            //sleep_ms(75);
+            if(mRedraw)
+            {
+                updateMenu(mOffset);
+            }
         }
-
-        cancel_repeating_timer(&mRedrawTimer);
     }
 }

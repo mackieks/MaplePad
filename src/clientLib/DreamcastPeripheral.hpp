@@ -7,6 +7,8 @@
 #include "hal/MapleBus/MapleBusInterface.hpp"
 #include "DreamcastPeripheralFunction.hpp"
 
+#include "pico/platform.h"
+
 namespace client
 {
 

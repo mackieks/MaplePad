@@ -29,7 +29,60 @@ namespace display
         setPixel(89, 55 - (12 * iy), color);
     }
 
-    void Display::setPixel(uint8_t x, uint8_t y, uint16_t color)
+    void Display::drawToggle(int iy, uint16_t color, bool on)
+    {
+        if (on)
+        {
+            for (int i = 20; i >= 3; i--)
+            {
+                for (int j = 58; j >= 52; j--)
+                {
+                    if (!((i >= 4 && i <= 8) && (j >= 53 && j <= 57)))
+                    {
+                        setPixel(i, j - (12 * iy), color);
+                    }
+                }
+            }
+            setPixel(20, 58 - (12 * iy), 0x0000);
+            setPixel(20, 57 - (12 * iy), 0x0000);
+            setPixel(20, 53 - (12 * iy), 0x0000);
+            setPixel(20, 52 - (12 * iy), 0x0000);
+            setPixel(19, 58 - (12 * iy), 0x0000);
+            setPixel(19, 52 - (12 * iy), 0x0000);
+
+            setPixel(3, 58 - (12 * iy), 0x0000);
+            setPixel(3, 57 - (12 * iy), 0x0000);
+            setPixel(3, 53 - (12 * iy), 0x0000);
+            setPixel(3, 52 - (12 * iy), 0x0000);
+            setPixel(4, 58 - (12 * iy), 0x0000);
+            setPixel(4, 52 - (12 * iy), 0x0000);
+
+            setPixel(4, 57 - (12 * iy), color);
+            setPixel(8, 57 - (12 * iy), color);
+            setPixel(8, 53 - (12 * iy), color);
+            setPixel(4, 53 - (12 * iy), color);
+        } else {
+            for (int i = 18; i >= 5; i--)
+            {
+                setPixel(i, 58 - (12 * iy), color);
+                setPixel(i, 52 - (12 * iy), color);
+            }
+            for (int j = 56; j >= 54; j--)
+            {
+                setPixel(3, j - (12 * iy), color);
+                setPixel(14, j - (12 * iy), color);
+                setPixel(20, j - (12 * iy), color);
+            }
+            setPixel(4, 57 - (12 * iy), color);
+            setPixel(4, 53 - (12 * iy), color);
+            setPixel(15, 57 - (12 * iy), color);
+            setPixel(15, 53 - (12 * iy), color);
+            setPixel(19, 57 - (12 * iy), color);
+            setPixel(19, 53 - (12 * iy), color);
+        }
+    }
+
+    void __no_inline_not_in_flash_func(Display::setPixel)(uint8_t x, uint8_t y, uint16_t color)
     {
         memset(&oledFB[(y * 192) + (x * 2)], color >> 8, sizeof(uint8_t));
         memset(&oledFB[(y * 192) + (x * 2) + 1], color & 0xff, sizeof(uint8_t));

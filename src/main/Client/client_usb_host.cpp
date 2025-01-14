@@ -126,7 +126,7 @@ std::shared_ptr<NonVolatilePicoSystemMemory> mem = std::make_shared<NonVolatileP
         client::DreamcastStorage::MEMORY_SIZE_BYTES); //131,072;
 
 // Second Core Process
-void core1()
+void __no_inline_not_in_flash_func(core1)(void)
 {
     set_sys_clock_khz(CPU_FREQ_KHZ, true);
 
@@ -142,7 +142,7 @@ void core1()
 }
 
 // First Core Process
-void core0()
+void __no_inline_not_in_flash_func(core0)(void)
 {
     set_sys_clock_khz(CPU_FREQ_KHZ, true);
 
@@ -163,6 +163,33 @@ void core0()
         std::make_shared<client::DreamcastController>();
     mainPeripheral.addFunction(controller);
 
+    std::shared_ptr<NonVolatilePicoSystemMemory> flashData =
+        std::make_shared<NonVolatilePicoSystemMemory>(
+            PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES * 9, //Need to offset by the vmu size so we don't have collisions
+            client::DreamcastStorage::FLASHDATA_SIZE_BYTES); //64
+
+    if(lcd != nullptr)
+    {
+        isLcdInitialized = lcd->initialize();
+    
+        if(isLcdInitialized)
+        {
+            if(controller->triggerMenu())
+            {
+                // Pass volatile memory pointer to flash data
+                display::Menu* menu = new display::Menu(lcd);
+                menu->run();
+                delete menu;
+            }
+            // Show splash after we exit the menu or if we don't enter the menu at all
+            //lcd->clear();
+            mem->attach(lcd);
+            lcd->update();
+        }
+    }
+    // Read flash data here for setting configurations. How should flash data be accessed by the controller?
+    // Possibly via a controller update function?
+
     // First sub peripheral (address of 0x01) with 1 function: memory
     std::shared_ptr<client::DreamcastPeripheral> subPeripheral1 =
         std::make_shared<client::DreamcastPeripheral>(
@@ -180,9 +207,6 @@ void core0()
     //TODO add logic to check firmware version, format memory, and store it here
     //Format makes a call to store to flash so processing memory not necessary
     //dreamcastStorage->format();
-    
-    //Always start up on the first page
-    //dreamcastStorage->updateSystemMemory(getMemoryBlockByPage(dreamcastStorage->updateCurrentPage(1)));
 
     std::shared_ptr<client::DreamcastScreen> dreamcastScreen =
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
@@ -212,33 +236,6 @@ void core0()
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
 
     //TODO uncomment once ready to work on persisting settings
-    
-    std::shared_ptr<NonVolatilePicoSystemMemory> flashData =
-            std::make_shared<NonVolatilePicoSystemMemory>(
-                PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES * 9, //Need to offset by the vmu size so we don't have collisions
-                client::DreamcastStorage::FLASHDATA_SIZE_BYTES); //64
-                
-    if(lcd != nullptr)
-    {
-        isLcdInitialized = lcd->initialize();
-    
-        if(isLcdInitialized)
-        {
-            if(controller->triggerMenu())
-            {
-                // Pass volatile memory pointer to flash data
-                display::Menu* menu = new display::Menu(lcd);
-                menu->run();
-                delete menu;
-            }
-            mem->attach(lcd);
-            // Show splash after we exit the menu or if we don't enter the menu at all
-            //lcd->clear();
-            lcd->update();
-        }
-    }
-    // Read flash data here for setting configurations. How should flash data be accessed by the controller?
-    // Possibly via a controller update function?
 
     multicore_launch_core1(core1);
 

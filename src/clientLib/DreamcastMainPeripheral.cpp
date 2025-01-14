@@ -96,7 +96,7 @@ bool DreamcastMainPeripheral::removeSubPeripheral(uint8_t addr)
     return removed;
 }
 
-bool DreamcastMainPeripheral::handlePacket(const MaplePacket& in, MaplePacket& out)
+bool __no_inline_not_in_flash_func(DreamcastMainPeripheral::handlePacket)(const MaplePacket& in, MaplePacket& out)
 {
     uint8_t playerIdx = (in.frame.senderAddr & PLAYER_ID_ADDR_MASK) >> PLAYER_ID_BIT_SHIFT;
     setPlayerIndex(playerIdx);
@@ -104,7 +104,7 @@ bool DreamcastMainPeripheral::handlePacket(const MaplePacket& in, MaplePacket& o
     return DreamcastPeripheral::handlePacket(in, out);
 }
 
-bool DreamcastMainPeripheral::dispensePacket(const MaplePacket& in, MaplePacket& out)
+bool __no_inline_not_in_flash_func(DreamcastMainPeripheral::dispensePacket)(const MaplePacket& in, MaplePacket& out)
 {
     bool handled = false;
     bool valid = false;
@@ -194,7 +194,7 @@ void DreamcastMainPeripheral::setPlayerIndex(uint8_t idx)
     }
 }
 
-void DreamcastMainPeripheral::task(uint64_t currentTimeUs)
+void __no_inline_not_in_flash_func(DreamcastMainPeripheral::task)(uint64_t currentTimeUs)
 {
     MapleBusInterface::Status status = mBus->processEvents(currentTimeUs);
 

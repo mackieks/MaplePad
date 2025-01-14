@@ -22,12 +22,15 @@ namespace display
             bool isSelectable;
             bool isVisible;
             bool isEnabled;
+            bool isToggledOn;
             // Pointer to Menu's non-static member function
             int (Menu::*runOption)(MenuItem* self);  // Correct definition of the member function pointer
 
             //! Constructor - Item Name, Selected, Selectable, Visible, Enabled
-            MenuItem(const char* itemName = "", bool selected = false, bool selectable = false, bool visible = true, bool enabled = true)
-                : name(itemName), isSelected(selected), isSelectable(selectable), isVisible(visible), isEnabled(enabled) {}
+            MenuItem(const char* itemName = "", entry_type entryType = entry_type::INERT, bool selected = false, bool selectable = false, 
+                bool visible = true, bool enabled = true, bool toggledOn = false)
+                : name(itemName), type(entryType), isSelected(selected), isSelectable(selectable), 
+                isVisible(visible), isEnabled(enabled), isToggledOn(toggledOn) {}
     };
 
     class Menu
@@ -37,12 +40,8 @@ namespace display
 
             void run();
 
-            static bool updateMenuCallbackWrapper(repeating_timer *t);
-
         private:
             void updateMenu(int offset);
-
-            bool updateMenuCallback(repeating_timer *t);
 
             uint8_t getSelectedEntry();
 
@@ -64,7 +63,17 @@ namespace display
 
             int enterSettingsMenu(MenuItem *self);
 
+            int enterStickConfigMenu(MenuItem *self);
+
             int enterStickCalibration(MenuItem *self);
+
+            int enterStickDeadzoneConfig(MenuItem *self);
+
+            int enterTriggerConfigMenu(MenuItem *self);
+
+            int toggleOption(MenuItem *self);
+
+            int setDeadzone(int deadzone);
 
         private:
             uint8_t mCurrentNumEntries;
@@ -77,31 +86,57 @@ namespace display
 
             uint8_t mPrevOffset = 0;
 
-            repeating_timer mRedrawTimer;
-
             bool mRedraw = true;
+
+            bool mHasMainMenuRendered = false;
+            
+            bool mHasSettingsMenuRendered = false;
+
+            bool mHasStickConfigRendered = false;
+
+            bool mHasTriggerConfigMenuRendered = false;
+
+            uint32_t mFlipLockout = 0;
 
             //OLED can only fit 5 rows of text at a time
             MenuItem mainMenu[6] = {
-                MenuItem("Button Test   ", true, false, true, true),
-                MenuItem("Stick Config  ", false, false, true, true),
-                MenuItem("Trigger Config", false, false, true, true),
-                MenuItem("Edit VMU Color", false, false, true, true),
-                MenuItem("Settings      ", false, false, true, true),
-                MenuItem("Exit          ", false, false, false, true)
+                MenuItem("Button Test   ", entry_type::SUBMENU, false, true, true),
+                MenuItem("Stick Config  ", entry_type::SUBMENU, false, false, true, true),
+                MenuItem("Trigger Config", entry_type::SUBMENU, false, false, true, true),
+                MenuItem("Edit VMU Color", entry_type::SUBMENU, false, false, true, true),
+                MenuItem("Settings      ", entry_type::SUBMENU, false, false, true, true),
+                MenuItem("Exit          ", entry_type::INERT, false, false, false, true)
             };
 
             MenuItem settingsMenu[10] = {
-                MenuItem("Back          ", true, false, true, true),
-                MenuItem("Boot Video    ", false, false, true, true),
-                MenuItem("Rumble        ", false, false, true, true),
-                MenuItem("VMU           ", false, false, true, true),
-                MenuItem("UI Color      ", false, false, true, true),
-                MenuItem("OLED:         ", false, false, false, true),
-                MenuItem("OLED Flip     ", false, false, false, true),
-                MenuItem("Autoreset     ", false, false, false, true),
-                MenuItem("Adjust Timeout", false, false, false, true),
-                MenuItem("FW:        2.0", false, false, false, true)
+                MenuItem("Back          ", entry_type::FUNCTION, true, false, true, true),
+                MenuItem("Boot Video    ", entry_type::INERT, false, false, true, true),
+                MenuItem("Rumble        ", entry_type::INERT, false, false, true, true),
+                MenuItem("VMU           ", entry_type::INERT, false, false, true, true),
+                MenuItem("UI Color      ", entry_type::INERT, false, false, true, true),
+                MenuItem("OLED:         ", entry_type::INERT, false, false, false, true),
+                MenuItem("OLED Flip     ", entry_type::TOGGLE, false, false, false, true),
+                MenuItem("Autoreset     ", entry_type::INERT, false, false, false, true),
+                MenuItem("Adjust Timeout", entry_type::INERT, false, false, false, true),
+                MenuItem("FW:        2.0", entry_type::INERT, false, false, false, true)
+            };
+
+            MenuItem stickConfigMenu[6] = {
+                MenuItem("Back          ", entry_type::FUNCTION, true, false, true, true),
+                MenuItem("Calibration   ", entry_type::FUNCTION, false, false, true, true),
+                MenuItem("Deadzone Edit ", entry_type::FUNCTION, false, false, true, true),
+                MenuItem("Invert X      ", entry_type::TOGGLE, false, false, true, true),
+                MenuItem("Invert Y      ", entry_type::TOGGLE, false, false, true, true),
+                MenuItem("Swap X&Y      ", entry_type::TOGGLE, false, false, false, true)
+            };
+
+            MenuItem triggerConfigMenu[6] = {
+                MenuItem("Back          ", entry_type::FUNCTION, true, false, true, true),
+                MenuItem("Calibration   ", entry_type::FUNCTION, false, false, true, true),
+                MenuItem("Deadzone Edit ", entry_type::FUNCTION, false, false, true, true),
+                MenuItem("Invert X      ", entry_type::TOGGLE, false, false, true, true),
+                MenuItem("Invert Y      ", entry_type::TOGGLE, false, false, true, true),
+                MenuItem("Swap X&Y      ", entry_type::TOGGLE, false, false, false, true)
             };
         
     };

@@ -23,7 +23,7 @@ namespace display
         spi_write_blocking(SSD1331_SPI, &data, 1);
     }
 
-    void SSD1331::update()
+    void __no_inline_not_in_flash_func(SSD1331::update)(void)
     {
         gpio_put(DC, 0);
 
@@ -46,13 +46,18 @@ namespace display
         }
     }
 
+    void SSD1331::showSplash()
+    {
+
+    }
+
     //! Refreshes the screen of the SSD1331
     //! In order to prevent issues with pushing an all empty array to the screen,
     //! a check is made to ensure that there is something to write before continuing.
     //! Since the screen array is already being iterated over in this method, it made the most
     //! sense to include that check here.
     //! Do not add anything to this, it needs to be fast to handle the dreamcast screen updates
-    void SSD1331::refresh(const uint32_t* screen, uint32_t len, bool isOverlayShown)
+    void __no_inline_not_in_flash_func(SSD1331::refresh)(const uint32_t* screen, uint32_t len, bool isOverlayShown)
     {
         uint32_t reversedArr[len];
 
@@ -82,7 +87,7 @@ namespace display
 
         if(isOverlayShown)
         {
-            byteCount = 140; //substract overlay height
+            byteCount = 143; //substract overlay height
         }
 
         int x, y, pixel, bb;

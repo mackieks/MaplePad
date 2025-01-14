@@ -237,7 +237,7 @@ bool MapleBus::lineCheck()
     return true;
 }
 
-void MapleBus::setDirection(bool output)
+void __no_inline_not_in_flash_func(MapleBus::setDirection)(bool output)
 {
     if (!output)
     {
@@ -254,7 +254,7 @@ void MapleBus::setDirection(bool output)
     }
 }
 
-bool MapleBus::write(const MaplePacket& packet,
+bool __no_inline_not_in_flash_func(MapleBus::write)(const MaplePacket& packet,
                      bool autostartRead,
                      uint64_t readTimeoutUs)
 {
@@ -326,7 +326,7 @@ bool MapleBus::write(const MaplePacket& packet,
     return rv;
 }
 
-bool MapleBus::startRead(uint64_t readTimeoutUs)
+bool __no_inline_not_in_flash_func(MapleBus::startRead)(uint64_t readTimeoutUs)
 {
     bool rv = false;
 
@@ -364,7 +364,7 @@ bool MapleBus::startRead(uint64_t readTimeoutUs)
     return rv;
 }
 
-MapleBusInterface::Status MapleBus::processEvents(uint64_t currentTimeUs)
+MapleBusInterface::Status __no_inline_not_in_flash_func(MapleBus::processEvents)(uint64_t currentTimeUs)
 {
     Status status;
     // The state machine may still be running, so it is important to store the current phase and
@@ -517,7 +517,7 @@ void MapleBus::crc8(uint32_t source, uint8_t &crc)
     }
 }
 
-void MapleBus::wordCpy(volatile uint32_t* dest,
+void __no_inline_not_in_flash_func(MapleBus::wordCpy)(volatile uint32_t* dest,
                        volatile const uint32_t* source,
                        uint32_t len)
 {
