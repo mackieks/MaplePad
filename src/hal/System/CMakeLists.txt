@@ -14,7 +14,7 @@ target_link_libraries(hal-System
 target_compile_options(hal-System PRIVATE
   -Wall
   -Werror
-  -O3
+  -Os
 )
 
 target_include_directories(hal-System

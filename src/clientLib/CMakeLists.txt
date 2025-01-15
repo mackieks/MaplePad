@@ -18,7 +18,7 @@ if(NOT ENABLE_UNIT_TEST)
   target_compile_options(clientLib PRIVATE
     -Wall
     -Werror
-    -O3
+    -Os
   )
 endif()
 

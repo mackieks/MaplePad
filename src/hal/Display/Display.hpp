@@ -48,6 +48,8 @@ public:
 
     void drawCursor(int iy, uint16_t color);
 
+    void drawToggle(int iy, uint16_t color, bool on);
+
     void notify(uint8_t& message);
 
     //! Function that reverses the byte order of a single uint32_t value
