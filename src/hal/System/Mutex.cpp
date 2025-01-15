@@ -7,17 +7,17 @@ Mutex::Mutex()
 
 Mutex::~Mutex() {}
 
-void __no_inline_not_in_flash_func(Mutex::lock)(void)
+void Mutex::lock()
 {
     mutex_enter_blocking(&mMutex);
 }
 
-void __no_inline_not_in_flash_func(Mutex::unlock)(void)
+void Mutex::unlock()
 {
     mutex_exit(&mMutex);
 }
 
-int8_t __no_inline_not_in_flash_func(Mutex::tryLock)(void)
+int8_t Mutex::tryLock()
 {
     uint32_t owner;
     if (!mutex_try_enter(&mMutex, &owner))

@@ -121,7 +121,7 @@ void DreamcastPeripheral::setDevInfoStr(uint8_t wordIdx,
     }
 }
 
-bool __no_inline_not_in_flash_func(DreamcastPeripheral::handlePacket)(const MaplePacket& in, MaplePacket& out)
+bool DreamcastPeripheral::handlePacket(const MaplePacket& in, MaplePacket& out)
 {
     bool status = false;
 

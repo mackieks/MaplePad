@@ -78,12 +78,12 @@ void NonVolatilePicoSystemMemory::setPageBlock(uint32_t size, uint8_t page)
     sleep_ms(250); // Settle
 }
 
-uint32_t __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::getMemorySize)(void)
+uint32_t NonVolatilePicoSystemMemory::getMemorySize()
 {
     return mSize;
 }
 
-const uint8_t* __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::read)(uint32_t offset, uint32_t& size)
+const uint8_t* NonVolatilePicoSystemMemory::read(uint32_t offset, uint32_t& size)
 {
     mLastActivityTime = time_us_64();
     // A copy of memory is kept in RAM because nothing can be read from flash while erase is
@@ -91,7 +91,7 @@ const uint8_t* __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::read)(
     return mLocalMem.read(offset, size);
 }
 
-bool __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::write)(uint32_t offset, const void* data, uint32_t& size)
+bool NonVolatilePicoSystemMemory::write(uint32_t offset, const void* data, uint32_t& size)
 {
     // This entire function is serialized with process()
     LockGuard lock(mMutex, true);
@@ -139,13 +139,13 @@ bool __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::write)(uint32_t 
     return success;
 }
 
-uint64_t __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::getLastActivityTime)(void)
+uint64_t NonVolatilePicoSystemMemory::getLastActivityTime()
 {
     // WARNING: Not an atomic read, but this isn't a critical thing anyway
     return mLastActivityTime;
 }
 
-void __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::process)(void)
+void NonVolatilePicoSystemMemory::process()
 {
     mMutex.lock();
     bool unlock = true;
@@ -218,12 +218,12 @@ void __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::process)(void)
     }
 }
 
-uint32_t __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::sectorToFlashByte)(uint16_t sector)
+uint32_t NonVolatilePicoSystemMemory::sectorToFlashByte(uint16_t sector)
 {
     return mOffset + (sector * SECTOR_SIZE);
 }
 
-void __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::setWriteDelay)(void)
+void NonVolatilePicoSystemMemory::setWriteDelay()
 {
     mDelayedWriteTime = time_us_64() + WRITE_DELAY_US;
 }

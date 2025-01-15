@@ -69,8 +69,6 @@ namespace display
             //! Inherited from the abstract class Display
             void refresh(const uint32_t* screen, uint32_t len, bool isOverlayShown);
 
-            void showSplash();
-
         private:
             //Initialize the screen
             void init();

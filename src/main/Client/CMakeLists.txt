@@ -6,6 +6,7 @@ file(GLOB COMMON_SRC "${CMAKE_CURRENT_SOURCE_DIR}/common/*.c*")
 
 add_executable(client-with-usb-host "${CMAKE_CURRENT_SOURCE_DIR}/client_usb_host.cpp" "${COMMON_SRC}")
 pico_add_extra_outputs(client-with-usb-host)
+pico_set_binary_type(client-with-usb-host copy_to_ram)
 
 target_link_libraries(client-with-usb-host
   PRIVATE

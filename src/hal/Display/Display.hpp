@@ -32,8 +32,6 @@ public:
     //! Clears the screen by setting the LCD frame buffer to black
     virtual void clear() = 0;
 
-    virtual void showSplash() = 0;
-
     void showOverlay();
 
     //! Returns true if the screen has been initialized, false otherwise
@@ -49,8 +47,6 @@ public:
     virtual void update() = 0;
 
     void drawCursor(int iy, uint16_t color);
-
-    void drawToggle(int iy, uint16_t color, bool on);
 
     void notify(uint8_t& message);
 
