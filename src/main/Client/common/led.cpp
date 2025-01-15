@@ -16,7 +16,7 @@ void led_init()
     }
 }
 
-void __no_inline_not_in_flash_func(led_task)(uint64_t lastActivityTimeUs)
+void led_task(uint64_t lastActivityTimeUs)
 {
     static bool ledOn = false;
     static uint64_t startUs = 0;

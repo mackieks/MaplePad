@@ -96,17 +96,14 @@ void display_select()
 }
 
 // Function to handle the overlay timing on core 1
-void __no_inline_not_in_flash_func(showOverlay)(void) 
-{
-    if (isOverlayVisible) 
-    {
+void showOverlay() {
+    if (isOverlayVisible) {
         overlayTimer = to_ms_since_boot(get_absolute_time()) + 2000;  // Set overlay duration to 2 seconds
         isOverlayVisible = false;  // Reset the flag until the next button press
     }
 
     // If the overlay should still be visible, keep it on screen
-    if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) < overlayTimer) 
-    {
+    if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) < overlayTimer) {
         lcd->showOverlay();
         if(!isOverlayShown)
         {
@@ -115,8 +112,7 @@ void __no_inline_not_in_flash_func(showOverlay)(void)
         isOverlayShown = true;
     }
     // If the overlay duration has expired, stop showing the overlay
-    else if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) >= overlayTimer) 
-    {
+    else if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) >= overlayTimer) {
         overlayTimer = 0;  // Reset the overlay duration
         isOverlayHidden = true;
         isOverlayShown = false;

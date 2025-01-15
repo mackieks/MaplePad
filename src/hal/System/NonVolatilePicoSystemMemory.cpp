@@ -29,7 +29,7 @@ NonVolatilePicoSystemMemory::NonVolatilePicoSystemMemory(uint32_t flashOffset, u
     mLocalMem.write(0, readFlash, size);
 }
 
-void __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::nextPage)(uint32_t size)
+void NonVolatilePicoSystemMemory::nextPage(uint32_t size)
 {
     ++mCurrentPage;
 
@@ -42,7 +42,7 @@ void __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::nextPage)(uint32
     setPageBlock(size, mCurrentPage);
 }
 
-void __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::prevPage)(uint32_t size)
+void NonVolatilePicoSystemMemory::prevPage(uint32_t size)
 {
     --mCurrentPage;
 
@@ -55,7 +55,7 @@ void __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::prevPage)(uint32
     setPageBlock(size, mCurrentPage);
 }
 
-void __no_inline_not_in_flash_func(NonVolatilePicoSystemMemory::setPageBlock)(uint32_t size, uint8_t page)
+void NonVolatilePicoSystemMemory::setPageBlock(uint32_t size, uint8_t page)
 {
     uint32_t flashOffset = PICO_FLASH_SIZE_BYTES - (size * page);
     // Assert that the flash offset is aligned with the sector size

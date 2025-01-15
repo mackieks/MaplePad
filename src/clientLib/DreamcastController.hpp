@@ -7,7 +7,6 @@
 #include "pico/stdlib.h"
 #include "hardware/adc.h"
 #include "pico_configurations.h"
-#include "pico/platform.h"
 
 namespace client
 {

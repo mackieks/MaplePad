@@ -244,17 +244,17 @@ bool DreamcastController::triggerMenu()
     return !gpio_get(CTRL_PIN_Y) && !gpio_get(CTRL_PIN_X);
 }
 
-bool __no_inline_not_in_flash_func(DreamcastController::triggerNextPage)(void)
+bool DreamcastController::triggerNextPage()
 {
     return !gpio_get(CTRL_PIN_START) && !gpio_get(CTRL_PIN_DR);
 }
 
-bool __no_inline_not_in_flash_func(DreamcastController::triggerPrevPage)(void)
+bool DreamcastController::triggerPrevPage()
 {
     return !gpio_get(CTRL_PIN_START) && !gpio_get(CTRL_PIN_DL);
 }
 
-bool __no_inline_not_in_flash_func(DreamcastController::triggerOverlay)(void)
+bool DreamcastController::triggerOverlay()
 {
     //return !gpio_get(CTRL_PIN_START) && !gpio_get(CTRL_PIN_DU);
     return !gpio_get(CTRL_PIN_X) && !gpio_get(CTRL_PIN_Y) && !gpio_get(CTRL_PIN_DU);
