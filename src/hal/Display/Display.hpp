@@ -40,7 +40,7 @@ public:
     //! Returns true if the overlay has been rendered, false otherwise
     inline void setIsOverlayRendered(bool isRendered) { mIsOverlayRendered = isRendered; }
 
-    void putLetter(int ix, int iy, int index, uint16_t color);
+    void putLetter(int ix, int iy, char text, uint16_t color);
 
     void putString(const char *text, int ix, int iy, uint16_t color);
 

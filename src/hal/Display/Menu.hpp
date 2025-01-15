@@ -3,7 +3,6 @@
 #include "Display.hpp"
 #include "pico_configurations.h"
 #include <memory>
-#include <time.h>
 #include "hardware/adc.h"
 
 namespace display
@@ -37,12 +36,8 @@ namespace display
 
             void run();
 
-            static bool updateMenuCallbackWrapper(repeating_timer *t);
-
         private:
             void updateMenu(int offset);
-
-            bool updateMenuCallback(repeating_timer *t);
 
             uint8_t getSelectedEntry();
 
@@ -76,10 +71,6 @@ namespace display
             uint8_t mOffset = 0;
 
             uint8_t mPrevOffset = 0;
-
-            repeating_timer mRedrawTimer;
-
-            bool mRedraw = true;
 
             //OLED can only fit 5 rows of text at a time
             MenuItem mainMenu[6] = {

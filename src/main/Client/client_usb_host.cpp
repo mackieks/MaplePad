@@ -125,6 +125,11 @@ std::shared_ptr<NonVolatilePicoSystemMemory> mem = std::make_shared<NonVolatileP
         PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES, //(2*1024*1024)=2097152-131072 = 1,966,080
         client::DreamcastStorage::MEMORY_SIZE_BYTES); //131,072;
 
+/*std::shared_ptr<NonVolatilePicoSystemMemory> flashData =
+        std::make_shared<NonVolatilePicoSystemMemory>(
+            PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES * 9, //Need to offset by the vmu size so we don't have collisions
+            client::DreamcastStorage::FLASHDATA_SIZE_BYTES); //64*/
+
 // Second Core Process
 void core1()
 {
@@ -213,11 +218,7 @@ void core0()
 
     //TODO uncomment once ready to work on persisting settings
     
-    std::shared_ptr<NonVolatilePicoSystemMemory> flashData =
-            std::make_shared<NonVolatilePicoSystemMemory>(
-                PICO_FLASH_SIZE_BYTES - client::DreamcastStorage::MEMORY_SIZE_BYTES * 9, //Need to offset by the vmu size so we don't have collisions
-                client::DreamcastStorage::FLASHDATA_SIZE_BYTES); //64
-                
+
     if(lcd != nullptr)
     {
         isLcdInitialized = lcd->initialize();
