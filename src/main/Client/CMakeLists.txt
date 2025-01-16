@@ -14,6 +14,7 @@ target_link_libraries(client-with-usb-host
     hal-MapleBus
     hal-System
     hal-Display
+    hal-DisplayMenu
     clientLib
     pico_stdlib
     hardware_adc

@@ -150,8 +150,6 @@ namespace display
 
     int Menu::enterStickDeadzoneConfig(MenuItem *self)
     {
-        mRedraw = false;
-
         uint16_t color = 0xFFFF;
         char sdata[5] = {0};
 
@@ -225,8 +223,6 @@ namespace display
         //updateFlashData();
 
         mDisplay->clear();
-
-        mRedraw = true;
 
         return 1;
     }
@@ -419,7 +415,7 @@ namespace display
             // Wait for A button release (submenu rate-limit)
             while (!gpio_get(CTRL_PIN_A));
 
-            sleep_ms(75); // Wait out switch bounce + rate-limiting
+            sleep_ms(50); // Wait out switch bounce + rate-limiting
 
             if (!gpio_get(CTRL_PIN_DU)) //up
             {
@@ -472,10 +468,7 @@ namespace display
                 }
             }
 
-            if(mRedraw)
-            {
-                updateMenu(mOffset);
-            }
+            updateMenu(mOffset);
         }
     }
 }

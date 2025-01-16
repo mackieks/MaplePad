@@ -4,24 +4,22 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 
 file(GLOB SRC "${CMAKE_CURRENT_SOURCE_DIR}/*.c*")
 
-add_library(hal-Display STATIC ${SRC})
-target_link_libraries(hal-Display
+add_library(hal-DisplayMenu STATIC ${SRC})
+target_link_libraries(hal-DisplayMenu
   PUBLIC
     pico_stdlib
     hardware_flash
-    hardware_dma
-    hardware_spi
     hardware_adc
-    hal-DisplayMenu
+    hal-Display
 )
-target_compile_options(hal-Display PRIVATE
+target_compile_options(hal-DisplayMenu PRIVATE
   -Wall
   -Werror
-  -O3
+  -Os
 )
 
-target_include_directories(hal-Display
+target_include_directories(hal-DisplayMenu
   PUBLIC
     "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>"
-    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/hal/Display>"
+    "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/hal/DisplayMenu>"
     "${PROJECT_SOURCE_DIR}/inc")
