@@ -84,14 +84,14 @@ public:
     //! @returns the page number of the loaded block
     void prevPage(uint32_t ssize_t);
 
+    void setPageBlock(uint32_t size, uint8_t page);
+    
 private:
     //! Converts a local sector index to flash byte offset
     uint32_t sectorToFlashByte(uint16_t sector);
 
     //! Set the write delay using the current time
     void setWriteDelay();
-
-    void setPageBlock(uint32_t size, uint8_t page);
 
 private:
     //! Number of bytes in a sector

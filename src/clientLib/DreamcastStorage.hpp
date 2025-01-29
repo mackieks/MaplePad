@@ -40,8 +40,6 @@ public:
 
   uint8_t updateCurrentPage(uint8_t page);
 
-  void updateSystemMemory(std::shared_ptr<SystemMemory> systemMemory);
-
 private:
     //! Sets 16-bit address value into FAT area and decrements pointer, when necessary
     //! @param[in, out] fatBlock  Pointer to next 16-bit FAT entry
@@ -116,7 +114,5 @@ protected:
     uint32_t mMemoryOffset;
     //! Storage for a single block of data for read or write purposes
     uint8_t mDataBlock[BYTES_PER_BLOCK];
-
-    uint8_t mCurrentPage = 1;
 };
 }

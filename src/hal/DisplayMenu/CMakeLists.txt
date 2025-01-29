@@ -9,6 +9,8 @@ target_link_libraries(hal-DisplayMenu
   PUBLIC
     pico_stdlib
     hardware_flash
+    hardware_irq
+    hardware_sync
     hardware_adc
     hal-Display
 )

@@ -16,12 +16,20 @@ namespace display
         return 0;
     }
 
+    int Menu::saveAndExitToPad(MenuItem *self)
+    {
+        //Set member vars for toggles before saving
+        updateToggles();
+        return 0;
+    }
+
     int Menu::enterMainMenu(MenuItem *self)
     {
         mainMenu[1].runOption = &Menu::enterStickConfigMenu;
         mainMenu[2].runOption = &Menu::enterTriggerConfigMenu;
         mainMenu[4].runOption = &Menu::enterSettingsMenu;
         mainMenu[5].runOption = &Menu::exitToPad;
+        mainMenu[6].runOption = &Menu::saveAndExitToPad;
 
         mCurrentMenu = mainMenu;
         mCurrentNumEntries = sizeof(mainMenu) / sizeof(MenuItem);
@@ -60,7 +68,7 @@ namespace display
     int Menu::enterTriggerConfigMenu(MenuItem *self)
     {
         triggerConfigMenu[0].runOption = &Menu::enterMainMenu;
-        //stickConfigMenu[1].runOption = &Menu::enterStickCalibration;
+        triggerConfigMenu[1].runOption = &Menu::enterTriggerCalibration;
         triggerConfigMenu[3].runOption = &Menu::toggleOption;
         triggerConfigMenu[4].runOption = &Menu::toggleOption;
         triggerConfigMenu[5].runOption = &Menu::toggleOption;
@@ -70,6 +78,34 @@ namespace display
         mPrevOffset = mOffset;
         mOffset = 0;
         return 1;
+    }
+
+    void Menu::updateToggles()
+    {
+        mInvertX = stickConfigMenu[3].isToggledOn;
+        mInvertY = stickConfigMenu[4].isToggledOn;
+        mSwapXY = stickConfigMenu[5].isToggledOn;
+        mInvertL = triggerConfigMenu[3].isToggledOn;
+        mInvertR = triggerConfigMenu[4].isToggledOn;
+        mSwapLR = triggerConfigMenu[5].isToggledOn;
+        mRumbleEnable = settingsMenu[2].isToggledOn;
+        mVmuEnable = settingsMenu[3].isToggledOn;
+        mOledFlip = settingsMenu[6].isToggledOn;
+        mAutoResetEnable = settingsMenu[7].isToggledOn;
+    }
+
+    void Menu::loadToggles()
+    {
+        stickConfigMenu[3].isToggledOn = mInvertX;
+        stickConfigMenu[4].isToggledOn = mInvertY;
+        stickConfigMenu[5].isToggledOn = mSwapXY;
+        triggerConfigMenu[3].isToggledOn = mInvertL;
+        triggerConfigMenu[4].isToggledOn = mInvertR;
+        triggerConfigMenu[5].isToggledOn = mSwapLR;
+        settingsMenu[2].isToggledOn = mRumbleEnable;
+        settingsMenu[3].isToggledOn = mVmuEnable;
+        settingsMenu[6].isToggledOn = mOledFlip;
+        settingsMenu[7].isToggledOn = mAutoResetEnable;
     }
 
     int Menu::enterStickCalibration(MenuItem *self)
@@ -89,21 +125,16 @@ namespace display
         while (gpio_get(ButtonInfos[0].pin));
 
         adc_select_input(0); // X
-        //uint8_t xCenter = adc_read() >> 4;
+        mXCenter = adc_read() >> 4;
 
         adc_select_input(1); // Y
-        //uint8_t yCenter = adc_read() >> 4;
+        mYCenter = adc_read() >> 4;
 
         mDisplay->clear();
         mDisplay->putString("Move stick", 0, 0, color);
         mDisplay->putString("  around", 0, 1, color);
         mDisplay->putString("  a lot!", 0, 2, color);
         mDisplay->update();
-
-        uint8_t xMin = 0x80;
-        uint8_t xMax = 0x80;
-        uint8_t yMin = 0x80;
-        uint8_t yMax = 0x80;
 
         uint32_t start = to_ms_since_boot(get_absolute_time());
         while ((to_ms_since_boot(get_absolute_time()) - start) < 4000 ? true : gpio_get(ButtonInfos[0].pin)) {
@@ -117,22 +148,15 @@ namespace display
             adc_select_input(1); // Y
             yData = adc_read() >> 4;
 
-            if (xData < xMin)
-                xMin = xData;
-            else if (xData > xMax)
-                xMax = xData;
+            if (xData < mXMin)
+                mXMin = xData;
+            else if (xData > mXMax)
+                mXMax = xData;
 
-            if (yData < yMin)
-                yMin = yData;
-            else if (yData > yMax)
-                yMax = yData;
-
-            // printf("\033[H\033[2J");
-            // printf("\033[36m");
-            // printf("xRaw: 0x%04x  yRaw: 0x%02x\n", xRaw, yRaw);
-            // printf("xData: 0x%02x  yData: 0x%02x\n", xData, yData);
-            // printf("xMin: 0x%02x  xMax: 0x%02x yMin: 0x%02x yMax: 0x%02x\n", xMin, xMax, yMin, yMax);
-            // sleep_ms(50);
+            if (yData < mYMin)
+                mYMin = yData;
+            else if (yData > mYMax)
+                mYMax = yData;
 
             if ((to_ms_since_boot(get_absolute_time()) - start) >= 4000 && prompt) {
                 prompt = false;
@@ -148,6 +172,72 @@ namespace display
         return 1;
     }
 
+    int Menu::enterTriggerCalibration(MenuItem *self)
+    {
+        // draw trigger calibration
+        mRedraw = 0; // Disable redrawMenu
+
+        uint16_t color = 0xFFFF;
+
+        while (!gpio_get(ButtonInfos[0].pin));
+
+        mDisplay->clear();
+        mDisplay->putString("leave", 0, 0, color);
+        mDisplay->putString("triggers idle", 0, 1, color);
+        mDisplay->putString("and press A", 0, 2, color);
+        mDisplay->update();
+
+        sleep_ms(500);
+        while (gpio_get(ButtonInfos[0].pin));
+
+        adc_select_input(2); // L
+        mLMin = adc_read() >> 4;
+
+        adc_select_input(3); // R
+        mRMin = adc_read() >> 4;
+
+        mDisplay->clear();
+        mDisplay->putString("hold lMax", 0, 0, color);
+        mDisplay->putString("and press A", 0, 1, color);
+        mDisplay->update();
+
+        sleep_ms(500);
+        while (gpio_get(ButtonInfos[0].pin));
+
+        adc_select_input(2); // lMax
+        mLMax = adc_read() >> 4;
+
+        mDisplay->clear();
+        mDisplay->putString("hold rMax", 0, 0, color);
+        mDisplay->putString("and press A", 0, 1, color);
+        mDisplay->update();
+
+        sleep_ms(500);
+        while (gpio_get(ButtonInfos[0].pin));
+
+        adc_select_input(3); // rMax
+        mRMax = adc_read() >> 4;
+
+        if (mLMin > mLMax) {
+            uint temp = mLMin;
+            mLMin = mLMax;
+            mLMax = temp;
+        }
+
+        if (mRMin > mRMax) {
+            uint temp = mRMin;
+            mRMin = mRMax;
+            mRMax = temp;
+        }
+
+        // Write config values to flash
+        //updateFlashData();
+
+        mRedraw = 1;
+
+        return 1;
+    }
+
     int Menu::enterStickDeadzoneConfig(MenuItem *self)
     {
         uint16_t color = 0xFFFF;
@@ -155,20 +245,15 @@ namespace display
 
         while(!gpio_get(ButtonInfos[0].pin));
 
-        uint8_t xDeadzone = 0;
-        uint8_t xAntiDeadzone = 0;
-        uint8_t yDeadzone = 0;
-        uint8_t yAntiDeadzone = 0;
-
         while (gpio_get(ButtonInfos[0].pin))
         {
             mDisplay->clear();
             mDisplay->putString("X Deadzone", 0, 0, color);
-            sprintf(sdata, "0x%02x", xDeadzone);
+            sprintf(sdata, "0x%02x", mXDeadzone);
             mDisplay->putString(sdata, 3, 2, color);
             mDisplay->update();
 
-            xDeadzone = setDeadzone(xDeadzone);
+            mXDeadzone = setDeadzone(mXDeadzone);
 
             sleep_ms(60);
         }
@@ -180,11 +265,11 @@ namespace display
             mDisplay->clear();
             mDisplay->putString("X", 5, 0, color);
             mDisplay->putString("AntiDeadzone", 0, 1, color);
-            sprintf(sdata, "0x%02x", xAntiDeadzone);
+            sprintf(sdata, "0x%02x", mXAntiDeadzone);
             mDisplay->putString(sdata, 3, 3, color);
             mDisplay->update();
 
-            xAntiDeadzone = setDeadzone(xAntiDeadzone);
+            mXAntiDeadzone = setDeadzone(mXAntiDeadzone);
 
             sleep_ms(60);
         }
@@ -195,11 +280,11 @@ namespace display
         {
             mDisplay->clear();
             mDisplay->putString("Y Deadzone", 0, 0, color);
-            sprintf(sdata, "0x%02x", yDeadzone);
+            sprintf(sdata, "0x%02x", mYDeadzone);
             mDisplay->putString(sdata, 3, 2, color);
             mDisplay->update();
 
-            yDeadzone = setDeadzone(yDeadzone);
+            mYDeadzone = setDeadzone(mYDeadzone);
 
             sleep_ms(60);
         }
@@ -211,11 +296,11 @@ namespace display
             mDisplay->clear();
             mDisplay->putString("Y", 5, 0, color);
             mDisplay->putString("AntiDeadzone", 0, 1, color);
-            sprintf(sdata, "0x%02x", yAntiDeadzone);
+            sprintf(sdata, "0x%02x", mYAntiDeadzone);
             mDisplay->putString(sdata, 3, 3, color);
             mDisplay->update();
 
-            yAntiDeadzone = setDeadzone(yAntiDeadzone);
+            mYAntiDeadzone = setDeadzone(mYAntiDeadzone);
 
             sleep_ms(60);
         }
@@ -302,6 +387,56 @@ namespace display
         }
         mDisplay->drawCursor(getSelectedEntry() + offset, 0xFFFF);
         mDisplay->update();
+    }
+
+    void Menu::readFlash()
+    {
+        uint32_t flashOffset = PICO_FLASH_SIZE_BYTES - (MEMORY_SIZE_BYTES * 9);
+        const uint8_t* const readFlash = (const uint8_t *)(XIP_BASE + flashOffset);
+        memcpy(mFlashData, readFlash, sizeof(mFlashData));
+
+        mXCenter = mFlashData[0];
+        mXMin = mFlashData[1];
+        mXMax = mFlashData[2];
+        mYCenter = mFlashData[3];
+        mYMin = mFlashData[4];
+        mYMax = mFlashData[5];
+        mLMin = mFlashData[6];
+        mLMax = mFlashData[7];
+        mRMin = mFlashData[8];
+        mRMax = mFlashData[9];
+        mInvertX = mFlashData[10];
+        mInvertY = mFlashData[11];
+        mInvertL = mFlashData[12];
+        mInvertR = mFlashData[13];
+        mFirstBoot = mFlashData[14];
+        mCurrentPage = mFlashData[15];
+        mRumbleEnable = mFlashData[16];
+        mVmuEnable = mFlashData[17];
+        mOledFlip = mFlashData[18];
+        mSwapXY = mFlashData[19];
+        mSwapLR = mFlashData[20];
+        mOledType = mFlashData[21];
+        mTriggerMode = mFlashData[22];
+        mXDeadzone = mFlashData[23];
+        mXAntiDeadzone = mFlashData[24];
+        mYDeadzone = mFlashData[25];
+        mYAntiDeadzone = mFlashData[26];
+        mLDeadzone = mFlashData[27];
+        mLAntiDeadzone = mFlashData[28];
+        mRDeadzone = mFlashData[29];
+        mRAntiDeadzone = mFlashData[30];
+        mAutoResetEnable = mFlashData[31];
+        mAutoResetTimer = mFlashData[32];
+        mVersion = mFlashData[33];
+    }
+
+    void Menu::updateFlashData()
+    {
+        //uint interrupts = save_and_disable_interrupts();
+        flash_range_erase((PICO_FLASH_SIZE_BYTES - (MEMORY_SIZE_BYTES * 9)), FLASH_SECTOR_SIZE);
+        flash_range_program((PICO_FLASH_SIZE_BYTES - (MEMORY_SIZE_BYTES * 9)), mFlashData, FLASH_PAGE_SIZE);
+        //restore_interrupts(interrupts);
     }
 
     uint8_t Menu::getSelectedEntry()
@@ -407,6 +542,10 @@ namespace display
     void Menu::run()
     {
         int selectedEntry, firstVisibleEntry, lastVisibleEntry = 0;
+
+        readFlash();
+
+        loadToggles();
 
         while(1)
         {

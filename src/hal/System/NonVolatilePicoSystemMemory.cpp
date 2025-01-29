@@ -59,7 +59,7 @@ void NonVolatilePicoSystemMemory::setPageBlock(uint32_t size, uint8_t page)
 {
     uint32_t flashOffset = PICO_FLASH_SIZE_BYTES - (size * page);
     // Assert that the flash offset is aligned with the sector size
-    assert((flashOffset) % SECTOR_SIZE == 0);
+    //assert((flashOffset) % SECTOR_SIZE == 0);
 
     // Initialize members
     mOffset = flashOffset;

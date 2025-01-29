@@ -330,28 +330,3 @@ void client::DreamcastStorage::setFatAddr(uint32_t*& fatBlock, bool& lower, uint
     }
     lower = !lower;
 }
-
-uint8_t client::DreamcastStorage::updateCurrentPage(uint8_t page)
-{
-    if(page > 8)
-    {
-        mCurrentPage = 8;
-    }
-    else if(page < 1)
-    {
-        mCurrentPage = 1;
-    }
-    else
-    {
-        mCurrentPage = page;
-    }
-
-    //notify observers here
-
-    return mCurrentPage;
-}
-
-void client::DreamcastStorage::updateSystemMemory(std::shared_ptr<SystemMemory> systemMemory)
-{
-    mSystemMemory = systemMemory;
-}

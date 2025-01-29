@@ -2,11 +2,18 @@
 
 #include "Display.hpp"
 #include "pico_configurations.h"
-#include <memory>
 #include "hardware/adc.h"
+#include "hardware/flash.h"
+#include "hardware/irq.h"
+#include "hardware/sync.h"
+#include "hal/System/SystemMemory.hpp"
+
+#include <memory>
 
 namespace display
 {
+    static const uint32_t MEMORY_SIZE_BYTES = 128 * 1024;
+
     enum entry_type { SUBMENU, TOGGLE, FUNCTION, ADJUSTABLE, INERT };
 
     // Forward declare Menu class
@@ -39,6 +46,8 @@ namespace display
 
             void run();
 
+            void readFlash();
+
         private:
             void updateMenu(int offset);
 
@@ -58,6 +67,8 @@ namespace display
 
             int exitToPad(MenuItem *self);
 
+            int saveAndExitToPad(MenuItem *self);
+
             int enterMainMenu(MenuItem *self);
 
             int enterSettingsMenu(MenuItem *self);
@@ -70,9 +81,17 @@ namespace display
 
             int enterTriggerConfigMenu(MenuItem *self);
 
+            int enterTriggerCalibration(MenuItem *self);
+
             int toggleOption(MenuItem *self);
 
             int setDeadzone(int deadzone);
+
+            void updateToggles();
+
+            void loadToggles();
+
+            void updateFlashData();
 
         private:
             uint8_t mCurrentNumEntries;
@@ -89,14 +108,52 @@ namespace display
 
             uint32_t mFlipLockout = 0;
 
+            uint8_t mFlashData[64] = {0};
+
+            uint8_t mXCenter = 0;
+            uint8_t mXMin = 0;
+            uint8_t mXMax = 0;
+            uint8_t mYCenter = 0;
+            uint8_t mYMin = 0;
+            uint8_t mYMax = 0;
+            uint8_t mLMin = 0;
+            uint8_t mLMax = 0;
+            uint8_t mRMin = 0;
+            uint8_t mRMax = 0;
+            uint8_t mInvertX = 0;
+            uint8_t mInvertY = 0;
+            uint8_t mInvertL = 0;
+            uint8_t mInvertR = 0;
+            uint8_t mFirstBoot = 0;
+            uint8_t mCurrentPage = 0;
+            uint8_t mRumbleEnable = 0;
+            uint8_t mVmuEnable = 0;
+            uint8_t mOledFlip = 0;
+            uint8_t mSwapXY = 0;
+            uint8_t mSwapLR = 0;
+            uint8_t mOledType = 0;
+            uint8_t mTriggerMode = 0;
+            uint8_t mXDeadzone = 0;
+            uint8_t mXAntiDeadzone = 0;
+            uint8_t mYDeadzone = 0;
+            uint8_t mYAntiDeadzone = 0;
+            uint8_t mLDeadzone = 0;
+            uint8_t mLAntiDeadzone = 0;
+            uint8_t mRDeadzone = 0;
+            uint8_t mRAntiDeadzone = 0;
+            uint8_t mAutoResetEnable = 0;
+            uint8_t mAutoResetTimer = 0;
+            uint8_t mVersion = 0;
+
             //OLED can only fit 5 rows of text at a time
-            MenuItem mainMenu[6] = {
+            MenuItem mainMenu[7] = {
                 MenuItem("Button Test   ", entry_type::SUBMENU, false, true, true),
                 MenuItem("Stick Config  ", entry_type::SUBMENU, false, false, true, true),
                 MenuItem("Trigger Config", entry_type::SUBMENU, false, false, true, true),
                 MenuItem("Edit VMU Color", entry_type::SUBMENU, false, false, true, true),
                 MenuItem("Settings      ", entry_type::SUBMENU, false, false, true, true),
-                MenuItem("Exit          ", entry_type::INERT, false, false, false, true)
+                MenuItem("Exit          ", entry_type::INERT, false, false, false, true),
+                MenuItem("Save & Exit   ", entry_type::INERT, false, false, false, true)
             };
 
             MenuItem settingsMenu[10] = {
