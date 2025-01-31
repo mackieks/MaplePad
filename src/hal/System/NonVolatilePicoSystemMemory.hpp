@@ -85,6 +85,10 @@ public:
     void prevPage(uint32_t ssize_t);
 
     void setPageBlock(uint32_t size, uint8_t page);
+
+    uint8_t* fetchSettingsFromFlash();
+
+    void writeSettingsToFlash(uint8_t* data);
     
 private:
     //! Converts a local sector index to flash byte offset

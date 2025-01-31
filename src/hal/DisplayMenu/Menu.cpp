@@ -3,10 +3,11 @@
 namespace display
 {
 
-    Menu::Menu(std::shared_ptr<Display> lcd) :
+    Menu::Menu(std::shared_ptr<Display> lcd, std::shared_ptr<NonVolatilePicoSystemMemory> mem) :
         mCurrentNumEntries(sizeof(mainMenu) / sizeof(MenuItem)),
         mCurrentMenu(mainMenu),
-        mDisplay(lcd)
+        mDisplay(lcd),
+        mSystemMemory(mem)
     {
         enterMainMenu(NULL);
     }
@@ -392,8 +393,7 @@ namespace display
 
     void Menu::readFlash()
     {
-        const uint8_t* const readFlash = (const uint8_t *)(XIP_BASE + mFlashOffset);
-        memcpy(mFlashData, readFlash, sizeof(mFlashData));
+        mFlashData = mSystemMemory->fetchSettingsFromFlash();
 
         mXCenter = mFlashData[0];
         mXMin = mFlashData[1];
@@ -466,12 +466,11 @@ namespace display
         mFlashData[30] = mRAntiDeadzone;
         mFlashData[31] = mAutoResetEnable;
         mFlashData[32] = mAutoResetTimer;
-        mFlashData[33] = mVersion;
+        mFlashData[33] = 0x0C;
 
-        uint interrupts = save_and_disable_interrupts();
-        flash_range_erase(mFlashOffset, FLASH_SECTOR_SIZE);
-        flash_range_program(mFlashOffset, (uint8_t *)mFlashData, FLASH_PAGE_SIZE);
-        restore_interrupts(interrupts);
+        mSystemMemory->writeSettingsToFlash(mFlashData);
+
+        delete mFlashData; //free up space
     }
 
     uint8_t Menu::getSelectedEntry()

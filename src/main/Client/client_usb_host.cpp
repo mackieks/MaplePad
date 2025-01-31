@@ -177,13 +177,6 @@ void core0()
         std::make_shared<client::DreamcastStorage>(mem, 0);
     subPeripheral1->addFunction(dreamcastStorage);
 
-    //TODO add logic to check firmware version, format memory, and store it here
-    //Format makes a call to store to flash so processing memory not necessary
-    //dreamcastStorage->format();
-    
-    //Always start up on the first page
-    //dreamcastStorage->updateSystemMemory(getMemoryBlockByPage(dreamcastStorage->updateCurrentPage(1)));
-
     std::shared_ptr<client::DreamcastScreen> dreamcastScreen =
         std::make_shared<client::DreamcastScreen>(screenCb, 48, 32);
     subPeripheral1->addFunction(dreamcastScreen);
@@ -211,6 +204,18 @@ void core0()
     subPeripheral2->addFunction(dreamcastVibration);
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
 
+    std::shared_ptr<NonVolatilePicoSystemMemory> settingsMemory = std::make_shared<NonVolatilePicoSystemMemory>(
+        PICO_FLASH_SIZE_BYTES - (client::DreamcastStorage::MEMORY_SIZE_BYTES * 9), 64);
+    uint8_t* settings = settingsMemory->fetchSettingsFromFlash();
+
+    //settings[33] == FW version
+    if(settings[33] != 0x0C)
+    {
+        //format memory
+        //update controller defaults to flash
+        //update version
+    }
+
     if(lcd != nullptr)
     {
         isLcdInitialized = lcd->initialize();
@@ -219,14 +224,11 @@ void core0()
         {
             if(controller->triggerMenu())
             {
-                // Pass volatile memory pointer to flash data
-                display::Menu* menu = new display::Menu(lcd);
+                display::Menu* menu = new display::Menu(lcd, settingsMemory);
                 menu->run();
                 delete menu;
             }
             mem->attach(lcd);
-            // Show splash after we exit the menu or if we don't enter the menu at all
-            //lcd->clear();
             lcd->update();
         }
     }

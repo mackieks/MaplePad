@@ -227,3 +227,20 @@ void NonVolatilePicoSystemMemory::setWriteDelay()
 {
     mDelayedWriteTime = time_us_64() + WRITE_DELAY_US;
 }
+
+uint8_t* NonVolatilePicoSystemMemory::fetchSettingsFromFlash()
+{
+    uint8_t* settingsData = new uint8_t[64];
+    const uint8_t* const readFlash = (const uint8_t *)(XIP_BASE + mOffset);
+    memcpy(settingsData, readFlash, mSize);
+
+    return settingsData;
+}
+
+void NonVolatilePicoSystemMemory::writeSettingsToFlash(uint8_t* data)
+{
+    uint interrupts = save_and_disable_interrupts();
+    flash_range_erase(mOffset, FLASH_SECTOR_SIZE);
+    flash_range_program(mOffset, data, FLASH_PAGE_SIZE);
+    restore_interrupts(interrupts);
+}

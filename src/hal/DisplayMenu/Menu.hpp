@@ -7,6 +7,7 @@
 #include "hardware/irq.h"
 #include "hardware/sync.h"
 #include "hal/System/SystemMemory.hpp"
+#include "NonVolatilePicoSystemMemory.hpp"
 
 #include <memory>
 
@@ -42,11 +43,9 @@ namespace display
     class Menu
     {
         public:
-            Menu(std::shared_ptr<Display> lcd);
+            Menu(std::shared_ptr<Display> lcd, std::shared_ptr<NonVolatilePicoSystemMemory> mem);
 
             void run();
-
-            void readFlash();
 
         private:
             void updateMenu(int offset);
@@ -93,6 +92,8 @@ namespace display
 
             void updateFlashData();
 
+            void readFlash();
+
         private:
             uint8_t mCurrentNumEntries;
 
@@ -108,9 +109,9 @@ namespace display
 
             uint32_t mFlipLockout = 0;
 
-            uint32_t mFlashOffset = PICO_FLASH_SIZE_BYTES - (MEMORY_SIZE_BYTES * 9);
+            std::shared_ptr<NonVolatilePicoSystemMemory> mSystemMemory;
 
-            uint8_t mFlashData[64];
+            uint8_t* mFlashData = new uint8_t[64];
 
             uint8_t mXCenter = 0;
             uint8_t mXMin = 0;
