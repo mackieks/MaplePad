@@ -13,7 +13,6 @@ target_link_libraries(hal-DisplayMenu
     hardware_sync
     hardware_adc
     hal-Display
-    hal-System
 )
 target_compile_options(hal-DisplayMenu PRIVATE
   -Wall

@@ -211,7 +211,6 @@ void core0()
     subPeripheral2->addFunction(dreamcastVibration);
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
 
-    sleep_ms(3000);
     if(lcd != nullptr)
     {
         isLcdInitialized = lcd->initialize();
@@ -231,8 +230,6 @@ void core0()
             lcd->update();
         }
     }
-    // Read flash data here for setting configurations. How should flash data be accessed by the controller?
-    // Possibly via a controller update function?
 
     multicore_launch_core1(core1);
 

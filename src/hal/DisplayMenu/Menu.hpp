@@ -7,7 +7,6 @@
 #include "hardware/irq.h"
 #include "hardware/sync.h"
 #include "hal/System/SystemMemory.hpp"
-#include "NonVolatilePicoSystemMemory.hpp"
 
 #include <memory>
 
@@ -108,8 +107,6 @@ namespace display
             bool mRedraw = true;
 
             uint32_t mFlipLockout = 0;
-
-            std::shared_ptr<NonVolatilePicoSystemMemory> mSystemMemory;
 
             uint32_t mFlashOffset = PICO_FLASH_SIZE_BYTES - (MEMORY_SIZE_BYTES * 9);
 

@@ -394,7 +394,6 @@ namespace display
     {
         const uint8_t* const readFlash = (const uint8_t *)(XIP_BASE + mFlashOffset);
         memcpy(mFlashData, readFlash, sizeof(mFlashData));
-        //mFlashData = mSystemMemory->read(mFlashOffset, mSize);
 
         mXCenter = mFlashData[0];
         mXMin = mFlashData[1];
@@ -473,9 +472,6 @@ namespace display
         flash_range_erase(mFlashOffset, FLASH_SECTOR_SIZE);
         flash_range_program(mFlashOffset, (uint8_t *)mFlashData, FLASH_PAGE_SIZE);
         restore_interrupts(interrupts);
-        //uint32_t size = sizeof(mFlashData);
-        //mSystemMemory->write(mFlashOffset, mFlashData, size);
-        //mSystemMemory->process();
     }
 
     uint8_t Menu::getSelectedEntry()
