@@ -211,6 +211,7 @@ void core0()
     subPeripheral2->addFunction(dreamcastVibration);
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
 
+    sleep_ms(3000);
     if(lcd != nullptr)
     {
         isLcdInitialized = lcd->initialize();

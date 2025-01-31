@@ -7,6 +7,7 @@
 #include "hardware/irq.h"
 #include "hardware/sync.h"
 #include "hal/System/SystemMemory.hpp"
+#include "NonVolatilePicoSystemMemory.hpp"
 
 #include <memory>
 
@@ -108,7 +109,11 @@ namespace display
 
             uint32_t mFlipLockout = 0;
 
-            uint8_t mFlashData[64] = {0};
+            std::shared_ptr<NonVolatilePicoSystemMemory> mSystemMemory;
+
+            uint32_t mFlashOffset = PICO_FLASH_SIZE_BYTES - (MEMORY_SIZE_BYTES * 9);
+
+            uint8_t mFlashData[64];
 
             uint8_t mXCenter = 0;
             uint8_t mXMin = 0;

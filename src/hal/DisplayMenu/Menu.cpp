@@ -20,6 +20,7 @@ namespace display
     {
         //Set member vars for toggles before saving
         updateToggles();
+        updateFlashData();
         return 0;
     }
 
@@ -391,9 +392,9 @@ namespace display
 
     void Menu::readFlash()
     {
-        uint32_t flashOffset = PICO_FLASH_SIZE_BYTES - (MEMORY_SIZE_BYTES * 9);
-        const uint8_t* const readFlash = (const uint8_t *)(XIP_BASE + flashOffset);
+        const uint8_t* const readFlash = (const uint8_t *)(XIP_BASE + mFlashOffset);
         memcpy(mFlashData, readFlash, sizeof(mFlashData));
+        //mFlashData = mSystemMemory->read(mFlashOffset, mSize);
 
         mXCenter = mFlashData[0];
         mXMin = mFlashData[1];
@@ -432,11 +433,49 @@ namespace display
     }
 
     void Menu::updateFlashData()
-    {
-        //uint interrupts = save_and_disable_interrupts();
-        flash_range_erase((PICO_FLASH_SIZE_BYTES - (MEMORY_SIZE_BYTES * 9)), FLASH_SECTOR_SIZE);
-        flash_range_program((PICO_FLASH_SIZE_BYTES - (MEMORY_SIZE_BYTES * 9)), mFlashData, FLASH_PAGE_SIZE);
-        //restore_interrupts(interrupts);
+    {   
+        mFlashData[0] = mXCenter;
+        mFlashData[1] = mXMin;
+        mFlashData[2] = mXMax;
+        mFlashData[3] = mYCenter;
+        mFlashData[4] = mYMin;
+        mFlashData[5] = mYMax;
+        mFlashData[6] = mLMin;
+        mFlashData[7] = mLMax;
+        mFlashData[8] = mRMin;
+        mFlashData[9] = mRMax;
+        mFlashData[10] = mInvertX;
+        mFlashData[11] = mInvertY;
+        mFlashData[12] = mInvertL;
+        mFlashData[13] = mInvertR;
+        mFlashData[14] = mFirstBoot;
+        mFlashData[15] = mCurrentPage;
+        mFlashData[16] = mRumbleEnable;
+        mFlashData[17] = mVmuEnable;
+        mFlashData[18] = mOledFlip;
+        mFlashData[19] = mSwapXY;
+        mFlashData[20] = mSwapLR;
+        mFlashData[21] = mOledType;
+        mFlashData[22] = mTriggerMode;
+        mFlashData[23] = mXDeadzone;
+        mFlashData[24] = mXAntiDeadzone;
+        mFlashData[25] = mYDeadzone;
+        mFlashData[26] = mYAntiDeadzone;
+        mFlashData[27] = mLDeadzone;
+        mFlashData[28] = mLAntiDeadzone;
+        mFlashData[29] = mRDeadzone;
+        mFlashData[30] = mRAntiDeadzone;
+        mFlashData[31] = mAutoResetEnable;
+        mFlashData[32] = mAutoResetTimer;
+        mFlashData[33] = mVersion;
+
+        uint interrupts = save_and_disable_interrupts();
+        flash_range_erase(mFlashOffset, FLASH_SECTOR_SIZE);
+        flash_range_program(mFlashOffset, (uint8_t *)mFlashData, FLASH_PAGE_SIZE);
+        restore_interrupts(interrupts);
+        //uint32_t size = sizeof(mFlashData);
+        //mSystemMemory->write(mFlashOffset, mFlashData, size);
+        //mSystemMemory->process();
     }
 
     uint8_t Menu::getSelectedEntry()
