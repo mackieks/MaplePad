@@ -44,8 +44,20 @@ namespace display
         settingsMenu[0].runOption = &Menu::enterMainMenu;
         settingsMenu[6].runOption = &Menu::toggleOption;
 
-        mCurrentMenu = settingsMenu;
         mCurrentNumEntries = sizeof(settingsMenu) / sizeof(MenuItem);
+
+        char version_str[20];
+        snprintf(version_str, sizeof(version_str), "FW:      %d.%d", mMajorVersion, mMinorVersion);
+        strcpy(const_cast<char*>(settingsMenu[mCurrentNumEntries-1].name), version_str);
+
+        if (mOledType)
+        { // SSD1331
+            strcpy(const_cast<char*>(settingsMenu[5].name), "OLED: SSD1331");
+        } else { // SSD1306
+            strcpy(const_cast<char*>(settingsMenu[5].name), "OLED: SSD1306");
+        }
+
+        mCurrentMenu = settingsMenu;
         mPrevOffset = mOffset;
         mOffset = 0;
         return 1;
@@ -428,7 +440,8 @@ namespace display
         mRAntiDeadzone = mFlashData[30];
         mAutoResetEnable = mFlashData[31];
         mAutoResetTimer = mFlashData[32];
-        mVersion = mFlashData[33];
+        mMajorVersion = mFlashData[33];
+        mMinorVersion = mFlashData[34];
     }
 
     void Menu::updateFlashData()
@@ -466,7 +479,8 @@ namespace display
         mFlashData[30] = mRAntiDeadzone;
         mFlashData[31] = mAutoResetEnable;
         mFlashData[32] = mAutoResetTimer;
-        mFlashData[33] = 0x0C;
+        mFlashData[33] = FW_MAJOR_VERSION;
+        mFlashData[34] = FW_MINOR_VERSION;
 
         mSystemMemory->writeSettingsToFlash(mFlashData);
 
@@ -587,6 +601,13 @@ namespace display
 
             // Wait for A button release (submenu rate-limit)
             while (!gpio_get(CTRL_PIN_A));
+
+            uint8_t pressed = 0;
+            do {
+                for (int i = 0; i < 9; i++) {
+                    pressed |= (!gpio_get(ButtonInfos[i].pin));
+                }
+            } while (!pressed);
 
             sleep_ms(50); // Wait out switch bounce + rate-limiting
 

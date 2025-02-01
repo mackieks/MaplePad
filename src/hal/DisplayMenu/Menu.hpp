@@ -2,6 +2,7 @@
 
 #include "Display.hpp"
 #include "pico_configurations.h"
+#include "configuration.h"
 #include "hardware/adc.h"
 #include "hardware/flash.h"
 #include "hardware/irq.h"
@@ -9,6 +10,7 @@
 #include "hal/System/SystemMemory.hpp"
 #include "NonVolatilePicoSystemMemory.hpp"
 
+#include <string>
 #include <memory>
 
 namespace display
@@ -134,7 +136,7 @@ namespace display
             uint8_t mOledFlip = 0;
             uint8_t mSwapXY = 0;
             uint8_t mSwapLR = 0;
-            uint8_t mOledType = 0;
+            uint8_t mOledType = 0; //True = SSD1331, False = SSD1306
             uint8_t mTriggerMode = 0;
             uint8_t mXDeadzone = 0;
             uint8_t mXAntiDeadzone = 0;
@@ -146,7 +148,8 @@ namespace display
             uint8_t mRAntiDeadzone = 0;
             uint8_t mAutoResetEnable = 0;
             uint8_t mAutoResetTimer = 0;
-            uint8_t mVersion = 0;
+            uint8_t mMajorVersion = 0;
+            uint8_t mMinorVersion = 0;
 
             //OLED can only fit 5 rows of text at a time
             MenuItem mainMenu[7] = {

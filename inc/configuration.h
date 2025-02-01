@@ -66,6 +66,8 @@
 #define SIMPLE_USB_LED_PIN -1
 
 // The current firmware version
-#define CURRENT_FW_VERSION VER_2
+//Current Version 2.0
+#define FW_MAJOR_VERSION 0x20
+#define FW_MINOR_VERSION 0x00
 
 #endif // __CONFIGURATION_H__

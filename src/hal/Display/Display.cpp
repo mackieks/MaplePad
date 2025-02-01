@@ -168,7 +168,7 @@ namespace display
         char timeText[9];       // Buffer for time ("00:00")
         char batteryText[6];    // Buffer for battery percentage ("21%")
 
-        // Format the page number dynamically (1 or 2)
+        // Format the page number dynamically
         sprintf(pageText, "%d", mCurrentPage);
 
         if(mShowTimer)
