@@ -67,7 +67,7 @@
 
 // The current firmware version
 //Current Version 2.0
-#define FW_MAJOR_VERSION 0x20
+#define FW_MAJOR_VERSION 0x02
 #define FW_MINOR_VERSION 0x00
 
 #endif // __CONFIGURATION_H__

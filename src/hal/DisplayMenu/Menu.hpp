@@ -45,7 +45,7 @@ namespace display
     class Menu
     {
         public:
-            Menu(std::shared_ptr<Display> lcd, std::shared_ptr<NonVolatilePicoSystemMemory> mem);
+            Menu(std::shared_ptr<Display> lcd);
 
             void run();
 
@@ -113,7 +113,7 @@ namespace display
 
             std::shared_ptr<NonVolatilePicoSystemMemory> mSystemMemory;
 
-            uint8_t* mFlashData = new uint8_t[64];
+            std::array<uint8_t, 64> mFlashData = {0};
 
             uint8_t mXCenter = 0;
             uint8_t mXMin = 0;

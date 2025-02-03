@@ -29,6 +29,7 @@
 #include <memory>
 #include <algorithm>
 #include <cassert>
+#include <array>
 
 std::shared_ptr<display::Display> lcd;
 
@@ -38,6 +39,8 @@ volatile bool isOverlayVisible = false;  // Flag to check if overlay should be s
 volatile bool isOverlayHidden = true;
 volatile bool isOverlayShown = false;
 volatile uint32_t overlayTimer = 0;  // Overlay visibility timer (in milliseconds)
+
+std::array<uint8_t, 64> settings = {0};
 
 //! Keeps a reference to the last thing displayed onto the LCD so it can be restored after overlay disappears
 //const uint32_t* lastScreen;
@@ -96,14 +99,17 @@ void display_select()
 }
 
 // Function to handle the overlay timing on core 1
-void showOverlay() {
-    if (isOverlayVisible) {
+void showOverlay()
+{
+    if (isOverlayVisible)
+    {
         overlayTimer = to_ms_since_boot(get_absolute_time()) + 2000;  // Set overlay duration to 2 seconds
         isOverlayVisible = false;  // Reset the flag until the next button press
     }
 
     // If the overlay should still be visible, keep it on screen
-    if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) < overlayTimer) {
+    if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) < overlayTimer)
+    {
         lcd->showOverlay();
         if(!isOverlayShown)
         {
@@ -112,11 +118,30 @@ void showOverlay() {
         isOverlayShown = true;
     }
     // If the overlay duration has expired, stop showing the overlay
-    else if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) >= overlayTimer) {
+    else if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) >= overlayTimer)
+    {
         overlayTimer = 0;  // Reset the overlay duration
         isOverlayHidden = true;
         isOverlayShown = false;
         lcd->setIsOverlayRendered(false);
+    }
+}
+
+void startupChecks()
+{
+    std::shared_ptr<NonVolatilePicoSystemMemory> settingsMemory = std::make_shared<NonVolatilePicoSystemMemory>(
+        PICO_FLASH_SIZE_BYTES - (client::DreamcastStorage::MEMORY_SIZE_BYTES * 9), 64);
+
+    settings = settingsMemory->fetchSettingsFromFlash();
+
+    uint8_t majorVersion = settings[33];
+    uint8_t minorVersion = settings[34];
+
+    //settings[33] == Major FW version, settings[34] == Minor FW version
+    if(majorVersion != FW_MAJOR_VERSION || minorVersion != FW_MINOR_VERSION)
+    {
+        //format memory
+        settingsMemory->writeSettingsToFlash(settingsMemory->getDefaultSettings());
     }
 }
 
@@ -203,19 +228,8 @@ void core0()
     dreamcastVibration->setObserver(get_usb_vibration_observer());
     subPeripheral2->addFunction(dreamcastVibration);
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
-
-    std::shared_ptr<NonVolatilePicoSystemMemory> settingsMemory = std::make_shared<NonVolatilePicoSystemMemory>(
-        PICO_FLASH_SIZE_BYTES - (client::DreamcastStorage::MEMORY_SIZE_BYTES * 9), 64);
-    uint8_t* settings = settingsMemory->fetchSettingsFromFlash();
-
-    //settings[33] == FW version
-    if(settings[33] != 0x0C)
-    {
-        //format memory
-        //update controller defaults to flash
-        //update version
-    }
-
+    startupChecks();
+    
     if(lcd != nullptr)
     {
         isLcdInitialized = lcd->initialize();
@@ -224,7 +238,7 @@ void core0()
         {
             if(controller->triggerMenu())
             {
-                display::Menu* menu = new display::Menu(lcd, settingsMemory);
+                display::Menu* menu = new display::Menu(lcd);
                 menu->run();
                 delete menu;
             }

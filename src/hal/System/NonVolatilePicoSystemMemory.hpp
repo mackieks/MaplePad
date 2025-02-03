@@ -3,10 +3,12 @@
 #include "hal/System/SystemMemory.hpp"
 #include "hal/Display/TransientOverlaySubject.hpp"
 #include "VolatileSystemMemory.hpp"
+#include "configuration.h"
 #include "Mutex.hpp"
 
 #include <memory>
 #include <list>
+#include <array>
 
 // The Raspberry Pi Pico uses an external flash chip, the W25Q16JV, to store code. There are some
 // limitations which make it difficult to use as storage space.
@@ -86,9 +88,11 @@ public:
 
     void setPageBlock(uint32_t size, uint8_t page);
 
-    uint8_t* fetchSettingsFromFlash();
+    std::array<uint8_t, 64> fetchSettingsFromFlash();
 
-    void writeSettingsToFlash(uint8_t* data);
+    void writeSettingsToFlash(std::array<uint8_t, 64> data);
+
+    std::array<uint8_t, 64> getDefaultSettings();
     
 private:
     //! Converts a local sector index to flash byte offset

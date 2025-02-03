@@ -3,13 +3,13 @@
 namespace display
 {
 
-    Menu::Menu(std::shared_ptr<Display> lcd, std::shared_ptr<NonVolatilePicoSystemMemory> mem) :
+    Menu::Menu(std::shared_ptr<Display> lcd) :
         mCurrentNumEntries(sizeof(mainMenu) / sizeof(MenuItem)),
         mCurrentMenu(mainMenu),
-        mDisplay(lcd),
-        mSystemMemory(mem)
+        mDisplay(lcd)
     {
         enterMainMenu(NULL);
+        mSystemMemory = std::make_shared<NonVolatilePicoSystemMemory>(PICO_FLASH_SIZE_BYTES - (MEMORY_SIZE_BYTES * 9), 64);
     }
 
     int Menu::exitToPad(MenuItem *self)
@@ -479,12 +479,10 @@ namespace display
         mFlashData[30] = mRAntiDeadzone;
         mFlashData[31] = mAutoResetEnable;
         mFlashData[32] = mAutoResetTimer;
-        mFlashData[33] = FW_MAJOR_VERSION;
-        mFlashData[34] = FW_MINOR_VERSION;
+        mFlashData[33] = mMajorVersion;
+        mFlashData[34] = mMinorVersion;
 
         mSystemMemory->writeSettingsToFlash(mFlashData);
-
-        delete mFlashData; //free up space
     }
 
     uint8_t Menu::getSelectedEntry()

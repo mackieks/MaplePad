@@ -228,19 +228,94 @@ void NonVolatilePicoSystemMemory::setWriteDelay()
     mDelayedWriteTime = time_us_64() + WRITE_DELAY_US;
 }
 
-uint8_t* NonVolatilePicoSystemMemory::fetchSettingsFromFlash()
+std::array<uint8_t, 64> NonVolatilePicoSystemMemory::fetchSettingsFromFlash()
 {
-    uint8_t* settingsData = new uint8_t[64];
+    std::array<uint8_t, 64> settingsData = {0};
     const uint8_t* const readFlash = (const uint8_t *)(XIP_BASE + mOffset);
-    memcpy(settingsData, readFlash, mSize);
+    memcpy(settingsData.data(), readFlash, mSize);
 
     return settingsData;
 }
 
-void NonVolatilePicoSystemMemory::writeSettingsToFlash(uint8_t* data)
+void NonVolatilePicoSystemMemory::writeSettingsToFlash(std::array<uint8_t, 64> settingsData)
 {
     uint interrupts = save_and_disable_interrupts();
     flash_range_erase(mOffset, FLASH_SECTOR_SIZE);
-    flash_range_program(mOffset, data, FLASH_PAGE_SIZE);
+    flash_range_program(mOffset, settingsData.data(), FLASH_PAGE_SIZE);
     restore_interrupts(interrupts);
+}
+
+/*
+        xMin = 0x00;
+        xCenter = 0x80;
+        xMax = 0xff;
+        xDeadzone = 0x0f;
+        xAntiDeadzone = 0x04;
+        invertX = 0;
+
+        yMin = 0x00;
+        yCenter = 0x00;
+        yMax = 0xff;
+        yDeadzone = 0x0f;
+        yAntiDeadzone = 0x04;
+        invertY = 0;
+
+        lMin = 0x00;
+        lMax = 0xff;
+        lDeadzone = 0x00;
+        lAntiDeadzone = 0x04;
+        invertL = 0;
+
+        rMin = 0x00;
+        rMax = 0xff;
+        rDeadzone = 0x00;
+        rAntiDeadzone = 0x04;
+        invertR = 0;
+
+        oledFlip = 0;
+        swapXY = 0;
+        swapLR = 0;
+        autoResetEnable = 0;
+        autoResetTimer = 0x5A; // 180s
+        version = CURRENT_FW_VERSION;
+*/
+std::array<uint8_t, 64> NonVolatilePicoSystemMemory::getDefaultSettings()
+{
+    std::array<uint8_t, 64> data = {0};
+
+    data[0] = 0x80;
+    data[1] = 0x00;
+    data[2] = 0xff;
+    data[3] = 0x00;
+    data[4] = 0x00;
+    data[5] = 0xff;
+    data[6] = 0x00;
+    data[7] = 0xff;
+    data[8] = 0x00;
+    data[9] = 0xff;
+    data[10] = 0;
+    data[11] = 0;
+    data[12] = 0;
+    data[13] = 0;
+    data[14] = 1;
+    data[15] = 1;
+    data[16] = 0;
+    data[17] = 1;
+    data[18] = 0;
+    data[19] = 0;
+    data[20] = 0;
+    data[23] = 0x0f;
+    data[24] = 0x04;
+    data[25] = 0x0f;
+    data[26] = 0x04;
+    data[27] = 0x00;
+    data[28] = 0x04;
+    data[29] = 0x00;
+    data[30] = 0x04;
+    data[31] = 0;
+    data[32] = 0x5A;
+    data[33] = FW_MAJOR_VERSION;
+    data[34] = FW_MINOR_VERSION;
+
+    return data;
 }
