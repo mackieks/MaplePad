@@ -204,8 +204,14 @@ void DreamcastController::setControls()
 {
     controller_condition_t condition;
     //TODO left/right triggers, configure with adc
-    condition.l = getTriggerADCInput(2, 0x00, 0xff, 0x00, 0x04, false);
-    condition.r = getTriggerADCInput(3, 0x00, 0xff, 0x00, 0x04, false);
+    if(!mSwapLR)
+    {
+        condition.l = getTriggerADCInput(2, mLMin, mLMax, mLDeadzone, mLAntiDeadzone, mInvertL);
+        condition.r = getTriggerADCInput(3, mRMin, mRMax, mRDeadzone, mRAntiDeadzone, mInvertR);
+    } else {
+        condition.l = getTriggerADCInput(3, mRMin, mRMax, mRDeadzone, mRAntiDeadzone, mInvertR);
+        condition.r = getTriggerADCInput(2, mLMin, mLMax, mLDeadzone, mLAntiDeadzone, mInvertL);
+    }
 
     condition.a = gpio_get(CTRL_PIN_A);
     condition.b = gpio_get(CTRL_PIN_B);
@@ -227,8 +233,14 @@ void DreamcastController::setControls()
     condition.rAnalogLR = 128;
 
     //TODO Check ADC and add deadzone checks
-    condition.lAnalogUD = getJoystickADCInput(1, 0x00, 0xff, 0x0f, 0x04, 0x80, false);
-    condition.lAnalogLR = getJoystickADCInput(0, 0x00, 0xff, 0x0f, 0x04, 0x80, false);
+    if(!mSwapXY)
+    {
+        condition.lAnalogUD = getJoystickADCInput(1, mYMin, mYMax, mYDeadzone, mYAntiDeadzone, mYCenter, mInvertY);
+        condition.lAnalogLR = getJoystickADCInput(0, mXMin, mXMax, mXDeadzone, mXAntiDeadzone, mXCenter, mInvertX);
+    } else {
+        condition.lAnalogUD = getJoystickADCInput(0, mXMin, mXMax, mXDeadzone, mXAntiDeadzone, mXCenter, mInvertX);
+        condition.lAnalogLR = getJoystickADCInput(1, mYMin, mYMax, mYDeadzone, mYAntiDeadzone, mYCenter, mInvertY);
+    }
 
     // No secondary D-pad
     condition.upb = 1;
@@ -268,6 +280,35 @@ bool DreamcastController::dpadDownPressed()
 bool DreamcastController::dpadUpPressed()
 {
     return !gpio_get(CTRL_PIN_DU);
+}
+
+void DreamcastController::setControllerSettings(std::array<uint8_t, 64> settingsData)
+{
+    mXCenter = settingsData[0];
+    mXMin = settingsData[1];
+    mXMax = settingsData[2];
+    mYCenter = settingsData[3];
+    mYMin = settingsData[4];
+    mYMax = settingsData[5];
+    mLMin = settingsData[6];
+    mLMax = settingsData[7];
+    mRMin = settingsData[8];
+    mRMax = settingsData[9];
+    mInvertX = settingsData[10];
+    mInvertY = settingsData[11];
+    mInvertL = settingsData[12];
+    mInvertR = settingsData[13];
+    mSwapXY = settingsData[19];
+    mSwapLR = settingsData[20];
+    mTriggerMode = settingsData[22];
+    mXDeadzone = settingsData[23];
+    mXAntiDeadzone = settingsData[24];
+    mYDeadzone = settingsData[25];
+    mYAntiDeadzone = settingsData[26];
+    mLDeadzone = settingsData[27];
+    mLAntiDeadzone = settingsData[28];
+    mRDeadzone = settingsData[29];
+    mRAntiDeadzone = settingsData[30];
 }
 
 /* TODO Setup defaults as vars that are updated on bootup

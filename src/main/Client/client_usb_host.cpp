@@ -134,11 +134,8 @@ void startupChecks()
 
     settings = settingsMemory->fetchSettingsFromFlash();
 
-    uint8_t majorVersion = settings[33];
-    uint8_t minorVersion = settings[34];
-
     //settings[33] == Major FW version, settings[34] == Minor FW version
-    if(majorVersion != FW_MAJOR_VERSION || minorVersion != FW_MINOR_VERSION)
+    if(settings[33] != FW_MAJOR_VERSION || settings[34] != FW_MINOR_VERSION)
     {
         //format memory
         settingsMemory->writeSettingsToFlash(settingsMemory->getDefaultSettings());
@@ -174,6 +171,8 @@ void core0()
     // Create the bus for client-mode operation
     std::shared_ptr<MapleBusInterface> bus = create_maple_bus(P1_BUS_START_PIN, P1_DIR_PIN, DIR_OUT_HIGH);
 
+    startupChecks();
+
     // Main peripheral (address of 0x20) with 1 function: controller
     client::DreamcastMainPeripheral mainPeripheral(
         bus,
@@ -186,6 +185,7 @@ void core0()
         50.0);
     std::shared_ptr<client::DreamcastController> controller =
         std::make_shared<client::DreamcastController>();
+    controller->setControllerSettings(settings);
     mainPeripheral.addFunction(controller);
 
     // First sub peripheral (address of 0x01) with 1 function: memory
@@ -228,8 +228,7 @@ void core0()
     dreamcastVibration->setObserver(get_usb_vibration_observer());
     subPeripheral2->addFunction(dreamcastVibration);
     mainPeripheral.addSubPeripheral(subPeripheral2);*/
-    startupChecks();
-    
+
     if(lcd != nullptr)
     {
         isLcdInitialized = lcd->initialize();

@@ -8,6 +8,8 @@
 #include "hardware/adc.h"
 #include "pico_configurations.h"
 
+#include <array>
+
 namespace client
 {
 class DreamcastController : public DreamcastPeripheralFunction
@@ -61,6 +63,8 @@ public:
     //! @returns the number of condition samples made
     uint32_t getConditionSamples();
 
+    void setControllerSettings(std::array<uint8_t, 64> settingsData);
+
     bool triggerMenu();
 
     bool triggerNextPage();
@@ -103,5 +107,32 @@ private:
     uint32_t mCondition[2];
     //! Number of condition samples requested by host
     uint32_t mConditionSamples;
+
+    // Variables for adjusting controller settings
+    uint8_t mXCenter = 0;
+    uint8_t mXMin = 0;
+    uint8_t mXMax = 0;
+    uint8_t mYCenter = 0;
+    uint8_t mYMin = 0;
+    uint8_t mYMax = 0;
+    uint8_t mLMin = 0;
+    uint8_t mLMax = 0;
+    uint8_t mRMin = 0;
+    uint8_t mRMax = 0;
+    uint8_t mInvertX = 0;
+    uint8_t mInvertY = 0;
+    uint8_t mInvertL = 0;
+    uint8_t mInvertR = 0;
+    uint8_t mSwapXY = 0;
+    uint8_t mSwapLR = 0;
+    uint8_t mTriggerMode = 0;
+    uint8_t mXDeadzone = 0;
+    uint8_t mXAntiDeadzone = 0;
+    uint8_t mYDeadzone = 0;
+    uint8_t mYAntiDeadzone = 0;
+    uint8_t mLDeadzone = 0;
+    uint8_t mLAntiDeadzone = 0;
+    uint8_t mRDeadzone = 0;
+    uint8_t mRAntiDeadzone = 0;
 };
 }
