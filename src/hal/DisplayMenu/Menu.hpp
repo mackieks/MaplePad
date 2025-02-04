@@ -84,6 +84,8 @@ namespace display
 
             int enterTriggerCalibration(MenuItem *self);
 
+            int notImplemented(MenuItem *self);
+
             int toggleOption(MenuItem *self);
 
             int setDeadzone(int deadzone);

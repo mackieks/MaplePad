@@ -27,8 +27,10 @@ namespace display
 
     int Menu::enterMainMenu(MenuItem *self)
     {
+        mainMenu[0].runOption = &Menu::notImplemented;
         mainMenu[1].runOption = &Menu::enterStickConfigMenu;
         mainMenu[2].runOption = &Menu::enterTriggerConfigMenu;
+        mainMenu[3].runOption = &Menu::notImplemented;
         mainMenu[4].runOption = &Menu::enterSettingsMenu;
         mainMenu[5].runOption = &Menu::exitToPad;
         mainMenu[6].runOption = &Menu::saveAndExitToPad;
@@ -42,7 +44,15 @@ namespace display
     int Menu::enterSettingsMenu(MenuItem *self)
     {
         settingsMenu[0].runOption = &Menu::enterMainMenu;
+        settingsMenu[1].runOption = &Menu::notImplemented;
+        settingsMenu[2].runOption = &Menu::notImplemented;
+        settingsMenu[3].runOption = &Menu::notImplemented;
+        settingsMenu[4].runOption = &Menu::notImplemented;
+        settingsMenu[5].runOption = &Menu::notImplemented;
         settingsMenu[6].runOption = &Menu::toggleOption;
+        settingsMenu[7].runOption = &Menu::notImplemented;
+        settingsMenu[8].runOption = &Menu::notImplemented;
+        settingsMenu[9].runOption = &Menu::notImplemented;
 
         mCurrentNumEntries = sizeof(settingsMenu) / sizeof(MenuItem);
 
@@ -120,6 +130,11 @@ namespace display
         settingsMenu[3].isToggledOn = mVmuEnable;
         settingsMenu[6].isToggledOn = mOledFlip;
         settingsMenu[7].isToggledOn = mAutoResetEnable;
+    }
+
+    int Menu::notImplemented(MenuItem *self)
+    {
+        return 1;
     }
 
     int Menu::enterStickCalibration(MenuItem *self)

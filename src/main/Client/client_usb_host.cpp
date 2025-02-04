@@ -43,8 +43,10 @@ volatile uint32_t overlayTimer = 0;  // Overlay visibility timer (in millisecond
 std::array<uint8_t, 64> settings = {0};
 
 //! Keeps a reference to the last thing displayed onto the LCD so it can be restored after overlay disappears
-//const uint32_t* lastScreen;
-//uint32_t lastLen;
+const uint32_t* lastScreen;
+uint32_t lastLen;
+//! Used to determine when the screen was last updated to determine if a forced refresh is needed
+volatile uint32_t lcdLastUpdated = 0;
 
 void screenCb(const uint32_t* screen, uint32_t len)
 {
@@ -53,8 +55,10 @@ void screenCb(const uint32_t* screen, uint32_t len)
     if(isLcdInitialized)
     {
         lcd->refresh(screen, len, !isOverlayHidden);
-        //lastScreen = screen; //save pointer to last screen bytes
-        //lastLen = len; //save length as well
+
+        lastScreen = screen; //save pointer to last screen bytes
+        lastLen = len; //save length as well
+        lcdLastUpdated = to_ms_since_boot(get_absolute_time()); //store the time when the lcd was last updated
     }
 }
 
@@ -111,7 +115,7 @@ void showOverlay()
     if (overlayTimer > 0 && to_ms_since_boot(get_absolute_time()) < overlayTimer)
     {
         lcd->showOverlay();
-        if(!isOverlayShown)
+        if(!isOverlayShown && to_ms_since_boot(get_absolute_time()) >= lcdLastUpdated + 300)
         {
             lcd->update();
         }
@@ -124,18 +128,25 @@ void showOverlay()
         isOverlayHidden = true;
         isOverlayShown = false;
         lcd->setIsOverlayRendered(false);
+        //if it's been at least 1.5 seconds since last lcd update, go ahead and refresh
+        if(to_ms_since_boot(get_absolute_time()) >= lcdLastUpdated + 300)
+        {
+            lcd->refresh(lastScreen, lastLen, !isOverlayHidden);
+        }
     }
 }
 
-void startupChecks()
-{
-    std::shared_ptr<NonVolatilePicoSystemMemory> settingsMemory = std::make_shared<NonVolatilePicoSystemMemory>(
+std::shared_ptr<NonVolatilePicoSystemMemory> settingsMemory = std::make_shared<NonVolatilePicoSystemMemory>(
         PICO_FLASH_SIZE_BYTES - (client::DreamcastStorage::MEMORY_SIZE_BYTES * 9), 64);
 
+void startupChecks()
+{
     settings = settingsMemory->fetchSettingsFromFlash();
+    uint8_t majorVersion = settings[33];
+    uint8_t minorVersion = settings[34];
 
     //settings[33] == Major FW version, settings[34] == Minor FW version
-    if(settings[33] != FW_MAJOR_VERSION || settings[34] != FW_MINOR_VERSION)
+    if(majorVersion != FW_MAJOR_VERSION || minorVersion != FW_MINOR_VERSION)
     {
         //format memory
         settingsMemory->writeSettingsToFlash(settingsMemory->getDefaultSettings());
@@ -240,6 +251,10 @@ void core0()
                 display::Menu* menu = new display::Menu(lcd);
                 menu->run();
                 delete menu;
+
+                lcd->clear();
+                //refresh controller settings
+                controller->setControllerSettings(settingsMemory->fetchSettingsFromFlash());
             }
             mem->attach(lcd);
             lcd->update();
