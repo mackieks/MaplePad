@@ -93,6 +93,7 @@ namespace display
     {
         triggerConfigMenu[0].runOption = &Menu::enterMainMenu;
         triggerConfigMenu[1].runOption = &Menu::enterTriggerCalibration;
+        triggerConfigMenu[2].runOption = &Menu::enterTriggerDeadzoneConfig;
         triggerConfigMenu[3].runOption = &Menu::toggleOption;
         triggerConfigMenu[4].runOption = &Menu::toggleOption;
         triggerConfigMenu[5].runOption = &Menu::toggleOption;
@@ -164,6 +165,11 @@ namespace display
         mDisplay->putString("  around", 0, 1, color);
         mDisplay->putString("  a lot!", 0, 2, color);
         mDisplay->update();
+
+        mXMin = 0x80;
+        mXMax = 0x80;
+        mYMin = 0x80;
+        mYMax = 0x80;
 
         uint32_t start = to_ms_since_boot(get_absolute_time());
         while ((to_ms_since_boot(get_absolute_time()) - start) < 4000 ? true : gpio_get(ButtonInfos[0].pin)) {
@@ -335,6 +341,74 @@ namespace display
         }
 
         //updateFlashData();
+
+        mDisplay->clear();
+
+        return 1;
+    }
+
+    int Menu::enterTriggerDeadzoneConfig(MenuItem *self)
+    {
+        uint16_t color = 0xFFFF;
+        char tdata[5];
+
+        while(!gpio_get(ButtonInfos[0].pin));
+
+        while (gpio_get(ButtonInfos[0].pin)) {
+            mDisplay->clear();
+            mDisplay->putString("L Deadzone", 0, 0, color);
+            sprintf(tdata, "0x%02x", mLDeadzone);
+            mDisplay->putString(tdata, 3, 2, color);
+            mDisplay->update();
+
+            mLDeadzone = setDeadzone(mLDeadzone);
+
+            sleep_ms(60);
+        }
+
+        while(!gpio_get(ButtonInfos[0].pin));
+
+        while (gpio_get(ButtonInfos[0].pin)) {
+            mDisplay->clear();
+            mDisplay->putString("L", 5, 0, color);
+            mDisplay->putString("AntiDeadzone", 0, 1, color);
+            sprintf(tdata, "0x%02x", mLAntiDeadzone);
+            mDisplay->putString(tdata, 3, 3, color);
+            mDisplay->update();
+
+            mLAntiDeadzone = setDeadzone(mLAntiDeadzone);
+
+            sleep_ms(60);
+        }
+
+        while(!gpio_get(ButtonInfos[0].pin));
+
+        while (gpio_get(ButtonInfos[0].pin)) {
+            mDisplay->clear();
+            mDisplay->putString("R Deadzone", 0, 0, color);
+            sprintf(tdata, "0x%02x", mRDeadzone);
+            mDisplay->putString(tdata, 3, 2, color);
+            mDisplay->update();
+
+            mRDeadzone = setDeadzone(mRDeadzone);
+
+            sleep_ms(60);
+        }
+
+        while(!gpio_get(ButtonInfos[0].pin));
+
+        while (gpio_get(ButtonInfos[0].pin)) {
+            mDisplay->clear();
+            mDisplay->putString("R", 5, 0, color);
+            mDisplay->putString("AntiDeadzone", 0, 1, color);
+            sprintf(tdata, "0x%02x", mRAntiDeadzone);
+            mDisplay->putString(tdata, 3, 3, color);
+            mDisplay->update();
+
+            mRAntiDeadzone = setDeadzone(mRAntiDeadzone);
+
+            sleep_ms(60);
+        }
 
         mDisplay->clear();
 
