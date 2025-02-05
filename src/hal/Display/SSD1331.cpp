@@ -102,7 +102,7 @@ namespace display
         update();
     }
 
-    bool SSD1331::initialize()
+    bool SSD1331::initialize(bool oledFlip)
     {
         //Configure OLED SPI
         spi_init(SSD1331_SPI, SSD1331_SPEED);
@@ -110,7 +110,7 @@ namespace display
         gpio_set_function(SCK, GPIO_FUNC_SPI);
         gpio_set_function(MOSI, GPIO_FUNC_SPI);
 
-        init();
+        init(oledFlip);
 
         channel_config_set_transfer_data_size(&mConfig, DMA_SIZE_8);
         channel_config_set_dreq(&mConfig, spi_get_index(SSD1331_SPI) ? DREQ_SPI1_TX : DREQ_SPI0_TX);
@@ -119,7 +119,7 @@ namespace display
         return mIsInitialized;
     }
 
-    void SSD1331::init()
+    void SSD1331::init(bool oledFlip)
     {
         gpio_init(DC);
         gpio_set_dir(DC, GPIO_OUT);
@@ -134,10 +134,11 @@ namespace display
         write(SSD1331_CMD_DISPLAYOFF); // 0xAE
         write(SSD1331_CMD_SETREMAP);   // 0xA0
 
-        //if (OLED_FLIP)
-        write(0x60); //Start with flipped OLED for now
-        //else
-            //write(0x72);
+        if(!oledFlip) {
+            write(0x60); //Start with flipped OLED for now
+        } else {
+            write(0x72);
+        }
 
         write(SSD1331_CMD_STARTLINE); // 0xA1
         write(0x0);

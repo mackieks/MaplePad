@@ -31,6 +31,8 @@
 #include <cassert>
 #include <array>
 
+#define OLED_FLIP 18
+
 std::shared_ptr<display::Display> lcd;
 
 //These flags are messy, need to clean this up
@@ -242,7 +244,7 @@ void core0()
 
     if(lcd != nullptr)
     {
-        isLcdInitialized = lcd->initialize();
+        isLcdInitialized = lcd->initialize(settings[18]);
     
         if(isLcdInitialized)
         {
@@ -254,7 +256,11 @@ void core0()
 
                 lcd->clear();
                 //refresh controller settings
-                controller->setControllerSettings(settingsMemory->fetchSettingsFromFlash());
+                settings = settingsMemory->fetchSettingsFromFlash();
+
+                controller->setControllerSettings(settings);
+
+                isLcdInitialized = lcd->initialize(settings[OLED_FLIP]);
             }
             mem->attach(lcd);
             lcd->update();

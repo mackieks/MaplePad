@@ -27,7 +27,7 @@ public:
     virtual void refresh(const uint32_t* screen, uint32_t len, bool isOverlayShown) = 0;
 
     //! Initializes the screen
-    virtual bool initialize() = 0;
+    virtual bool initialize(bool oledFlip) = 0;
 
     //! Clears the screen by setting the LCD frame buffer to black
     virtual void clear() = 0;

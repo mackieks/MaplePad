@@ -365,13 +365,13 @@ uint8_t DreamcastController::getTriggerADCInput(uint8_t adcSelect, uint8_t min, 
     uint8_t adcValue = 0x00;
     if(invert) 
     {
-        if (adcInput >= (min - deadzone)) 
+        if (adcInput >= (max - deadzone)) 
         {
             adcValue = 0x00;
         } 
         else 
         {
-            adcValue = map(adcValue, min + deadzone, max - antiDeadzone, 0xFF, 0x01);
+            adcValue = map(adcInput, min + deadzone, max - antiDeadzone, 0xFF, 0x01);
         }
     } 
     else 
@@ -382,7 +382,7 @@ uint8_t DreamcastController::getTriggerADCInput(uint8_t adcSelect, uint8_t min, 
         } 
         else 
         {
-            adcValue = map(adcValue, min + deadzone, max - antiDeadzone, 0x01, 0xFF);
+            adcValue = map(adcInput, min + deadzone, max - antiDeadzone, 0x01, 0xFF);
         }
     }
     return adcValue;

@@ -62,7 +62,7 @@ namespace display
             void write(const uint8_t data);
 
             //! Inherited from the abstract class Display
-            bool initialize();
+            bool initialize(bool oledFlip);
 
             void update();
 
@@ -71,7 +71,7 @@ namespace display
 
         private:
             //Initialize the screen
-            void init();
+            void init(bool oledFlip);
 
         private:
             int mDmaWriteChannel;

@@ -343,7 +343,7 @@ namespace display
 
     int Menu::setDeadzone(int deadzone)
     {
-        int newDeadzone = 0;
+        int newDeadzone = deadzone;
 
         if (!gpio_get(ButtonInfos[4].pin))
         {
