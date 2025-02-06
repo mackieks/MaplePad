@@ -17,6 +17,7 @@ rm ${BUILD_DIR}/src/*/*/*.uf2
     -DCMAKE_C_COMPILER:FILEPATH=${GCC} \
     -DCMAKE_CXX_COMPILER:FILEPATH=${GPP} \
     -DDREAMCAST_CONTROLLER_USB_PICO_TEST:BOOL=FALSE \
+    -DPICO_PLATFORM=rp2040 \
     -S. \
     -B./${BUILD_DIR} \
     -G "Unix Makefiles" \
