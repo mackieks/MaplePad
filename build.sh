@@ -12,12 +12,13 @@ rm ${BUILD_DIR}/src/*/*/*.uf2
 
 /usr/bin/cmake \
     --no-warn-unused-cli \
+    -DCMAKE_MESSAGE_LOG_LEVEL=DEBUG \
     -DCMAKE_EXPORT_COMPILE_COMMANDS:BOOL=TRUE \
     -DCMAKE_BUILD_TYPE:STRING=Debug \
     -DCMAKE_C_COMPILER:FILEPATH=${GCC} \
     -DCMAKE_CXX_COMPILER:FILEPATH=${GPP} \
     -DDREAMCAST_CONTROLLER_USB_PICO_TEST:BOOL=FALSE \
-    -DPICO_PLATFORM=rp2040 \
+    -DPICO_BOARD=pico2 \
     -S. \
     -B./${BUILD_DIR} \
     -G "Unix Makefiles" \

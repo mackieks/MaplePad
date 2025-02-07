@@ -4,8 +4,8 @@
 
 //!The "wired" controller GPIOs for MaplePad. The DreamcastController constructor handles enabling controller
 //inputs which results in those inputs being masked when sent to Maplebus.
-#define CTRL_PIN_A 0
-#define CTRL_PIN_B 1
+#define CTRL_PIN_A 0 //0
+#define CTRL_PIN_B 1 //1
 #define CTRL_PIN_X 4
 #define CTRL_PIN_Y 5
 #define CTRL_PIN_DU 6

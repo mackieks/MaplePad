@@ -76,17 +76,17 @@ namespace display
 
         memcpy(LCDFramebuffer, reversedArr, len * sizeof(uint32_t));
 
-        uint8_t colorIndex = mCurrentPage - 1;
+        //uint8_t colorIndex = mCurrentPage - 1;
 
-        uint8_t byteCount = 192;
+        /*uint8_t byteCount = 192;
 
         if(isOverlayShown)
         {
             byteCount = 143; //substract overlay height
-        }
+        }*/
 
-        int x, y, pixel, bb;
-        for (int fb = 0; fb < byteCount; fb++) {
+        //int x, y, pixel, bb;
+        /*for (int fb = 0; fb < byteCount; fb++) {
             y = (fb / 6) * 2;
             int mod = (fb % 6) * 16;
             for (bb = 0; bb <= 7; bb++) {
@@ -97,7 +97,7 @@ namespace display
                 setPixel(x, y + 1, pixel);
                 setPixel(x + 1, y + 1, pixel);
             }
-        }
+        }*/
 
         update();
     }

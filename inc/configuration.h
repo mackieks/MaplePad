@@ -9,7 +9,7 @@
 #define USB_CDC_ENABLED true
 
 // Adjust the CPU clock frequency here (133 MHz is maximum documented stable frequency)
-#define CPU_FREQ_KHZ 133000
+#define CPU_FREQ_KHZ 200000
 
 // The minimum amount of time we check for an open line before taking control of it
 // Set to 0 to completely disable this check
