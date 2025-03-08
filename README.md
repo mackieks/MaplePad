@@ -57,7 +57,7 @@ Future TODOs
 
 *Giant Dreamcast VMU + Arcade Stick by CrazyJojo (code modified). [video](https://www.youtube.com/watch?v=bEA_On7P_g8)*
 
-<img src="images/主机演示2[00_05_12][20221030-111434].png" height="170"> <img src="images/从机演示2生化[00_08_05][20221030-111628].png" height="170"> <img src="images/从机演示4[00_01_19][20221030-111601].png" height="170"> 
+<img src="images/jojo1.png" height="170"> <img src="images/jojo2.png" height="170"> <img src="images/jojo3.png" height="170"> 
 
 ## Dumping VMUs to PC
 You can use [picotool](https://github.com/raspberrypi/picotool) to dump VMUs manually. Here's the process:
